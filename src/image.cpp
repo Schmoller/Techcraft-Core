@@ -1,0 +1,164 @@
+#include "image.hpp"
+#include "buffer.hpp"
+#include "vulkanutils.hpp"
+
+namespace Engine {
+
+Image::Image()
+    : state(ImageLoadState::Unallocated) {}
+    
+Image::~Image() {
+    destroy();
+}
+
+void Image::allocate(VmaAllocator allocator, vk::Device device, uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaMemoryUsage memUsage, vk::SampleCountFlags samples, uint32_t mipLevels) {
+    VkImageCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    createInfo.imageType = VK_IMAGE_TYPE_2D;
+    createInfo.extent.width = width;
+    createInfo.extent.height = height;
+    createInfo.extent.depth = 1;
+    createInfo.mipLevels = mipLevels;
+    createInfo.arrayLayers = 1;
+    createInfo.format = static_cast<VkFormat>(format);
+    createInfo.tiling = static_cast<VkImageTiling>(tiling);
+    createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    createInfo.usage = static_cast<VkImageUsageFlags>(usage);
+    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.samples = static_cast<VkSampleCountFlagBits>(static_cast<VkSampleCountFlags>(samples));
+    createInfo.flags = 0;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = memUsage;
+    VkImage tempImage;
+
+    if (vmaCreateImage(allocator, &createInfo, &allocInfo, &tempImage, &imageMemory, nullptr) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create texture image");
+    }
+    internalImage = vk::Image(tempImage);
+
+    vk::ImageAspectFlags aspectMask;
+
+    if ((usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) == static_cast<vk::ImageUsageFlags>(vk::ImageUsageFlagBits::eDepthStencilAttachment)) {
+        aspectMask = vk::ImageAspectFlagBits::eDepth;
+    } else {
+        aspectMask = vk::ImageAspectFlagBits::eColor;
+    }
+
+    vk::ImageViewCreateInfo viewInfo(
+        {},
+        internalImage,
+        vk::ImageViewType::e2D,
+        format,
+        {},
+        { aspectMask, 0, mipLevels, 0, 1 }
+    );
+
+    internalImageView = device.createImageView(viewInfo);
+
+    state = ImageLoadState::Allocated;
+    this->width = width;
+    this->height = height;
+    this->allocator = allocator;
+    this->device = device;
+    this->format = format;
+    this->currentLayout = vk::ImageLayout::eUndefined;
+}
+void Image::destroy() {
+    if (allocator != VK_NULL_HANDLE && imageMemory != VK_NULL_HANDLE) {
+        device.destroyImageView(internalImageView);
+
+        vmaDestroyImage(allocator, internalImage, imageMemory);
+        allocator = VK_NULL_HANDLE;
+        imageMemory = VK_NULL_HANDLE;
+    }
+}
+
+void Image::transfer(vk::CommandBuffer commandBuffer, void *pixelData, VkDeviceSize size, MipType mipType) {
+    // Stage data for transfer
+    stagingBuffer.allocate(allocator, size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryUsage::eCPUOnly);
+    stagingBuffer.copyIn(pixelData, size);
+
+    // TODO: Handle mipmaps later
+    if (mipType != MipType::NoMipmap) {
+        throw std::runtime_error("TODO: Handle mipmaps");
+    }
+
+    vk::BufferImageCopy region(
+        0,
+        0,
+        0,
+        { vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+        {},
+        { width, height, 1 }
+    );
+
+    commandBuffer.copyBufferToImage(stagingBuffer.buffer(), internalImage, vk::ImageLayout::eTransferDstOptimal, 1, &region);
+
+    state = ImageLoadState::PreTransfer;
+}
+
+void Image::completeTransfer() {
+    if (state == ImageLoadState::PreTransfer) {
+        stagingBuffer.destroy();
+        state = ImageLoadState::Ready;
+    }
+}
+
+void Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout) {
+    vk::ImageAspectFlags aspectMask;
+    vk::AccessFlags srcAccessMask;
+    vk::AccessFlags dstAccessMask;
+    vk::PipelineStageFlags sourceStage;
+    vk::PipelineStageFlags destStage;
+    
+    if (layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+        aspectMask = vk::ImageAspectFlagBits::eDepth;
+
+        if (hasStencilComponent(format)) {
+            aspectMask |= vk::ImageAspectFlagBits::eStencil;
+        }
+    } else {
+        aspectMask = vk::ImageAspectFlagBits::eColor;
+    }
+
+    if (currentLayout == vk::ImageLayout::eUndefined && layout == vk::ImageLayout::eTransferDstOptimal) {
+        dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+        destStage = vk::PipelineStageFlagBits::eTransfer;
+    } else if (currentLayout == vk::ImageLayout::eTransferDstOptimal && layout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+        srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+        dstAccessMask = vk::AccessFlagBits::eShaderRead;
+
+        sourceStage = vk::PipelineStageFlagBits::eTransfer;
+        destStage = vk::PipelineStageFlagBits::eFragmentShader;
+    } else if (currentLayout == vk::ImageLayout::eUndefined && layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+        dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+
+        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+        destStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+    } else {
+        throw std::runtime_error("unsupported layout transition");
+    }
+
+    vk::ImageMemoryBarrier barrier(
+        srcAccessMask, dstAccessMask,
+        currentLayout, layout,
+        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+        internalImage,
+        { aspectMask, 0, 1, 0, 1 }
+    );
+
+    commandBuffer.pipelineBarrier(
+        sourceStage, destStage,
+        {},
+        0, nullptr,
+        0, nullptr,
+        1, &barrier
+    );
+
+    currentLayout = layout;
+}
+
+}

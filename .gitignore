@@ -1,0 +1,18 @@
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Build and bin directories
+/build/
+/bin/
+
+# Documentation
+/doc/*test
+!/doc/Doxyfile
+
+# VS code
+.vscode/settings.json
+
+# CMake
+/cmake-build-debug/
+/cmake-build-release/
