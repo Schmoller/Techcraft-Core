@@ -4,7 +4,7 @@
 #include "vertex.hpp"
 #include "buffer.hpp"
 
-#include "vk_mem_alloc.h"
+#include <vk_mem_alloc.h>
 
 #include <string>
 #include <vector>

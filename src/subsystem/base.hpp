@@ -9,7 +9,7 @@ namespace Engine::Subsystem {
 
 #include "setup.hpp"
 #include "camera.hpp"
-#include "vk_mem_alloc.h"
+#include <vk_mem_alloc.h>
 #include "buffer.hpp"
 #include "texturemanager.hpp"
 #include "engine.hpp"

@@ -8,7 +8,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "vk_mem_alloc.h"
+#include <vk_mem_alloc.h>
 #include "stb_image.h"
 
 #define GLFW_INCLUDE_VULKAN

@@ -5,6 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 file(GLOB_RECURSE ALL_SRC "src/*.cpp")
 
-include_directories(./include ./src ./libs/stb)
+include_directories(./include ./src ./libs/stb ./libs/vk-mem-alloc/include)
 
 add_library(tech ${ALL_SRC})
