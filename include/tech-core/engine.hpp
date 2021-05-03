@@ -25,8 +25,8 @@ namespace Engine {
 #include "pipeline.hpp"
 #include "task.hpp"
 #include "font.hpp"
-#include "gui/manager.hpp"
-#include "subsystem/base.hpp"
+#include "tech-core/gui/manager.hpp"
+#include "tech-core/subsystem/base.hpp"
 
 #include <unordered_map>
 #include <vector>

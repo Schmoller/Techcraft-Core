@@ -7,12 +7,12 @@ namespace Engine::Subsystem {
     class SubsystemID;
 }
 
-#include "setup.hpp"
-#include "camera.hpp"
+#include "tech-core/setup.hpp"
+#include "tech-core/camera.hpp"
 #include <vk_mem_alloc.h>
-#include "buffer.hpp"
-#include "texturemanager.hpp"
-#include "engine.hpp"
+#include "tech-core/buffer.hpp"
+#include "tech-core/texturemanager.hpp"
+#include "tech-core/engine.hpp"
 
 namespace Engine::Subsystem {
 namespace _E = Engine;

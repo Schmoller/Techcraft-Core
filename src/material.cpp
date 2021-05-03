@@ -1,4 +1,4 @@
-#include "material.hpp"
+#include "tech-core/material.hpp"
 
 namespace Engine {
 

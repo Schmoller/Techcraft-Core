@@ -1,5 +1,5 @@
-#include "model.hpp"
-#include "mesh.hpp"
+#include "tech-core/model.hpp"
+#include "tech-core/mesh.hpp"
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"

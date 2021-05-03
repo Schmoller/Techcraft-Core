@@ -1,4 +1,4 @@
-#include "texturemanager.hpp"
+#include "tech-core/texturemanager.hpp"
 #include "stb_image.h"
 #include <iostream>
 

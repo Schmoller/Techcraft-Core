@@ -1,4 +1,4 @@
-#include "subsystem/debug.hpp"
+#include "tech-core/subsystem/debug.hpp"
 #include "vulkanutils.hpp"
 
 namespace Engine::Subsystem {

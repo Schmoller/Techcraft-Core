@@ -2,10 +2,10 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "pipeline.hpp"
-#include "buffer.hpp"
-#include "task.hpp"
-#include "texturemanager.hpp"
+#include "tech-core/pipeline.hpp"
+#include "tech-core/buffer.hpp"
+#include "tech-core/task.hpp"
+#include "tech-core/texturemanager.hpp"
 #include "common.hpp"
 
 #include <memory>

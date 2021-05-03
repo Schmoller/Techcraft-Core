@@ -1,8 +1,8 @@
 #pragma once
 
 #include "common.hpp"
-#include "mesh.hpp"
-#include "font.hpp"
+#include "tech-core/mesh.hpp"
+#include "tech-core/font.hpp"
 
 #include <vector>
 #include <unordered_map>

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "texturemanager.hpp"
-#include "utilities/flags.hpp"
+#include "tech-core/texturemanager.hpp"
+#include "tech-core/utilities/flags.hpp"
 
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
@@ -9,7 +9,7 @@
 #include <vector>
 #include <functional>
 
-#include "font.hpp"
+#include "tech-core/font.hpp"
 
 namespace Engine::Gui {
 

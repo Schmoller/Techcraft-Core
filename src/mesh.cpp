@@ -1,5 +1,5 @@
-#include "mesh.hpp"
-#include "model.hpp"
+#include "tech-core/mesh.hpp"
+#include "tech-core/model.hpp"
 
 #include <stdexcept>
 #include <unordered_map>

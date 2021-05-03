@@ -1,4 +1,4 @@
-#include "camera.hpp"
+#include "tech-core/camera.hpp"
 
 namespace Engine {
 

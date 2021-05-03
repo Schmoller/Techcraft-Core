@@ -3,7 +3,7 @@
 
 #include "setup.hpp"
 #include "mesh.hpp"
-#include "material.hpp"
+#include "tech-core/material.hpp"
 
 namespace Engine {
 

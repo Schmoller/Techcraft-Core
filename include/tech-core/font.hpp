@@ -8,7 +8,7 @@ namespace Engine {
     class Font;
 }
 
-#include "gui/common.hpp"
+#include "tech-core/gui/common.hpp"
 
 #include <array>
 

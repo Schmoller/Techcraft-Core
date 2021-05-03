@@ -12,12 +12,12 @@
 
 #include <vk_mem_alloc.h>
 
-#include "engine.hpp"
+#include "tech-core/engine.hpp"
 
-#include "mesh.hpp"
-#include "model.hpp"
-#include "buffer.hpp"
-#include "image.hpp"
+#include "tech-core/mesh.hpp"
+#include "tech-core/model.hpp"
+#include "tech-core/buffer.hpp"
+#include "tech-core/image.hpp"
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
 

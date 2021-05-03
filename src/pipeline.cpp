@@ -1,6 +1,6 @@
-#include "pipeline.hpp"
+#include "tech-core/pipeline.hpp"
 #include "vulkanutils.hpp"
-#include "mesh.hpp"
+#include "tech-core/mesh.hpp"
 
 #include <array>
 #include <exception>

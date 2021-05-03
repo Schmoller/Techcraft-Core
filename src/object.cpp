@@ -1,4 +1,4 @@
-#include "object.hpp"
+#include "tech-core/object.hpp"
 
 namespace Engine {
 

@@ -1,4 +1,4 @@
-#include "inputmanager.hpp"
+#include "tech-core/inputmanager.hpp"
 namespace Engine {
 
 InputManager *InputManager::instance = nullptr;

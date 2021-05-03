@@ -1,12 +1,12 @@
 #pragma once
 
-#include "base.hpp"
+#include "tech-core/subsystem/base.hpp"
 #include "light.hpp"
-#include "material.hpp"
-#include "mesh.hpp"
-#include "object.hpp"
-#include "pipeline.hpp"
-#include "buffer.hpp"
+#include "tech-core/material.hpp"
+#include "tech-core/mesh.hpp"
+#include "tech-core/object.hpp"
+#include "tech-core/pipeline.hpp"
+#include "tech-core/buffer.hpp"
 
 #include <unordered_map>
 #include <vector>

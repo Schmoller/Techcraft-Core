@@ -1,5 +1,5 @@
-#include "image.hpp"
-#include "buffer.hpp"
+#include "tech-core/image.hpp"
+#include "tech-core/buffer.hpp"
 #include "vulkanutils.hpp"
 
 namespace Engine {

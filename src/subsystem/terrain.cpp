@@ -1,7 +1,7 @@
-#include "subsystem/terrain.hpp"
+#include "tech-core/subsystem/terrain.hpp"
 #include "vulkanutils.hpp"
 
-#include "utilities/profiler.hpp"
+#include "tech-core/utilities/profiler.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/norm.hpp>

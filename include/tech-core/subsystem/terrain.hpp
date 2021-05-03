@@ -1,8 +1,8 @@
 #pragma once
 
-#include "base.hpp"
+#include "tech-core/subsystem/base.hpp"
 #include "light.hpp"
-#include "pipeline.hpp"
+#include "tech-core/pipeline.hpp"
 
 #include <vector>
 #include <unordered_map>

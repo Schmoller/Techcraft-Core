@@ -1,10 +1,10 @@
 #ifndef __MESH_HPP
 #define __MESH_HPP
 
-#include "vertex.hpp"
-#include "buffer.hpp"
-#include "task.hpp"
-#include "model.hpp"
+#include "tech-core/vertex.hpp"
+#include "tech-core/buffer.hpp"
+#include "tech-core/task.hpp"
+#include "tech-core/model.hpp"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE

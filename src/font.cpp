@@ -1,5 +1,5 @@
-#include "font.hpp"
-#include "gui/drawer.hpp"
+#include "tech-core/font.hpp"
+#include "tech-core/gui/drawer.hpp"
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STB_RECT_PACK_IMPLEMENTATION

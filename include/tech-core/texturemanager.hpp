@@ -3,7 +3,7 @@
 
 #include "setup.hpp"
 #include "image.hpp"
-#include "buffer.hpp"
+#include "tech-core/buffer.hpp"
 #include <string>
 #include <vector>
 #include <deque>

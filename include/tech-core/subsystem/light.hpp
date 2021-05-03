@@ -1,6 +1,6 @@
 #pragma once
 
-#include "base.hpp"
+#include "tech-core/subsystem/base.hpp"
 
 namespace Engine::Subsystem {
 

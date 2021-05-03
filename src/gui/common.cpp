@@ -1,5 +1,5 @@
-#include "gui/common.hpp"
-#include "gui/drawer.hpp"
+#include "tech-core/gui/common.hpp"
+#include "tech-core/gui/drawer.hpp"
 
 namespace Engine::Gui {
 

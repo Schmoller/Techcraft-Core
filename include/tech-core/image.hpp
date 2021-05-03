@@ -4,7 +4,7 @@
 
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
-#include "buffer.hpp"
+#include "tech-core/buffer.hpp"
 
 namespace Engine {
 

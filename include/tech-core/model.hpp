@@ -2,7 +2,7 @@
 #define __MODEL_HPP
 
 #include "vertex.hpp"
-#include "buffer.hpp"
+#include "tech-core/buffer.hpp"
 
 #include <vk_mem_alloc.h>
 
