@@ -26,7 +26,7 @@ class VulkanDevice {
      * 
      * @throw DeviceNotSuitable if the device cannot be used
      */
-    VulkanDevice(vk::PhysicalDevice device, vk::SurfaceKHR surface);
+    VulkanDevice(vk::PhysicalDevice device, vk::Instance instance, vk::SurfaceKHR surface);
     ~VulkanDevice();
     VulkanDevice(const VulkanDevice &other) = delete;
     VulkanDevice(VulkanDevice &&other) = delete;

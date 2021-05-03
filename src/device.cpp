@@ -11,7 +11,7 @@
 namespace Engine {
 
 // VulkanDevice
-VulkanDevice::VulkanDevice(vk::PhysicalDevice device, vk::SurfaceKHR surface)
+    VulkanDevice::VulkanDevice(vk::PhysicalDevice device, vk::Instance instance, vk::SurfaceKHR surface)
  : physicalDevice(device), surface(surface)
 {
     // Ensure extensions are available
@@ -91,6 +91,7 @@ VulkanDevice::VulkanDevice(vk::PhysicalDevice device, vk::SurfaceKHR surface)
     VmaAllocatorCreateInfo allocInfo = {};
     allocInfo.physicalDevice = physicalDevice;
     allocInfo.device = this->device;
+    allocInfo.instance = instance;
     
     if (vmaCreateAllocator(&allocInfo, &allocator) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create allocator");

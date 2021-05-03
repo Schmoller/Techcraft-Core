@@ -88,7 +88,7 @@ void RenderEngine::initVulkan() {
 
     for (auto &offeredGPU : gpus) {
         try {
-            this->device = std::make_unique<VulkanDevice>(offeredGPU, surface);
+            this->device = std::make_unique<VulkanDevice>(offeredGPU, this->instance, surface);
             physicalDevice = offeredGPU;
             break;
         } catch (DeviceNotSuitable &error) {
