@@ -1,7 +1,7 @@
 #ifndef MATERIAL_HPP
 #define MATERIAL_HPP
 
-#include "setup.hpp"
+#include "common_includes.hpp"
 #include "texturemanager.hpp"
 
 #include <string>

@@ -1,7 +1,7 @@
 #ifndef TEXTUREMANAGER_HPP
 #define TEXTUREMANAGER_HPP
 
-#include "setup.hpp"
+#include "common_includes.hpp"
 #include "image.hpp"
 #include "tech-core/buffer.hpp"
 #include <string>

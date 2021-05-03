@@ -8,7 +8,7 @@ namespace Engine {
     struct SwapChainSupportDetails;
 }
 
-#include "setup.hpp"
+#include "common_includes.hpp"
 #include "device.hpp"
 #include "swapchain.hpp"
 

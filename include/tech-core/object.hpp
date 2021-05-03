@@ -1,7 +1,7 @@
 #ifndef OBJECT_HPP
 #define OBJECT_HPP
 
-#include "setup.hpp"
+#include "common_includes.hpp"
 #include "mesh.hpp"
 #include "tech-core/material.hpp"
 

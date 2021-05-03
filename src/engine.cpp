@@ -10,10 +10,13 @@
 #include <chrono>
 #include <unordered_map>
 
+#define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
-#include "tech-core/engine.hpp"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
+#include "tech-core/engine.hpp"
 #include "tech-core/mesh.hpp"
 #include "tech-core/model.hpp"
 #include "tech-core/buffer.hpp"
@@ -21,7 +24,6 @@
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
 
-#include "stb_image.h"
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;

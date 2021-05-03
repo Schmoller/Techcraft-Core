@@ -7,7 +7,7 @@ namespace Engine::Subsystem {
     class SubsystemID;
 }
 
-#include "tech-core/setup.hpp"
+#include "tech-core/common_includes.hpp"
 #include "tech-core/camera.hpp"
 #include <vk_mem_alloc.h>
 #include "tech-core/buffer.hpp"

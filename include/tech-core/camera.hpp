@@ -1,7 +1,7 @@
 #ifndef CAMERA_HPP
 #define CAMERA_HPP
 
-#include "setup.hpp"
+#include "common_includes.hpp"
 
 #include "frustum.hpp"
 

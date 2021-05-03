@@ -1,7 +1,7 @@
 #ifndef INPUTMANAGER_HPP
 #define INPUTMANAGER_HPP
 
-#include "setup.hpp"
+#include "common_includes.hpp"
 
 #include "utilities/flags.hpp"
 
