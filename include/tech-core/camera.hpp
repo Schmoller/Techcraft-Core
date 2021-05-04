@@ -49,6 +49,12 @@ class Camera {
     void setAspectRatio(float aspectRatio);
     float getAspectRatio() const;
 
+    void setNearClip(float);
+    float getNearClip() const { return nearClip; }
+
+    void setFarClip(float);
+    float getFarClip() const { return farClip; }
+
     virtual void lookAt(const glm::vec3 &target);
 
     const Frustum &getFrustum() const;
@@ -65,6 +71,8 @@ class Camera {
     // Perspective
     float fov;
     float aspectRatio;
+    float nearClip { 0.1f };
+    float farClip { 10000.0f };
 
     Frustum frustum;
 

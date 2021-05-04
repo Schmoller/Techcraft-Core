@@ -48,7 +48,7 @@ const glm::vec3 &Camera::getUp() const {
 }
 
 glm::vec3 Camera::getRight() const {
-    return glm::normalize(glm::cross(up, forward));
+    return glm::normalize(glm::cross(forward, up));
 }
 
 void Camera::setType(CameraType type) {
@@ -74,6 +74,16 @@ void Camera::setAspectRatio(float aspectRatio) {
     updateProjection();
 }
 
+void Camera::setNearClip(float clip) {
+    nearClip = clip;
+    updateProjection();
+}
+
+void Camera::setFarClip(float clip) {
+    farClip = clip;
+    updateProjection();
+}
+
 float Camera::getAspectRatio() const {
     return aspectRatio;
 }
@@ -91,7 +101,7 @@ void Camera::lookAt(const glm::vec3 &target) {
 
 void Camera::updateProjection() {
     if (type == CameraType::Perspective) {
-        uniform.proj = glm::perspective(glm::radians(fov), aspectRatio, 0.1f, 10000.0f);
+        uniform.proj = glm::perspective(glm::radians(fov), aspectRatio, nearClip, farClip);
         uniform.proj[1][1] *= -1;
 
         frustum.update(uniform.proj * uniform.view);
