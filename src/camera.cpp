@@ -104,4 +104,41 @@ const Frustum &Camera::getFrustum() const {
     return frustum;
 }
 
+glm::vec3 toForwardVec(float yaw, float pitch) {
+    return glm::vec3(
+        cosf(glm::radians(pitch)) * sinf(glm::radians(yaw)),
+        cosf(glm::radians(pitch)) * cosf(glm::radians(yaw)),
+        sinf(glm::radians(pitch))
+    );
+}
+
+FPSCamera::FPSCamera(float fov, const glm::vec3 &position, float yaw, float pitch, const glm::vec3 &up)
+    : Camera(fov, position, toForwardVec(yaw, pitch), up), yaw(yaw), pitch(pitch)
+{}
+
+void FPSCamera::setForward(const glm::vec3 &forward) {
+    Camera::setForward(forward);
+    yaw = fmod(atan2(forward.y, forward.x) / glm::pi<float>() * 360, 360);
+    pitch = asin(forward.z) / glm::pi<float>() * 360;
+}
+
+void FPSCamera::setYaw(float yaw) {
+    this->yaw = fmod(yaw, 360);
+    Camera::setForward(toForwardVec(yaw, pitch));
+}
+void FPSCamera::setPitch(float pitch) {
+    if (pitch > 89) {
+        this->pitch = 89;
+    } else if (pitch < -89) {
+        this->pitch = -89;
+    } else {
+        this->pitch = pitch;
+    }
+
+    Camera::setForward(toForwardVec(yaw, pitch));
+}
+
+void FPSCamera::lookAt(const glm::vec3 &target) {
+    Camera::lookAt(target);
+}
 }

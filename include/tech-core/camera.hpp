@@ -32,7 +32,7 @@ class Camera {
     void setPosition(const glm::vec3 &position);
     const glm::vec3 &getPosition() const;
 
-    void setForward(const glm::vec3 &forward);
+    virtual void setForward(const glm::vec3 &forward);
     const glm::vec3 &getForward() const;
 
     void setUp(const glm::vec3 &up);
@@ -49,7 +49,7 @@ class Camera {
     void setAspectRatio(float aspectRatio);
     float getAspectRatio() const;
 
-    void lookAt(const glm::vec3 &target);
+    virtual void lookAt(const glm::vec3 &target);
 
     const Frustum &getFrustum() const;
 
@@ -72,6 +72,23 @@ class Camera {
     void updateProjection();
 };
 
+class FPSCamera : public Camera {
+public:
+    FPSCamera(float fov, const glm::vec3 &position, float yaw, float pitch, const glm::vec3 &up = {0.0f, 0.0f, 1.0f});
+
+    float getYaw() const { return yaw; }
+    float getPitch() const { return pitch; }
+
+    void setYaw(float yaw);
+    void setPitch(float pitch);
+
+    void setForward(const glm::vec3 &forward) override;
+    void lookAt(const glm::vec3 &target) override;
+
+private:
+    float yaw;
+    float pitch;
+};
 }
 
 #endif
