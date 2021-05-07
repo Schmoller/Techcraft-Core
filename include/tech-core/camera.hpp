@@ -3,7 +3,7 @@
 
 #include "common_includes.hpp"
 
-#include "frustum.hpp"
+#include "tech-core/shapes/frustum.hpp"
 
 namespace Engine {
 

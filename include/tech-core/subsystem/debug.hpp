@@ -9,7 +9,9 @@
 
 #include <vector>
 
-
+namespace Engine {
+class BoundingBox;
+}
 namespace Engine::Subsystem {
 namespace _E = Engine;
 
@@ -28,6 +30,7 @@ class DebugSubsystem : public Subsystem {
     // Public API
     void debugDrawLine(const glm::vec3 &from, const glm::vec3 &to, uint32_t color = 0xFFFFFF);
     void debugDrawBox(const glm::vec3 &from, const glm::vec3 &to, uint32_t color = 0xFFFFFF);
+    void debugDrawBox(const BoundingBox &box, uint32_t color = 0xFFFFFF);
 
     // For engine use
     void initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine);

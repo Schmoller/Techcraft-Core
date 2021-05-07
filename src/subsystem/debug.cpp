@@ -1,4 +1,5 @@
 #include "tech-core/subsystem/debug.hpp"
+#include "tech-core/shapes/bounding_box.hpp"
 #include "vulkanutils.hpp"
 
 namespace Engine::Subsystem {
@@ -57,6 +58,14 @@ void DebugSubsystem::debugDrawBox(const glm::vec3 &from, const glm::vec3 &to, ui
     debugDrawLine(maxXmaxYmaxZ, maxXminYmaxZ, color);
     debugDrawLine(minXmaxYmaxZ, minXminYmaxZ, color);
     debugDrawLine(minXmaxYminZ, minXminYminZ, color);
+}
+
+void DebugSubsystem::debugDrawBox(const BoundingBox &box, uint32_t color) {
+    debugDrawBox(
+        {box.xMin, box.yMin, box.zMin},
+        {box.xMax, box.yMax, box.zMax},
+        color
+    );
 }
 
 void DebugSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
@@ -151,5 +160,6 @@ void DebugSubsystem::afterFrame(uint32_t activeImage) {
     // Clear debug draw commands
     debugDrawCmds.clear();
 }
+
 
 }
