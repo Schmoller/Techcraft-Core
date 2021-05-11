@@ -1,17 +1,25 @@
+#include <tech-core/texturemanager.hpp>
+#include <stb_image.h>
 #include "tech-core/image.hpp"
 #include "tech-core/buffer.hpp"
+#include "tech-core/engine.hpp"
+#include "tech-core/task.hpp"
 #include "vulkanutils.hpp"
 
 namespace Engine {
 
 Image::Image()
     : state(ImageLoadState::Unallocated) {}
-    
+
 Image::~Image() {
     destroy();
 }
 
-void Image::allocate(VmaAllocator allocator, vk::Device device, uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaMemoryUsage memUsage, vk::SampleCountFlags samples, uint32_t mipLevels) {
+void Image::allocate(
+    VmaAllocator allocator, vk::Device device, uint32_t width, uint32_t height, vk::Format format,
+    vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaMemoryUsage memUsage, vk::SampleCountFlags samples,
+    uint32_t mipLevels, vk::PipelineStageFlags destinationStage
+) {
     VkImageCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     createInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -32,14 +40,16 @@ void Image::allocate(VmaAllocator allocator, vk::Device device, uint32_t width, 
     allocInfo.usage = memUsage;
     VkImage tempImage;
 
-    if (vmaCreateImage(allocator, &createInfo, &allocInfo, &tempImage, &imageMemory, nullptr) != VK_SUCCESS) {
+    auto result = vmaCreateImage(allocator, &createInfo, &allocInfo, &tempImage, &imageMemory, nullptr);
+    if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to create texture image");
     }
     internalImage = vk::Image(tempImage);
 
     vk::ImageAspectFlags aspectMask;
 
-    if ((usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) == static_cast<vk::ImageUsageFlags>(vk::ImageUsageFlagBits::eDepthStencilAttachment)) {
+    if ((usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) ==
+        static_cast<vk::ImageUsageFlags>(vk::ImageUsageFlagBits::eDepthStencilAttachment)) {
         aspectMask = vk::ImageAspectFlagBits::eDepth;
     } else {
         aspectMask = vk::ImageAspectFlagBits::eColor;
@@ -63,7 +73,9 @@ void Image::allocate(VmaAllocator allocator, vk::Device device, uint32_t width, 
     this->device = device;
     this->format = format;
     this->currentLayout = vk::ImageLayout::eUndefined;
+    this->destinationStage = destinationStage;
 }
+
 void Image::destroy() {
     if (allocator != VK_NULL_HANDLE && imageMemory != VK_NULL_HANDLE) {
         device.destroyImageView(internalImageView);
@@ -88,12 +100,14 @@ void Image::transfer(vk::CommandBuffer commandBuffer, void *pixelData, VkDeviceS
         0,
         0,
         0,
-        { vk::ImageAspectFlagBits::eColor, 0, 0, 1},
+        { vk::ImageAspectFlagBits::eColor, 0, 0, 1 },
         {},
         { width, height, 1 }
     );
 
-    commandBuffer.copyBufferToImage(stagingBuffer.buffer(), internalImage, vk::ImageLayout::eTransferDstOptimal, 1, &region);
+    commandBuffer.copyBufferToImage(
+        stagingBuffer.buffer(), internalImage, vk::ImageLayout::eTransferDstOptimal, 1, &region
+    );
 
     state = ImageLoadState::PreTransfer;
 }
@@ -111,7 +125,7 @@ void Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout) 
     vk::AccessFlags dstAccessMask;
     vk::PipelineStageFlags sourceStage;
     vk::PipelineStageFlags destStage;
-    
+
     if (layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
         aspectMask = vk::ImageAspectFlagBits::eDepth;
 
@@ -127,14 +141,17 @@ void Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout) 
 
         sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
         destStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (currentLayout == vk::ImageLayout::eTransferDstOptimal && layout == vk::ImageLayout::eShaderReadOnlyOptimal) {
+    } else if (currentLayout == vk::ImageLayout::eTransferDstOptimal &&
+        layout == vk::ImageLayout::eShaderReadOnlyOptimal) {
         srcAccessMask = vk::AccessFlagBits::eTransferWrite;
         dstAccessMask = vk::AccessFlagBits::eShaderRead;
 
         sourceStage = vk::PipelineStageFlagBits::eTransfer;
-        destStage = vk::PipelineStageFlagBits::eFragmentShader;
-    } else if (currentLayout == vk::ImageLayout::eUndefined && layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
-        dstAccessMask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+        destStage = destinationStage;
+    } else if (currentLayout == vk::ImageLayout::eUndefined &&
+        layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+        dstAccessMask =
+            vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
 
         sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
         destStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
@@ -160,5 +177,59 @@ void Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout) 
 
     currentLayout = layout;
 }
+
+ImageBuilder::ImageBuilder(VulkanDevice &device, uint32_t width, uint32_t height) : device(device), width(width),
+    height(height) {
+
+}
+
+ImageBuilder &ImageBuilder::withUsage(const vk::ImageUsageFlags &flags) {
+    usageFlags = flags;
+    return *this;
+}
+
+ImageBuilder &ImageBuilder::withImageTiling(vk::ImageTiling tiling) {
+    imageTiling = tiling;
+    return *this;
+}
+
+ImageBuilder &ImageBuilder::withFormat(vk::Format format) {
+    imageFormat = format;
+    return *this;
+}
+
+ImageBuilder &ImageBuilder::withSampleCount(const vk::SampleCountFlags &flags) {
+    sampleCount = flags;
+    return *this;
+}
+
+ImageBuilder &ImageBuilder::withMemoryUsage(vk::MemoryUsage usage) {
+    memoryUsage = usage;
+    return *this;
+}
+
+ImageBuilder &ImageBuilder::withMipLevels(uint32_t levels) {
+    if (levels >= 1) {
+        mipLevels = levels;
+    }
+    return *this;
+}
+
+ImageBuilder &ImageBuilder::withDestinationStage(const vk::PipelineStageFlags &flags) {
+    destinationStage = flags;
+    return *this;
+}
+
+std::unique_ptr<Image> ImageBuilder::build() {
+    auto image = std::make_unique<Image>();
+    image->allocate(
+        device.allocator, device.device, width, height, imageFormat, imageTiling,
+        usageFlags, static_cast<VmaMemoryUsage>(memoryUsage),
+        sampleCount, mipLevels
+    );
+
+    return image;
+}
+
 
 }

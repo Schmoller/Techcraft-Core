@@ -3,9 +3,10 @@
 
 // Forward declarations
 namespace Engine {
-    class RenderEngine;
-    struct QueueFamilyIndices;
-    struct SwapChainSupportDetails;
+class RenderEngine;
+
+struct QueueFamilyIndices;
+struct SwapChainSupportDetails;
 }
 
 #include "common_includes.hpp"
@@ -36,13 +37,15 @@ namespace Engine {
 namespace Engine {
 
 class RenderEngine {
-    public:
+public:
     RenderEngine();
+
     ~RenderEngine();
 
     void initialize(const std::string_view &title);
 
     bool beginFrame();
+
     void render();
 
     InputManager &getInputManager() {
@@ -57,34 +60,48 @@ class RenderEngine {
     //  Camera Methods
     // ==============================================
     void setCamera(Camera &camera);
+
     const Camera *getCamera() const;
 
     // ==============================================
     //  Mesh Methods
     // ==============================================
-    template <typename VertexType>
+    template<typename VertexType>
     StaticMeshBuilder<VertexType> createStaticMesh(const std::string &name);
-    template <typename VertexType>
+
+    template<typename VertexType>
     DynamicMeshBuilder<VertexType> createDynamicMesh(const std::string &name);
+
     void removeMesh(const std::string &name);
+
     Mesh *getMesh(const std::string &name);
 
     // ==============================================
     //  Texture Methods
     // ==============================================
     TextureBuilder createTexture(const std::string &name);
+
     Texture *getTexture(const std::string &name);
+
     Texture *getTexture(const char *name);
+
     void destroyTexture(const std::string &name);
+
     void destroyTexture(const char *name);
+
+    ImageBuilder createImage(uint32_t width, uint32_t height);
 
     // ==============================================
     //  Material Methods
     // ==============================================
     Material *createMaterial(const MaterialCreateInfo &createInfo);
+
     Material *getMaterial(const std::string &name);
+
     Material *getMaterial(const char *name);
+
     void destroyMaterial(const std::string &name);
+
     void destroyMaterial(const char *name);
 
     // ==============================================
@@ -127,24 +144,24 @@ class RenderEngine {
      * Adds a subsystem to the render engine.
      * NOTE: Subsystems need to be added before initialization
      */
-    template <typename T>
+    template<typename T>
     void addSubsystem(const Subsystem::SubsystemID<T> &id) {
         auto subsystem = std::make_unique<T>();
         orderedSubsystems.push_back(subsystem.get());
         subsystems[&id] = std::move(subsystem);
     }
 
-    template <typename T>
+    template<typename T>
     T *getSubsystem(const Subsystem::SubsystemID<T> &id) {
         auto it = subsystems.find(&id);
         if (it == subsystems.end()) {
             return nullptr;
         } else {
-            return static_cast<T*>(it->second.get());
+            return static_cast<T *>(it->second.get());
         }
     }
 
-    template <typename T>
+    template<typename T>
     void removeSubsystem(const Subsystem::SubsystemID<T> &id) {
         T *subsystem = getSubsystem(id);
         if (subsystem) {
@@ -165,10 +182,10 @@ class RenderEngine {
 
     vk::DescriptorBufferInfo getCameraDBI(uint32_t imageIndex);
 
-    protected:
-    
+protected:
 
-    private:
+
+private:
     GLFWwindow *window;
     vk::Instance instance;
     vk::PhysicalDevice physicalDevice;
@@ -199,11 +216,11 @@ class RenderEngine {
     // Resources
     std::unordered_map<std::string, std::unique_ptr<Mesh>> meshes;
     std::unordered_map<std::string, Image> textures;
-    std::unordered_map<const void*, std::unique_ptr<Subsystem::Subsystem>> subsystems;
-    std::vector<Subsystem::Subsystem*> orderedSubsystems;
+    std::unordered_map<const void *, std::unique_ptr<Subsystem::Subsystem>> subsystems;
+    std::vector<Subsystem::Subsystem *> orderedSubsystems;
 
     // Materials and pipelines
-    
+
 
 
     // Stuff to be removed from engine
@@ -216,34 +233,61 @@ class RenderEngine {
     // void createInstance(std::vector<const char *> extensions);
 
     void initWindow(const std::string_view &title);
+
     static void framebufferResizeCallback(GLFWwindow *window, int width, int height);
+
     void initVulkan();
+
     void recreateSwapChain();
+
     void createSurface();
+
     void createInstance();
+
     void createRenderPass();
+
     void createDescriptorSetLayout();
+
     vk::ShaderModule createShaderModule(const std::vector<char> &code);
+
     void createFramebuffers();
+
     void createCommandBuffers();
+
     void createUniformBuffers();
+
     vk::CommandBuffer beginSingleTimeCommands();
+
     void endSingleTimeCommands(vk::CommandBuffer commandBuffer);
-    vk::Format findSupportedFormat(const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features);
+
+    vk::Format findSupportedFormat(
+        const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features
+    );
+
     vk::Format findDepthFormat();
+
     void createDepthResources();
+
     void printExtensions();
+
     void mainLoop();
+
     void drawFrame();
-    void fillFrameCommands(vk::CommandBuffer commandBuffer, vk::CommandBufferInheritanceInfo &cbInheritance, uint32_t currentImage);
+
+    void fillFrameCommands(
+        vk::CommandBuffer commandBuffer, vk::CommandBufferInheritanceInfo &cbInheritance, uint32_t currentImage
+    );
+
     void updateUniformBuffer(uint32_t currentImage);
+
     void cleanupSwapChain();
+
     void cleanup();
 
     void loadPlaceholders();
 };
 
-template <typename VertexType>
+template<typename VertexType>
 StaticMeshBuilder<VertexType> RenderEngine::createStaticMesh(const std::string &name) {
     auto task = taskManager->createTask();
 
@@ -256,7 +300,7 @@ StaticMeshBuilder<VertexType> RenderEngine::createStaticMesh(const std::string &
     );
 }
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMeshBuilder<VertexType> RenderEngine::createDynamicMesh(const std::string &name) {
     return DynamicMeshBuilder<VertexType>(
         *bufferManager,

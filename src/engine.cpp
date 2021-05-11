@@ -11,9 +11,11 @@
 #include <unordered_map>
 
 #define VMA_IMPLEMENTATION
+
 #include <vk_mem_alloc.h>
 
 #define STB_IMAGE_IMPLEMENTATION
+
 #include "stb_image.h"
 
 #include "tech-core/engine.hpp"
@@ -31,14 +33,14 @@ const int HEIGHT = 1080;
 using std::cout, std::endl;
 
 #ifndef NDEBUG
-    #define ENABLE_VALIDATION_LAYERS
+#define ENABLE_VALIDATION_LAYERS
 #endif
 
-const std::vector<const char*> validationLayers = {
+const std::vector<const char *> validationLayers = {
     "VK_LAYER_LUNARG_standard_validation"
 };
 
-const std::vector<const char*> deviceExtensions = {
+const std::vector<const char *> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
@@ -69,7 +71,7 @@ void RenderEngine::initWindow(const std::string_view &title) {
 }
 
 void RenderEngine::framebufferResizeCallback(GLFWwindow *window, int width, int height) {
-    auto app = reinterpret_cast<RenderEngine*>(
+    auto app = reinterpret_cast<RenderEngine *>(
         glfwGetWindowUserPointer(window)
     );
     app->framebufferResized = true;
@@ -119,7 +121,7 @@ void RenderEngine::initVulkan() {
     createDescriptorSetLayout();
     createDepthResources();
     createFramebuffers();
-    
+
     createUniformBuffers();
     textureManager.initialize(
         device->device,
@@ -136,15 +138,16 @@ void RenderEngine::initVulkan() {
     fontManager = std::make_unique<FontManager>(
         textureManager
     );
-    guiManager = std::unique_ptr<Gui::GuiManager>(new Gui::GuiManager(
-        device->device,
-        textureManager,
-        *bufferManager,
-        *taskManager,
-        *fontManager,
-        createPipeline(),
-        swapChain->extent
-    ));
+    guiManager = std::unique_ptr<Gui::GuiManager>(
+        new Gui::GuiManager(
+            device->device,
+            textureManager,
+            *bufferManager,
+            *taskManager,
+            *fontManager,
+            createPipeline(),
+            swapChain->extent
+        ));
 
     createCommandBuffers();
 
@@ -164,7 +167,7 @@ void RenderEngine::recreateSwapChain() {
     }
 
     if (camera) {
-        camera->setAspectRatio(swapChain->extent.width / (float)swapChain->extent.height);
+        camera->setAspectRatio(swapChain->extent.width / (float) swapChain->extent.height);
     }
 
     device->waitIdle();
@@ -199,12 +202,12 @@ void RenderEngine::createSurface() {
 }
 
 void RenderEngine::createInstance() {
-    #ifdef ENABLE_VALIDATION_LAYERS
+#ifdef ENABLE_VALIDATION_LAYERS
     if (!checkValidationLayerSupport()) {
         throw std::runtime_error("Validation layers are not available but requested");
     }
-    #endif
-    
+#endif
+
     vk::ApplicationInfo appInfo(
         "Hello Triangle",
         VK_MAKE_VERSION(1, 0, 0),
@@ -223,12 +226,12 @@ void RenderEngine::createInstance() {
     createInfo.setEnabledExtensionCount(glfwExtensionCount);
     createInfo.setPpEnabledExtensionNames(glfwExtensions);
 
-    #ifdef ENABLE_VALIDATION_LAYERS
+#ifdef ENABLE_VALIDATION_LAYERS
     createInfo.setEnabledLayerCount(static_cast<uint32_t>(validationLayers.size()));
     createInfo.setPpEnabledLayerNames(validationLayers.data());
-    #else
+#else
     createInfo.setEnabledLayerCount(0);
-    #endif
+#endif
 
     instance = vk::createInstance(createInfo);
 
@@ -247,9 +250,9 @@ void RenderEngine::createRenderPass() {
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::ePresentSrcKHR
     );
-    
+
     vk::AttachmentReference colorAttachmentRef(0, vk::ImageLayout::eColorAttachmentOptimal);
-    
+
     vk::AttachmentDescription depthAttachment(
         {},
         findDepthFormat(),
@@ -293,8 +296,8 @@ void RenderEngine::createRenderPass() {
         vk::DependencyFlagBits::eDeviceGroup
     );
 
-    std::array<vk::AttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
-    std::array<vk::SubpassDependency, 2> dependencies = {depColourWrite, depVertexBarrier};
+    std::array<vk::AttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
+    std::array<vk::SubpassDependency, 2> dependencies = { depColourWrite, depVertexBarrier };
 
     vk::RenderPassCreateInfo renderPassInfo(
         {},
@@ -318,13 +321,13 @@ void RenderEngine::createDescriptorSetLayout() {
     vk::DescriptorSetLayoutCreateInfo textureLayoutInfo(
         {}, 1, textureBinding.data()
     );
-    
+
     textureDescriptorLayout = device->device.createDescriptorSetLayout(textureLayoutInfo);
 }
 
 vk::ShaderModule RenderEngine::createShaderModule(const std::vector<char> &code) {
     vk::ShaderModuleCreateInfo createInfo(
-        {}, static_cast<uint32_t>(code.size()), reinterpret_cast<const uint32_t*>(code.data())
+        {}, static_cast<uint32_t>(code.size()), reinterpret_cast<const uint32_t *>(code.data())
     );
 
     return device->device.createShaderModule(createInfo);
@@ -347,7 +350,7 @@ void RenderEngine::createFramebuffers() {
             swapChain->extent.height,
             1
         );
-        
+
         swapChainFramebuffers[i] = device->device.createFramebuffer(framebufferInfo);
     }
 }
@@ -396,7 +399,7 @@ vk::CommandBuffer RenderEngine::beginSingleTimeCommands() {
         vk::CommandBufferLevel::ePrimary,
         1
     );
-    
+
     vk::CommandBuffer commandBuffer = device->device.allocateCommandBuffers(allocInfo)[0];
 
     vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
@@ -413,14 +416,16 @@ void RenderEngine::endSingleTimeCommands(vk::CommandBuffer commandBuffer) {
         nullptr,
         1, &commandBuffer
     );
-    
+
     device->graphicsQueue.queue.submit(1, &submitInfo, vk::Fence());
     device->graphicsQueue.queue.waitIdle();
 
     device->device.freeCommandBuffers(device->graphicsPool, 1, &commandBuffer);
 }
 
-vk::Format RenderEngine::findSupportedFormat(const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features) {
+vk::Format RenderEngine::findSupportedFormat(
+    const std::vector<vk::Format> &candidates, vk::ImageTiling tiling, vk::FormatFeatureFlags features
+) {
     for (auto format : candidates) {
         vk::FormatProperties properties = physicalDevice.getFormatProperties(format);
 
@@ -436,7 +441,7 @@ vk::Format RenderEngine::findSupportedFormat(const std::vector<vk::Format> &cand
 
 vk::Format RenderEngine::findDepthFormat() {
     return findSupportedFormat(
-        {vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
+        { vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint },
         vk::ImageTiling::eOptimal,
         vk::FormatFeatureFlagBits::eDepthStencilAttachment
     );
@@ -467,7 +472,7 @@ void RenderEngine::printExtensions() {
 
     std::cout << "Extensions:" << std::endl;
 
-    for (const auto& extension : extensions) {
+    for (const auto &extension : extensions) {
         std::cout << "\t " << extension.extensionName << std::endl;
     }
 }
@@ -490,22 +495,24 @@ void RenderEngine::render() {
     drawFrame();
 }
 
-void RenderEngine::fillFrameCommands(vk::CommandBuffer primaryCommandBuffer, vk::CommandBufferInheritanceInfo &cbInheritance, uint32_t currentImage) {
+void RenderEngine::fillFrameCommands(
+    vk::CommandBuffer primaryCommandBuffer, vk::CommandBufferInheritanceInfo &cbInheritance, uint32_t currentImage
+) {
     vk::CommandBufferBeginInfo beginInfo(
         vk::CommandBufferUsageFlagBits::eRenderPassContinue
     );
     primaryCommandBuffer.begin(beginInfo);
-    
+
     std::array<VkClearValue, 2> clearColors;
-    clearColors[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
-    clearColors[1].depthStencil = {1.0f, 0};
+    clearColors[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
+    clearColors[1].depthStencil = { 1.0f, 0 };
 
     vk::RenderPassBeginInfo renderPassInfo(
         renderPass,
         swapChainFramebuffers[currentImage],
-        {{0,0}, swapChain->extent},
+        {{ 0, 0 }, swapChain->extent },
         static_cast<uint32_t>(clearColors.size()),
-        reinterpret_cast<const vk::ClearValue*>(clearColors.data())
+        reinterpret_cast<const vk::ClearValue *>(clearColors.data())
     );
 
     primaryCommandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eSecondaryCommandBuffers);
@@ -537,7 +544,8 @@ void RenderEngine::drawFrame() {
 
     uint32_t imageIndex;
     try {
-        imageIndex = device->device.acquireNextImageKHR(swapChain->swapChain, std::numeric_limits<uint64_t>::max(), device->presentFinished, vk::Fence()).value;
+        imageIndex = device->device.acquireNextImageKHR(
+            swapChain->swapChain, std::numeric_limits<uint64_t>::max(), device->presentFinished, vk::Fence()).value;
     } catch (vk::OutOfDateKHRError const &e) {
         recreateSwapChain();
         return;
@@ -554,12 +562,12 @@ void RenderEngine::drawFrame() {
     );
 
     updateUniformBuffer(imageIndex);
-    
+
     guiManager->render(guiCommandBuffer, cbInheritance);
 
     vk::CommandBuffer frameCommands = commandBuffers[imageIndex];
     fillFrameCommands(frameCommands, cbInheritance, imageIndex);
-    
+
     vk::PipelineStageFlags flags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
     vk::SubmitInfo submitInfo(
@@ -568,7 +576,7 @@ void RenderEngine::drawFrame() {
         1, &frameCommands,
         1, &device->renderFinished
     );
-    
+
     device->device.resetFences(1, &device->renderReady);
     device->graphicsQueue.queue.submit(1, &submitInfo, device->renderReady);
 
@@ -592,14 +600,14 @@ void RenderEngine::drawFrame() {
     }
 
     switch (result) {
-    case vk::Result::eSuboptimalKHR:
-        recreateSwapChain();
-        return;
-    case vk::Result::eSuccess:
-        // Do nothing
-        break;
-    default:
-        throw std::runtime_error("failed to acquire swap chain image!");
+        case vk::Result::eSuboptimalKHR:
+            recreateSwapChain();
+            return;
+        case vk::Result::eSuccess:
+            // Do nothing
+            break;
+        default:
+            throw std::runtime_error("failed to acquire swap chain image!");
     }
 
     for (auto &subsystem : orderedSubsystems) {
@@ -675,7 +683,7 @@ void RenderEngine::cleanup() {
 // ==============================================
 void RenderEngine::setCamera(Camera &camera) {
     this->camera = &camera;
-    camera.setAspectRatio(swapChain->extent.width / (float)swapChain->extent.height);
+    camera.setAspectRatio(swapChain->extent.width / (float) swapChain->extent.height);
 }
 
 const Camera *RenderEngine::getCamera() const {
@@ -711,17 +719,25 @@ Mesh *RenderEngine::getMesh(const std::string &name) {
 TextureBuilder RenderEngine::createTexture(const std::string &name) {
     return textureManager.createTexture(name);
 }
+
 Texture *RenderEngine::getTexture(const std::string &name) {
     return textureManager.getTexture(name);
 }
+
 Texture *RenderEngine::getTexture(const char *name) {
     return getTexture(std::string(name));
 }
+
 void RenderEngine::destroyTexture(const std::string &name) {
     textureManager.destroyTexture(name);
 }
+
 void RenderEngine::destroyTexture(const char *name) {
     destroyTexture(std::string(name));
+}
+
+ImageBuilder RenderEngine::createImage(uint32_t width, uint32_t height) {
+    return ImageBuilder(*device, width, height);
 }
 
 void RenderEngine::loadPlaceholders() {
@@ -746,7 +762,7 @@ void RenderEngine::loadPlaceholders() {
         .fromRaw(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels)
         .build();
 
-    delete [] pixels;
+    delete[] pixels;
 }
 
 // ==============================================
@@ -794,8 +810,8 @@ vk::DescriptorBufferInfo RenderEngine::getCameraDBI(uint32_t imageIndex) {
 
 Gui::Rect RenderEngine::getScreenBounds() {
     return {
-        {0, 0},
-        {swapChain->extent.width, swapChain->extent.height}
+        { 0, 0 },
+        { swapChain->extent.width, swapChain->extent.height }
     };
 }
 
