@@ -17,8 +17,7 @@ PipelineBuilder::PipelineBuilder(
     depthTestEnable(true),
     depthWriteEnable(true),
     cullFaces(true),
-    alpha(false)
-{}
+    alpha(false) {}
 
 PipelineBuilder &PipelineBuilder::withVertexShader(const std::string &path) {
     vertexShaderPath = path;
@@ -47,7 +46,9 @@ PipelineBuilder &PipelineBuilder::withVertexBindingDescription(const vk::VertexI
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::withVertexBindingDescriptions(const vk::ArrayProxy<const vk::VertexInputBindingDescription> &bindings) {
+PipelineBuilder &PipelineBuilder::withVertexBindingDescriptions(
+    const vk::ArrayProxy<const vk::VertexInputBindingDescription> &bindings
+) {
     for (auto binding : bindings) {
         vertexBindings.push_back(binding);
     }
@@ -61,7 +62,9 @@ PipelineBuilder &PipelineBuilder::withVertexAttributeDescription(const vk::Verte
     return *this;
 }
 
-PipelineBuilder &PipelineBuilder::withVertexAttributeDescriptions(const vk::ArrayProxy<const vk::VertexInputAttributeDescription> &attributes) {
+PipelineBuilder &PipelineBuilder::withVertexAttributeDescriptions(
+    const vk::ArrayProxy<const vk::VertexInputAttributeDescription> &attributes
+) {
     for (auto attribute : attributes) {
         vertexAttributes.push_back(attribute);
     }
@@ -92,6 +95,11 @@ PipelineBuilder &PipelineBuilder::withAlpha() {
     return *this;
 }
 
+PipelineBuilder &PipelineBuilder::withFillMode(FillMode mode) {
+    fillMode = mode;
+    return *this;
+}
+
 std::unique_ptr<Pipeline> PipelineBuilder::build() {
     // Check for valid settings
     if (vertexShaderPath.empty()) {
@@ -111,12 +119,12 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo(
         {}, vk::ShaderStageFlagBits::eVertex, vertShaderModule, "main"
     );
-    
+
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo(
         {}, vk::ShaderStageFlagBits::eFragment, fragShaderModule, "main"
     );
 
-    std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = {vertShaderStageInfo, fragShaderStageInfo};
+    std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = { vertShaderStageInfo, fragShaderStageInfo };
 
     // Vertex format
 
@@ -125,7 +133,7 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
         vkUseArray(vertexBindings),
         vkUseArray(vertexAttributes)
     );
-    
+
     // Index format
     vk::PrimitiveTopology topology;
     switch (geomType) {
@@ -150,13 +158,13 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     vk::Viewport viewport(
         0.0f,
         0.0f,
-        (float)windowSize.width,
-        (float)windowSize.height,
+        (float) windowSize.width,
+        (float) windowSize.height,
         0.0f,
         1.0f
     );
 
-    vk::Rect2D scissor({0, 0}, windowSize);
+    vk::Rect2D scissor({ 0, 0 }, windowSize);
 
     vk::PipelineViewportStateCreateInfo viewportState(
         {},
@@ -171,11 +179,25 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     } else {
         cullMode = vk::CullModeFlagBits::eNone;
     }
+
+    vk::PolygonMode polygonMode;
+    switch (fillMode) {
+        case FillMode::Solid:
+            polygonMode = vk::PolygonMode::eFill;
+            break;
+        case FillMode::Wireframe:
+            polygonMode = vk::PolygonMode::eLine;
+            break;
+        case FillMode::Point:
+            polygonMode = vk::PolygonMode::ePoint;
+            break;
+    }
+
     vk::PipelineRasterizationStateCreateInfo rasterizer(
         {},
         VK_FALSE,
         VK_FALSE,
-        vk::PolygonMode::eFill,
+        polygonMode,
         cullMode,
         vk::FrontFace::eCounterClockwise,
         VK_FALSE,
@@ -196,10 +218,10 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     // Blending
     vk::PipelineColorBlendAttachmentState colorBlendAttachment;
     colorBlendAttachment.setColorWriteMask(
-        vk::ColorComponentFlagBits::eR | 
-        vk::ColorComponentFlagBits::eG |
-        vk::ColorComponentFlagBits::eB |
-        vk::ColorComponentFlagBits::eA
+        vk::ColorComponentFlagBits::eR |
+            vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB |
+            vk::ColorComponentFlagBits::eA
     );
 
     if (alpha) {
@@ -211,7 +233,7 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
         colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
         colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
     }
-    
+
     vk::PipelineColorBlendStateCreateInfo colorBlending(
         {},
         VK_FALSE,
@@ -223,11 +245,11 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
         vkUseArray(descriptorSets),
         vkUseArray(pushConstants)
     );
-    
+
     auto pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
 
     vk::PipelineDepthStencilStateCreateInfo depthStencil;
-    
+
     depthStencil = vk::PipelineDepthStencilStateCreateInfo(
         {},
         depthTestEnable,
@@ -240,7 +262,7 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
         0.0f,
         1.0f
     );
-    
+
     vk::GraphicsPipelineCreateInfo pipelineInfo(
         {},
         vkUseArray(shaderStages),
@@ -270,8 +292,7 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
 
 
 Pipeline::Pipeline(vk::Device device, vk::Pipeline pipeline, vk::PipelineLayout pipelineLayout)
-    : device(device), pipeline(pipeline), layout(pipelineLayout)
-{}
+    : device(device), pipeline(pipeline), layout(pipelineLayout) {}
 
 Pipeline::~Pipeline() {
     device.destroyPipeline(pipeline);
@@ -291,7 +312,7 @@ void Pipeline::bindDescriptorSets(
         vk::PipelineBindPoint::eGraphics,
         layout,
         firstSet,
-        descriptorSetCount, descriptorSets, 
+        descriptorSetCount, descriptorSets,
         dynamicOffsetCount, dynamicOffsets
     );
 }

@@ -5,15 +5,14 @@
 #include <array>
 
 #ifndef NDEBUG
-    #define ENABLE_VALIDATION_LAYERS
+#define ENABLE_VALIDATION_LAYERS
 #endif
 
 namespace Engine {
 
 // VulkanDevice
-    VulkanDevice::VulkanDevice(vk::PhysicalDevice device, vk::Instance instance, vk::SurfaceKHR surface)
- : physicalDevice(device), surface(surface)
-{
+VulkanDevice::VulkanDevice(vk::PhysicalDevice device, vk::Instance instance, vk::SurfaceKHR surface)
+    : physicalDevice(device), surface(surface) {
     // Ensure extensions are available
     if (!hasAllRequiredExtensions()) {
         throw DeviceNotSuitable();
@@ -34,6 +33,8 @@ namespace Engine {
     auto capabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
     auto formats = physicalDevice.getSurfaceFormatsKHR(surface);
     auto presentModes = physicalDevice.getSurfacePresentModesKHR(surface);
+    vk::PhysicalDeviceFeatures currentFeatures;
+    physicalDevice.getFeatures(&currentFeatures);
 
     if (formats.empty() || presentModes.empty()) {
         throw DeviceNotSuitable();
@@ -51,7 +52,8 @@ namespace Engine {
     if (transferQueue.index != graphicsQueue.index && transferQueue.index != presentQueue.index) {
         queueCreation.push_back(vk::DeviceQueueCreateInfo({}, transferQueue.index, 1, &queuePriority));
     }
-    if (computeQueue.index != graphicsQueue.index && computeQueue.index != presentQueue.index && computeQueue.index != transferQueue.index) {
+    if (computeQueue.index != graphicsQueue.index && computeQueue.index != presentQueue.index &&
+        computeQueue.index != transferQueue.index) {
         queueCreation.push_back(vk::DeviceQueueCreateInfo({}, computeQueue.index, 1, &queuePriority));
     }
 
@@ -59,7 +61,7 @@ namespace Engine {
     vk::PhysicalDeviceFeatures deviceFeatures;
     deviceFeatures.setSamplerAnisotropy(VK_TRUE);
 
-    std::array<const char*, 1> extensions = {
+    std::array<const char *, 1> extensions = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
     };
 
@@ -72,13 +74,18 @@ namespace Engine {
         &deviceFeatures
     );
 
-    #ifdef ENABLE_VALIDATION_LAYERS
-    const std::array<const char*, 1> validationLayers = {
+#ifdef ENABLE_VALIDATION_LAYERS
+    const std::array<const char *, 1> validationLayers = {
         "VK_LAYER_LUNARG_standard_validation"
     };
     deviceCreateInfo.setEnabledLayerCount(static_cast<uint32_t>(validationLayers.size()));
     deviceCreateInfo.setPpEnabledLayerNames(validationLayers.data());
-    #endif
+#endif
+
+    // Enable wireframe mode if available
+    if (currentFeatures.fillModeNonSolid) {
+        deviceFeatures.setFillModeNonSolid(VK_TRUE);
+    }
 
     this->device = physicalDevice.createDevice(deviceCreateInfo);
 
@@ -92,17 +99,23 @@ namespace Engine {
     allocInfo.physicalDevice = physicalDevice;
     allocInfo.device = this->device;
     allocInfo.instance = instance;
-    
+
     if (vmaCreateAllocator(&allocInfo, &allocator) != VK_SUCCESS) {
         throw std::runtime_error("Failed to create allocator");
     }
 
     // Command pools
-    graphicsPool = this->device.createCommandPool({{vk::CommandPoolCreateFlagBits::eResetCommandBuffer}, graphicsQueue.index});
-    computePool = this->device.createCommandPool({{vk::CommandPoolCreateFlagBits::eResetCommandBuffer}, computeQueue.index});
+    graphicsPool = this->device.createCommandPool(
+        {{ vk::CommandPoolCreateFlagBits::eResetCommandBuffer }, graphicsQueue.index }
+    );
+    computePool = this->device.createCommandPool(
+        {{ vk::CommandPoolCreateFlagBits::eResetCommandBuffer }, computeQueue.index }
+    );
 
     if (graphicsQueue.index != transferQueue.index) {
-        transferPool = this->device.createCommandPool({{vk::CommandPoolCreateFlagBits::eResetCommandBuffer}, transferQueue.index});
+        transferPool = this->device.createCommandPool(
+            {{ vk::CommandPoolCreateFlagBits::eResetCommandBuffer }, transferQueue.index }
+        );
     } else {
         // Reuse the graphics pool when they are a shared queue
         transferPool = graphicsPool;
@@ -112,7 +125,7 @@ namespace Engine {
     renderFinished = this->device.createSemaphore({});
     presentFinished = this->device.createSemaphore({});
 
-    renderReady = this->device.createFence({vk::FenceCreateFlagBits::eSignaled});
+    renderReady = this->device.createFence({ vk::FenceCreateFlagBits::eSignaled });
 }
 
 VulkanDevice::~VulkanDevice() {
@@ -140,7 +153,7 @@ bool VulkanDevice::hasAllRequiredExtensions() const {
     auto extensions = physicalDevice.enumerateDeviceExtensionProperties();
 
     bool hasSurface = false;
-    
+
     for (const auto &extension : extensions) {
         std::string_view name(extension.extensionName);
 

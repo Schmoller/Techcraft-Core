@@ -24,30 +24,50 @@ enum class PipelineGeometryType {
     ContinousLines
 };
 
+enum class FillMode {
+    Solid,
+    Wireframe,
+    Point
+};
+
 class Pipeline;
 
 class PipelineBuilder {
     friend class RenderEngine;
 
-    public:
+public:
     PipelineBuilder &withVertexShader(const std::string &path);
+
     PipelineBuilder &withFragmentShader(const std::string &path);
+
     PipelineBuilder &withGeometryType(PipelineGeometryType type);
-    template <typename T>
+
+    template<typename T>
     PipelineBuilder &withPushConstants(vk::ShaderStageFlags where);
+
     PipelineBuilder &withDescriptorSet(vk::DescriptorSetLayout ds);
+
     PipelineBuilder &withoutDepthWrite();
+
     PipelineBuilder &withoutDepthTest();
+
     PipelineBuilder &withVertexBindingDescription(const vk::VertexInputBindingDescription &);
+
     PipelineBuilder &withVertexBindingDescriptions(const vk::ArrayProxy<const vk::VertexInputBindingDescription> &);
+
     PipelineBuilder &withVertexAttributeDescription(const vk::VertexInputAttributeDescription &);
+
     PipelineBuilder &withVertexAttributeDescriptions(const vk::ArrayProxy<const vk::VertexInputAttributeDescription> &);
+
     PipelineBuilder &withoutFaceCulling();
+
     PipelineBuilder &withAlpha();
+
+    PipelineBuilder &withFillMode(FillMode);
 
     std::unique_ptr<Pipeline> build();
 
-    private:
+private:
     PipelineBuilder(
         vk::Device, vk::RenderPass, vk::Extent2D windowSize
     );
@@ -64,6 +84,7 @@ class PipelineBuilder {
     std::vector<vk::VertexInputAttributeDescription> vertexAttributes;
     bool cullFaces;
     bool alpha;
+    FillMode fillMode { FillMode::Solid };
 
     // Non-configurable
     vk::Device device;
@@ -74,17 +95,18 @@ class PipelineBuilder {
 class Pipeline {
     friend std::unique_ptr<Pipeline> PipelineBuilder::build();
 
-    public:
+public:
     ~Pipeline();
 
     void bind(vk::CommandBuffer);
+
     void bindDescriptorSets(
         vk::CommandBuffer commandBuffer, uint32_t firstSet,
         uint32_t descriptorSetCount, const vk::DescriptorSet *descriptorSets,
         uint32_t dynamicOffsetCount, const uint32_t *dynamicOffsets
     );
 
-    template <typename T>
+    template<typename T>
     void push(
         vk::CommandBuffer commandBuffer,
         vk::ShaderStageFlags stage,
@@ -92,7 +114,7 @@ class Pipeline {
         uint32_t offset = 0
     );
 
-    private:
+private:
     Pipeline(vk::Device, vk::Pipeline, vk::PipelineLayout);
 
     // Shared resources
@@ -103,7 +125,7 @@ class Pipeline {
     vk::PipelineLayout layout;
 };
 
-template <typename T>
+template<typename T>
 PipelineBuilder &PipelineBuilder::withPushConstants(vk::ShaderStageFlags where) {
     vk::PushConstantRange range(
         where,
@@ -116,7 +138,7 @@ PipelineBuilder &PipelineBuilder::withPushConstants(vk::ShaderStageFlags where) 
     return *this;
 }
 
-template <typename T>
+template<typename T>
 void Pipeline::push(
     vk::CommandBuffer commandBuffer,
     vk::ShaderStageFlags stage,
