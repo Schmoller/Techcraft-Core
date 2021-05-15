@@ -34,14 +34,14 @@ void DebugSubsystem::debugDrawLine(const glm::vec3 &from, const glm::vec3 &to, u
 
 void DebugSubsystem::debugDrawBox(const glm::vec3 &from, const glm::vec3 &to, uint32_t color) {
     // Vertices of box
-    glm::vec3 minXminYminZ = {glm::min(from.x, to.x), glm::min(from.y, to.y), glm::min(from.z, to.z)};
-    glm::vec3 maxXminYminZ = {glm::max(from.x, to.x), glm::min(from.y, to.y), glm::min(from.z, to.z)};
-    glm::vec3 minXmaxYminZ = {glm::min(from.x, to.x), glm::max(from.y, to.y), glm::min(from.z, to.z)};
-    glm::vec3 minXminYmaxZ = {glm::min(from.x, to.x), glm::min(from.y, to.y), glm::max(from.z, to.z)};
-    glm::vec3 maxXmaxYminZ = {glm::max(from.x, to.x), glm::max(from.y, to.y), glm::min(from.z, to.z)};
-    glm::vec3 minXmaxYmaxZ = {glm::min(from.x, to.x), glm::max(from.y, to.y), glm::max(from.z, to.z)};
-    glm::vec3 maxXminYmaxZ = {glm::max(from.x, to.x), glm::min(from.y, to.y), glm::max(from.z, to.z)};
-    glm::vec3 maxXmaxYmaxZ = {glm::max(from.x, to.x), glm::max(from.y, to.y), glm::max(from.z, to.z)};
+    glm::vec3 minXminYminZ = { glm::min(from.x, to.x), glm::min(from.y, to.y), glm::min(from.z, to.z) };
+    glm::vec3 maxXminYminZ = { glm::max(from.x, to.x), glm::min(from.y, to.y), glm::min(from.z, to.z) };
+    glm::vec3 minXmaxYminZ = { glm::min(from.x, to.x), glm::max(from.y, to.y), glm::min(from.z, to.z) };
+    glm::vec3 minXminYmaxZ = { glm::min(from.x, to.x), glm::min(from.y, to.y), glm::max(from.z, to.z) };
+    glm::vec3 maxXmaxYminZ = { glm::max(from.x, to.x), glm::max(from.y, to.y), glm::min(from.z, to.z) };
+    glm::vec3 minXmaxYmaxZ = { glm::min(from.x, to.x), glm::max(from.y, to.y), glm::max(from.z, to.z) };
+    glm::vec3 maxXminYmaxZ = { glm::max(from.x, to.x), glm::min(from.y, to.y), glm::max(from.z, to.z) };
+    glm::vec3 maxXmaxYmaxZ = { glm::max(from.x, to.x), glm::max(from.y, to.y), glm::max(from.z, to.z) };
 
     // Draw edges
     debugDrawLine(minXmaxYmaxZ, maxXmaxYmaxZ, color);
@@ -62,13 +62,14 @@ void DebugSubsystem::debugDrawBox(const glm::vec3 &from, const glm::vec3 &to, ui
 
 void DebugSubsystem::debugDrawBox(const BoundingBox &box, uint32_t color) {
     debugDrawBox(
-        {box.xMin, box.yMin, box.zMin},
-        {box.xMax, box.yMax, box.zMax},
+        { box.xMin, box.yMin, box.zMin },
+        { box.xMax, box.yMax, box.zMax },
         color
     );
 }
 
-void DebugSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
+void
+DebugSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
     // Debug shader layout contains the camera UBO only
     std::array<vk::DescriptorSetLayoutBinding, 1> bindings = {{
         {
@@ -78,13 +79,16 @@ void DebugSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice p
             vk::ShaderStageFlagBits::eVertex
         }
     }};
-    
-    cameraOnlyDSL = device.createDescriptorSetLayout({
-        {}, vkUseArray(bindings)
-    });
+
+    cameraOnlyDSL = device.createDescriptorSetLayout(
+        {
+            {}, vkUseArray(bindings)
+        }
+    );
 }
 
-void DebugSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
+void
+DebugSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
     // Descriptor pool for allocating the descriptors
     std::array<vk::DescriptorPoolSize, 1> poolSizes = {{
         {
@@ -93,19 +97,23 @@ void DebugSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderE
         }
     }};
 
-    descriptorPool = device.createDescriptorPool({
-        {},
-        swapChainImages,
-        vkUseArray(poolSizes)
-    });
+    descriptorPool = device.createDescriptorPool(
+        {
+            {},
+            swapChainImages,
+            vkUseArray(poolSizes)
+        }
+    );
 
     // Descriptor sets
     std::vector<vk::DescriptorSetLayout> layouts(swapChainImages, cameraOnlyDSL);
 
-    cameraOnlyDS = device.allocateDescriptorSets({
-        descriptorPool,
-        vkUseArray(layouts)
-    });
+    cameraOnlyDS = device.allocateDescriptorSets(
+        {
+            descriptorPool,
+            vkUseArray(layouts)
+        }
+    );
 
     // Assign buffers to DS'
     for (uint32_t imageIndex = 0; imageIndex < swapChainImages; ++imageIndex) {
