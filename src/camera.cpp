@@ -3,15 +3,13 @@
 namespace Engine {
 
 Camera::Camera(CameraType type, const glm::vec3 &position, const glm::vec3 &forward, const glm::vec3 &up)
-    : type(type), position(position), forward(forward), up(up), aspectRatio(1)
-{
+    : type(type), position(position), forward(forward), up(up), aspectRatio(1) {
     updateView();
     updateProjection();
 }
 
 Camera::Camera(float fov, const glm::vec3 &position, const glm::vec3 &forward, const glm::vec3 &up)
-    : type(CameraType::Perspective), position(position), forward(forward), fov(fov), up(up), aspectRatio(1)
-{
+    : type(CameraType::Perspective), position(position), forward(forward), fov(fov), up(up), aspectRatio(1) {
     updateView();
     updateProjection();
 }
@@ -90,7 +88,7 @@ float Camera::getAspectRatio() const {
 
 void Camera::updateView() {
     uniform.view = glm::lookAt(position, position + forward, up);
-    
+
     frustum.update(uniform.proj * uniform.view);
 }
 
@@ -123,8 +121,7 @@ glm::vec3 toForwardVec(float yaw, float pitch) {
 }
 
 FPSCamera::FPSCamera(float fov, const glm::vec3 &position, float yaw, float pitch, const glm::vec3 &up)
-    : Camera(fov, position, toForwardVec(yaw, pitch), up), yaw(yaw), pitch(pitch)
-{}
+    : Camera(fov, position, toForwardVec(yaw, pitch), up), yaw(yaw), pitch(pitch) {}
 
 void FPSCamera::setForward(const glm::vec3 &forward) {
     Camera::setForward(forward);
@@ -136,6 +133,7 @@ void FPSCamera::setYaw(float yaw) {
     this->yaw = fmod(yaw, 360);
     Camera::setForward(toForwardVec(yaw, pitch));
 }
+
 void FPSCamera::setPitch(float pitch) {
     if (pitch > 89) {
         this->pitch = 89;
@@ -145,7 +143,7 @@ void FPSCamera::setPitch(float pitch) {
         this->pitch = pitch;
     }
 
-    Camera::setForward(toForwardVec(yaw, pitch));
+    Camera::setForward(toForwardVec(yaw, this->pitch));
 }
 
 void FPSCamera::lookAt(const glm::vec3 &target) {
