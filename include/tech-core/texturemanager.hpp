@@ -34,7 +34,7 @@ struct TextureArray {
         height(height),
         mipLevels(mipLevels) {
     }
-    
+
     uint32_t arrayId;
 
     // Size of the images contained within the array
@@ -66,7 +66,7 @@ struct DescriptorPair {
 
 class TextureBuilder {
     friend class TextureManager;
-    public:
+public:
     /**
      * Sources the pixel data from a texture on the filesystem.
      */
@@ -83,7 +83,7 @@ class TextureBuilder {
     TextureBuilder &withMipMode(MipType type);
     Texture *build();
 
-    private:
+private:
     TextureBuilder(TextureManager &manager, const std::string &name);
 
     // Non-configurable
@@ -101,22 +101,26 @@ class TextureBuilder {
 class TextureManager {
     friend class TextureBuilder;
 
-    public:
+public:
     void initialize(
         vk::Device device,
         VmaAllocator allocator,
         vk::CommandPool commandPool,
         vk::Queue submitQueue,
-        vk::DescriptorSetLayout descriptorLayout);
+        vk::DescriptorSetLayout descriptorLayout
+    );
 
     void destroy();
-    
+
     TextureBuilder createTexture(const std::string &name);
     Texture *getTexture(const std::string &name);
+
     Texture *getTexture(const char *name) {
         return getTexture(std::string(name));
     }
+
     void destroyTexture(const std::string &name);
+
     void destroyTexture(const char *name) {
         destroyTexture(std::string(name));
     }
@@ -133,7 +137,7 @@ class TextureManager {
         return descriptorLayout;
     }
 
-    private:
+private:
     std::unordered_map<uint32_t, TextureArray> textureArrays;
     uint32_t nextArrayId = 0;
     std::unordered_map<std::string, Texture> textures;
@@ -148,7 +152,7 @@ class TextureManager {
     // Descriptors
     vk::DescriptorPool descriptorPool;
     vk::DescriptorSetLayout descriptorLayout;
-    
+
     // Transfer Temp
     vk::CommandBuffer oneTimeCommands;
     Buffer stagingBuffer;
@@ -159,24 +163,24 @@ class TextureManager {
 
     TextureArray &selectTextureArray(uint32_t width, uint32_t height, bool requireSlot);
     void beginTransfer(void *pixels, vk::DeviceSize size, TextureArray &array, size_t slot);
-    void transferIntoSlot(uint32_t offsetX, uint32_t offsetY, const TextureArray &array, size_t slot, uint32_t mipLevel);
-    void generateMipmaps(const TextureArray &array, size_t slot, uint32_t texWidth, uint32_t texHeight, uint32_t startLevel = 0);
+    void
+    transferIntoSlot(uint32_t offsetX, uint32_t offsetY, const TextureArray &array, size_t slot, uint32_t mipLevel);
+    void transferIntoSlotAlt(const TextureArray &array, size_t slot, uint32_t mipLevel, vk::DeviceSize offset);
     void endTransfer();
 
     DescriptorPair createDescriptorSet(TextureArray &array, uint32_t samplerId, const vk::Sampler &sampler);
 };
 
-class TextureLoadError: public std::exception {
-    public:
+class TextureLoadError : public std::exception {
+public:
     TextureLoadError(const std::string &filename)
-        : filename(filename)
-    {}
+        : filename(filename) {}
 
     virtual const char *what() const noexcept override {
         return filename.c_str();
     }
 
-    private:
+private:
     std::string filename;
 };
 

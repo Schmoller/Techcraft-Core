@@ -1,5 +1,9 @@
 #include "tech-core/texturemanager.hpp"
-#include "stb_image.h"
+#include <stb_image.h>
+
+#define STB_IMAGE_RESIZE_IMPLEMENTATION
+
+#include <stb_image_resize.h>
 #include <iostream>
 
 namespace Engine {
@@ -13,14 +17,13 @@ const uint32_t MAX_ARRAY_SIZE = 16;
 #define DESCRIPTOR_POOL_SIZE 9999
 
 TextureBuilder::TextureBuilder(TextureManager &manager, const std::string &name)
-  : manager(manager),
+    : manager(manager),
     name(name),
     pixelData(nullptr),
     width(0),
     height(0),
     mipType(MipType::NoMipmap),
-    sourcedFromFile(false)
-{}
+    sourcedFromFile(false) {}
 
 TextureBuilder &TextureBuilder::fromFile(const std::string &filename) {
     int texWidth, texHeight, texChannels;
@@ -81,8 +84,9 @@ void TextureManager::initialize(
     VmaAllocator allocator,
     vk::CommandPool commandPool,
     vk::Queue submitQueue,
-    vk::DescriptorSetLayout descriptorLayout) {
-    
+    vk::DescriptorSetLayout descriptorLayout
+) {
+
     this->device = device;
     this->allocator = allocator;
     this->commandPool = commandPool;
@@ -95,7 +99,7 @@ void TextureManager::initialize(
         DESCRIPTOR_POOL_SIZE
     );
 
-    descriptorPool = device.createDescriptorPool({{}, DESCRIPTOR_POOL_SIZE, 1, &poolSize});
+    descriptorPool = device.createDescriptorPool({{}, DESCRIPTOR_POOL_SIZE, 1, &poolSize });
 }
 
 void TextureManager::onSwapChainRecreate() {
@@ -107,7 +111,7 @@ void TextureManager::onSwapChainRecreate() {
         DESCRIPTOR_POOL_SIZE
     );
 
-    descriptorPool = device.createDescriptorPool({{}, DESCRIPTOR_POOL_SIZE, 1, &poolSize});
+    descriptorPool = device.createDescriptorPool({{}, DESCRIPTOR_POOL_SIZE, 1, &poolSize });
 
     // Release all existing descriptor sets
     descriptors.clear();
@@ -124,13 +128,13 @@ void TextureManager::destroy() {
     }
 }
 
-Texture *TextureManager::createTexture(const std::string &name, uint32_t width, uint32_t height, void *pixels, MipType mipType) {
+Texture *
+TextureManager::createTexture(const std::string &name, uint32_t width, uint32_t height, void *pixels, MipType mipType) {
+    uint32_t srcWidth = width;
     if (mipType == MipType::StoredStandard) {
         // Standard mipmaps are stored on the right of the main texture using 50% more width
-        width *= 2.0/3.0;
+        width *= 2.0 / 3.0;
     }
-
-    vk::DeviceSize imageSize = width * height * 4;
 
     // Find a place to store the texture
     TextureArray &array = selectTextureArray(width, height, true);
@@ -145,8 +149,46 @@ Texture *TextureManager::createTexture(const std::string &name, uint32_t width, 
         height
     };
 
+    vk::DeviceSize imageSize = srcWidth * height * 4;
+
+    unsigned char *combinedPixels = nullptr;
+    if (mipType == MipType::Generate) {
+        // Add each successive mip layer directly after the last
+        for (uint32_t level = 1; level < array.mipLevels; ++level) {
+            uint32_t factor = 1 << (level - 1);
+            uint32_t mipWidth = array.width >> factor;
+            uint32_t mipHeight = array.height >> factor;
+
+            imageSize += mipWidth * mipHeight * 4;
+        }
+
+        combinedPixels = new unsigned char[imageSize];
+        std::memcpy(combinedPixels, pixels, srcWidth * height * 4);
+        size_t offset = srcWidth * height * 4;
+
+        // Generate Mips
+        for (uint32_t level = 1; level < array.mipLevels; ++level) {
+            uint32_t mipWidth = array.width >> level;
+            uint32_t mipHeight = array.height >> level;
+
+            auto result = stbir_resize_uint8(
+                reinterpret_cast<unsigned char *>(pixels), srcWidth, height, 0, combinedPixels + offset, mipWidth,
+                mipHeight, 0, 4
+            );
+            if (!result) {
+                throw std::runtime_error("Failed to generate mip level");
+            }
+
+            offset += mipWidth * mipHeight * 4;
+        }
+    }
+
     // Queue up the transfer into the array
-    beginTransfer(pixels, imageSize, array, slot);
+    if (combinedPixels) {
+        beginTransfer(combinedPixels, imageSize, array, slot);
+    } else {
+        beginTransfer(pixels, imageSize, array, slot);
+    }
 
     if (mipType == MipType::NoMipmap) {
         transferIntoSlot(0, 0, array, slot, 0);
@@ -179,11 +221,25 @@ Texture *TextureManager::createTexture(const std::string &name, uint32_t width, 
             }
         }
     } else {
-        transferIntoSlot(0, 0, array, slot, 0);
-        generateMipmaps(array, slot, width, height);
+        size_t offset = srcWidth * height * 4;
+
+        for (uint32_t level = 0; level < array.mipLevels; ++level) {
+            if (level == 0) {
+                // Base Level
+                transferIntoSlot(0, 0, array, slot, 0);
+            } else {
+                uint32_t mipWidth = array.width >> level;
+                uint32_t mipHeight = array.height >> level;
+                auto size = mipWidth * mipHeight * 4;
+
+                transferIntoSlotAlt(array, slot, level, offset);
+                offset += size;
+            }
+        }
     }
 
     endTransfer();
+    delete[] combinedPixels;
 
     std::cout << "Loaded texture " << name << " as " << texture.arrayId << ":" << texture.arraySlot << std::endl;
 
@@ -226,7 +282,7 @@ void TextureManager::destroyTexture(const std::string &name) {
 TextureArray &TextureManager::selectTextureArray(uint32_t width, uint32_t height, bool requireSlot) {
     for (auto &arrays : textureArrays) {
         auto &array = arrays.second;
-        
+
         if (array.width == width && array.height == height) {
             if (!requireSlot || array.freeSlots.size() > 0) {
                 return array;
@@ -244,12 +300,12 @@ TextureArray &TextureManager::selectTextureArray(uint32_t width, uint32_t height
     // Allocate the array
     VkDeviceSize imageUsage = width * height * 4;
     uint32_t arraySize = std::min(static_cast<uint32_t>(MAX_MEMORY_USAGE / imageUsage), MAX_ARRAY_SIZE);
-    
+
     vk::ImageCreateInfo createInfo(
         {},
         vk::ImageType::e2D,
         vk::Format::eR8G8B8A8Unorm,
-        {width, height, 1},
+        { width, height, 1 },
         mipLevels,
         arraySize,
         vk::SampleCountFlagBits::e1,
@@ -272,7 +328,7 @@ TextureArray &TextureManager::selectTextureArray(uint32_t width, uint32_t height
         &array.textureMemory,
         nullptr
     );
-    
+
     if (result != VK_SUCCESS) {
         throw std::runtime_error("Failed to create texture pool");
     }
@@ -313,9 +369,9 @@ TextureArray &TextureManager::selectTextureArray(uint32_t width, uint32_t height
         vk::CommandBufferLevel::ePrimary,
         1
     );
-    
+
     oneTimeCommands = device.allocateCommandBuffers(commandAllocInfo)[0];
-    oneTimeCommands.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    oneTimeCommands.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
     // Switch the entire array to shader read ready
     vk::ImageMemoryBarrier barrier(
@@ -341,7 +397,7 @@ TextureArray &TextureManager::selectTextureArray(uint32_t width, uint32_t height
         nullptr,
         1, &oneTimeCommands
     );
-    
+
     submitQueue.submit(1, &submitInfo, vk::Fence());
     submitQueue.waitIdle();
 
@@ -361,9 +417,9 @@ void TextureManager::beginTransfer(void *pixels, vk::DeviceSize size, TextureArr
         vk::CommandBufferLevel::ePrimary,
         1
     );
-    
+
     oneTimeCommands = device.allocateCommandBuffers(allocInfo)[0];
-    oneTimeCommands.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+    oneTimeCommands.begin({ vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
 
     // Prepare the array for writing to the slot
     vk::ImageMemoryBarrier barrier(
@@ -386,10 +442,11 @@ void TextureManager::beginTransfer(void *pixels, vk::DeviceSize size, TextureArr
     activeSlot = slot;
 }
 
-void TextureManager::transferIntoSlot(uint32_t offsetX, uint32_t offsetY, const TextureArray &array, size_t slot, uint32_t mipLevel) {
-    uint32_t factor = mipLevel > 0 ? (1 << (mipLevel-1)) : 0; 
-    uint32_t width = array.width >> factor;
-    uint32_t height = array.height >> factor;
+void TextureManager::transferIntoSlot(
+    uint32_t offsetX, uint32_t offsetY, const TextureArray &array, size_t slot, uint32_t mipLevel
+) {
+    uint32_t width = array.width >> mipLevel;
+    uint32_t height = array.height >> mipLevel;
 
     if (width < 1) {
         width = 1;
@@ -402,23 +459,46 @@ void TextureManager::transferIntoSlot(uint32_t offsetX, uint32_t offsetY, const 
     // Copy the buffer over
     vk::BufferImageCopy region(
         0, 0, 0,
-        { vk::ImageAspectFlagBits::eColor, mipLevel, static_cast<uint32_t>(slot), 1},
+        { vk::ImageAspectFlagBits::eColor, mipLevel, static_cast<uint32_t>(slot), 1 },
         { static_cast<int32_t>(offsetX), static_cast<int32_t>(offsetY), 0 },
         { width, height, 1 }
     );
 
-    oneTimeCommands.copyBufferToImage(stagingBuffer.buffer(), array.textureArray, vk::ImageLayout::eTransferDstOptimal, 1, &region);
+    oneTimeCommands.copyBufferToImage(
+        stagingBuffer.buffer(), array.textureArray, vk::ImageLayout::eTransferDstOptimal, 1, &region
+    );
 }
 
-void TextureManager::generateMipmaps(const TextureArray &array, size_t slot, uint32_t texWidth, uint32_t texHeight, uint32_t startLevel) {
-    // TODO: Generate MIPS
-    throw std::runtime_error("TODO: Generate MIPS");
+void
+TextureManager::transferIntoSlotAlt(const TextureArray &array, size_t slot, uint32_t mipLevel, vk::DeviceSize offset) {
+    uint32_t width = array.width >> mipLevel;
+    uint32_t height = array.height >> mipLevel;
+
+    if (width < 1) {
+        width = 1;
+    }
+
+    if (height < 1) {
+        height = 1;
+    }
+
+    // Copy the buffer over
+    vk::BufferImageCopy region(
+        offset, 0, 0,
+        { vk::ImageAspectFlagBits::eColor, mipLevel, static_cast<uint32_t>(slot), 1 },
+        { 0, 0, 0 },
+        { width, height, 1 }
+    );
+
+    oneTimeCommands.copyBufferToImage(
+        stagingBuffer.buffer(), array.textureArray, vk::ImageLayout::eTransferDstOptimal, 1, &region
+    );
 }
 
 void TextureManager::endTransfer() {
     // Transition slot back to be shader readable
     vk::ImageMemoryBarrier barrier(
-         vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
+        vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
         vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
         VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
         activeArray->textureArray,
@@ -441,7 +521,7 @@ void TextureManager::endTransfer() {
         nullptr,
         1, &oneTimeCommands
     );
-    
+
     submitQueue.submit(1, &submitInfo, vk::Fence());
     submitQueue.waitIdle();
 
@@ -451,8 +531,9 @@ void TextureManager::endTransfer() {
     activeArray = nullptr;
 }
 
-DescriptorPair TextureManager::createDescriptorSet(TextureArray &array, uint32_t samplerId, const vk::Sampler &sampler) {
-    std::array<vk::DescriptorSetLayout, 2> descriptorLayouts = {descriptorLayout, descriptorLayout};
+DescriptorPair
+TextureManager::createDescriptorSet(TextureArray &array, uint32_t samplerId, const vk::Sampler &sampler) {
+    std::array<vk::DescriptorSetLayout, 2> descriptorLayouts = { descriptorLayout, descriptorLayout };
     vk::DescriptorSetAllocateInfo descriptorAllocInfo(
         descriptorPool,
         2,
@@ -498,13 +579,14 @@ DescriptorPair TextureManager::createDescriptorSet(TextureArray &array, uint32_t
 
     device.updateDescriptorSets(descriptorWrites, {});
 
-    uint64_t descriptorSetId = ((uint64_t)array.arrayId) << 32 | samplerId;
+    uint64_t descriptorSetId = ((uint64_t) array.arrayId) << 32 | samplerId;
     descriptors[descriptorSetId] = descriptorPair;
     return descriptorPair;
 }
 
-vk::DescriptorSet TextureManager::getBinding(uint32_t arrayId, uint32_t samplerId, const vk::Sampler &sampler, bool mipmaps) {
-    uint64_t descriptorSetId = ((uint64_t)arrayId) << 32 | samplerId;
+vk::DescriptorSet
+TextureManager::getBinding(uint32_t arrayId, uint32_t samplerId, const vk::Sampler &sampler, bool mipmaps) {
+    uint64_t descriptorSetId = ((uint64_t) arrayId) << 32 | samplerId;
 
     DescriptorPair pair;
     if (!descriptors.count(descriptorSetId)) {
