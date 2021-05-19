@@ -30,6 +30,7 @@ typedef Utilities::Flags<ModifierFlag> Modifier;
 inline Modifier operator|(ModifierFlag value1, ModifierFlag value2) {
     return Modifier(value1) | value2;
 }
+
 inline Modifier operator~(ModifierFlag value1) {
     return ~Modifier(value1);
 }
@@ -188,21 +189,25 @@ typedef Utilities::Flags<MouseButton> MouseButtons;
 inline MouseButtons operator|(MouseButton value1, MouseButton value2) {
     return MouseButtons(value1) | value2;
 }
+
 inline MouseButtons operator~(MouseButton value1) {
     return ~MouseButtons(value1);
 }
 
 class InputManager {
-    public:
+public:
     typedef std::function<void(Key, Action, const Modifier &)> InputCallback;
     typedef std::function<void(wchar_t)> TextInputCallback;
-    typedef std::function<void(double x, double y, Action action, MouseButton button, Modifier modifiers)> MouseInputCallback;
+    typedef std::function<void(
+        double x, double y, Action action, MouseButton button, Modifier modifiers
+    )> MouseInputCallback;
     typedef std::function<void(double x, double y, MouseButtons buttons, Modifier modifiers)> MouseMoveCallback;
     typedef std::function<void(double scrollX, double scrollY)> MouseScrollCallback;
 
     InputManager() {
         instance = this;
     }
+
     InputManager(const InputManager &other) = delete;
     InputManager(InputManager &&other) = delete;
 
@@ -229,13 +234,13 @@ class InputManager {
     void addMouseMoveCallback(MouseMoveCallback inputCallback);
     void addScrollCallback(MouseScrollCallback inputCallback);
 
-    private:
-    GLFWwindow *window;
+private:
+    GLFWwindow *window { nullptr };
     // We will cheat, not every key will be tracked
     // only keys whose state has been checked will be
     std::unordered_map<Key, bool> keyStatus;
     std::unordered_map<Key, bool> pendingKeyStatus;
-    bool mouseCaptured;
+    bool mouseCaptured { false };
     std::vector<InputCallback> callbacks;
     std::vector<TextInputCallback> textCallbacks;
     std::vector<MouseInputCallback> mouseCallbacks;
@@ -251,11 +256,14 @@ class InputManager {
     void onCursorPosUpdate(double x, double y);
     void onScroll(double scrollX, double scrollY);
 
-    static void onRawKeyUpdate(GLFWwindow* window, int key, int scancode, int action, int modifiers);
-    static void onRawMouseUpdate(GLFWwindow* window, int button, int action, int modifiers);
-    static void onRawCharUpdate(GLFWwindow* window, uint32_t codepoint);
-    static void onRawCursorPosUpdate(GLFWwindow* window, double x, double y);
-    static void onRawScroll(GLFWwindow* window, double scrollX, double scrollY);
+    bool isMouseAvailable() const;
+    bool isKeyboardAvailable() const;
+
+    static void onRawKeyUpdate(GLFWwindow *window, int key, int scancode, int action, int modifiers);
+    static void onRawMouseUpdate(GLFWwindow *window, int button, int action, int modifiers);
+    static void onRawCharUpdate(GLFWwindow *window, uint32_t codepoint);
+    static void onRawCursorPosUpdate(GLFWwindow *window, double x, double y);
+    static void onRawScroll(GLFWwindow *window, double scrollX, double scrollY);
     static InputManager *instance;
 };
 

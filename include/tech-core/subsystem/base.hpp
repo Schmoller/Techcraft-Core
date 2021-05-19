@@ -2,9 +2,9 @@
 
 // Forward declarations
 namespace Engine::Subsystem {
-    class Subsystem;
-    template <typename T>
-    class SubsystemID;
+class Subsystem;
+template<typename T>
+class SubsystemID;
 }
 
 #include "tech-core/common_includes.hpp"
@@ -27,16 +27,24 @@ namespace _E = Engine;
  *     static const uint32_t id = ...;
  */
 class Subsystem {
-    public:
+public:
+    /**
+     * Initialises anything which requires access to the window object
+     * @param window The window object
+     */
+    virtual void initialiseWindow(GLFWwindow *window) {};
+
     /**
      * Initialise general resources
      */
-    virtual void initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) = 0;
+    virtual void
+    initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) = 0;
     /**
      * Initialise resources dependant on the swap chain.
      * This will be called any time the swap chain needs to be rebuilt
      */
-    virtual void initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) = 0;
+    virtual void
+    initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) = 0;
     /**
      * Clean up general resources
      */
@@ -52,18 +60,24 @@ class Subsystem {
     virtual void writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t activeImage) = 0;
 
     /**
+     * Executed at the start of a frame
+     */
+    virtual void beginFrame() {};
+
+    /**
      * Prepares for a frame to be executed
      */
     virtual void prepareFrame(uint32_t activeImage) {};
+
     /**
      * Handles any cleanup after a frame
      */
     virtual void afterFrame(uint32_t activeImage) {};
 };
 
-template <typename T>
+template<typename T>
 class SubsystemID {
-    public:
+public:
     // SubsystemID(uint32_t id);
 };
 

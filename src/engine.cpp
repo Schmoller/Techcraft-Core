@@ -152,6 +152,7 @@ void RenderEngine::initVulkan() {
     createCommandBuffers();
 
     for (auto &subsystem : orderedSubsystems) {
+        subsystem->initialiseWindow(window);
         subsystem->initialiseResources(device->device, physicalDevice, *this);
         subsystem->initialiseSwapChainResources(device->device, *this, swapChain->images.size());
     }
@@ -486,6 +487,10 @@ bool RenderEngine::beginFrame() {
     taskManager->processActions();
     inputManager.updateStates();
     glfwPollEvents();
+
+    for (auto &subsystem : orderedSubsystems) {
+        subsystem->beginFrame();
+    }
 
     return true;
 }

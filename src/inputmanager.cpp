@@ -1,4 +1,6 @@
 #include "tech-core/inputmanager.hpp"
+#include <imgui.h>
+
 namespace Engine {
 
 InputManager *InputManager::instance = nullptr;
@@ -22,9 +24,17 @@ bool InputManager::getKeyStatus(Key key) {
     int code = static_cast<int>(key);
     if (code & MOUSE_BIT) {
         code -= MOUSE_BIT;
-        state = glfwGetMouseButton(window, code) == GLFW_PRESS;
+        if (isMouseAvailable()) {
+            state = glfwGetMouseButton(window, code) == GLFW_PRESS;
+        } else {
+            state = false;
+        }
     } else {
-        state = glfwGetKey(window, code) == GLFW_PRESS;
+        if (isKeyboardAvailable()) {
+            state = glfwGetKey(window, code) == GLFW_PRESS;
+        } else {
+            state = false;
+        }
     }
     pendingKeyStatus[key] = state;
     return state;
@@ -60,13 +70,22 @@ bool InputManager::isPressedImmediate(Key key) {
     int code = static_cast<int>(key);
     if (code & MOUSE_BIT) {
         code -= MOUSE_BIT;
-        return glfwGetMouseButton(window, code) == GLFW_PRESS;
+        if (isMouseAvailable()) {
+            return glfwGetMouseButton(window, code) == GLFW_PRESS;
+        } else {
+            return false;
+        }
     } else {
-        return glfwGetKey(window, code) == GLFW_PRESS;
+        if (isKeyboardAvailable()) {
+            return glfwGetKey(window, code) == GLFW_PRESS;
+        } else {
+            return false;
+        }
     }
 }
 
 void InputManager::updateStates() {
+
     // Push all pending states to last states
     for (auto state : pendingKeyStatus) {
         keyStatus[state.first] = state.second;
@@ -93,15 +112,15 @@ glm::vec2 InputManager::getMousePos() {
     double x, y;
     glfwGetCursorPos(window, &x, &y);
 
-    return glm::vec2((float)x, (float)y);   
+    return glm::vec2((float) x, (float) y);
 }
 
 glm::vec2 InputManager::getMouseDelta() {
-    if (mouseCaptured) {
+    if (mouseCaptured && isMouseAvailable()) {
         double x, y;
         glfwGetCursorPos(window, &x, &y);
 
-        return glm::vec2((float)x, (float)y);   
+        return glm::vec2((float) x, (float) y);
     } else {
         return {};
     }
@@ -239,7 +258,7 @@ void InputManager::onCursorPosUpdate(double x, double y) {
     if (mouseMoveCallbacks.empty()) {
         return;
     }
-    
+
     MouseButtons buttons;
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS) {
@@ -261,16 +280,19 @@ void InputManager::onCursorPosUpdate(double x, double y) {
     }
 
     Modifier mappedModifiers;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS ||
+        glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS) {
         mappedModifiers |= ModifierFlag::Shift;
     }
-    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS ||
+        glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS) {
         mappedModifiers |= ModifierFlag::Control;
     }
     if (glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS) {
         mappedModifiers |= ModifierFlag::Alt;
     }
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SUPER) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SUPER) == GLFW_PRESS) {
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SUPER) == GLFW_PRESS ||
+        glfwGetKey(window, GLFW_KEY_RIGHT_SUPER) == GLFW_PRESS) {
         mappedModifiers |= ModifierFlag::Super;
     }
 
@@ -289,23 +311,40 @@ void InputManager::onScroll(double scrollX, double scrollY) {
     }
 }
 
-void InputManager::onRawKeyUpdate(GLFWwindow* window, int key, int scancode, int action, int modifiers) {
+void InputManager::onRawKeyUpdate(GLFWwindow *window, int key, int scancode, int action, int modifiers) {
     instance->onKeyUpdate(key, scancode, action, modifiers);
 }
 
-void InputManager::onRawMouseUpdate(GLFWwindow* window, int button, int action, int modifiers) {
+void InputManager::onRawMouseUpdate(GLFWwindow *window, int button, int action, int modifiers) {
     instance->onMouseUpdate(button, action, modifiers);
 }
 
-void InputManager::onRawCharUpdate(GLFWwindow* window, uint32_t codepoint) {
+void InputManager::onRawCharUpdate(GLFWwindow *window, uint32_t codepoint) {
     instance->onCharUpdate(static_cast<wchar_t>(codepoint));
 }
 
-void InputManager::onRawCursorPosUpdate(GLFWwindow* window, double x, double y) {
+void InputManager::onRawCursorPosUpdate(GLFWwindow *window, double x, double y) {
     instance->onCursorPosUpdate(x, y);
 }
-void InputManager::onRawScroll(GLFWwindow* window, double scrollX, double scrollY) {
+
+void InputManager::onRawScroll(GLFWwindow *window, double scrollX, double scrollY) {
     instance->onScroll(scrollX, scrollY);
+}
+
+bool InputManager::isMouseAvailable() const {
+    if (ImGui::GetCurrentContext()) {
+        return !ImGui::GetIO().WantCaptureMouse;
+    }
+
+    return true;
+}
+
+bool InputManager::isKeyboardAvailable() const {
+    if (ImGui::GetCurrentContext()) {
+        return !ImGui::GetIO().WantCaptureKeyboard;
+    }
+
+    return true;
 }
 
 }

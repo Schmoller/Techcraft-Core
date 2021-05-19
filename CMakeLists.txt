@@ -18,7 +18,8 @@ include_directories(./include ./src)
 # Included libraries
 include_directories(./libs/stb)
 include_directories(./libs/vk-mem-alloc/include)
+include_directories(./libs/imgui)
 
 # Target definition
-add_library(tech ${ALL_SRC})
+add_library(tech ${ALL_SRC} ./libs/imgui/imgui.cpp ./libs/imgui/imgui_demo.cpp ./libs/imgui/imgui_draw.cpp ./libs/imgui/imgui_tables.cpp ./libs/imgui/imgui_widgets.cpp ./libs/imgui/backends/imgui_impl_glfw.cpp)
 target_link_libraries(tech glfw ${Vulkan_LIBRARIES})

@@ -65,6 +65,8 @@ public:
 
     PipelineBuilder &withFillMode(FillMode);
 
+    PipelineBuilder &withDynamicState(vk::DynamicState);
+
     std::unique_ptr<Pipeline> build();
 
 private:
@@ -78,6 +80,7 @@ private:
     std::string fragmentShaderPath;
     std::vector<vk::PushConstantRange> pushConstants;
     std::vector<vk::DescriptorSetLayout> descriptorSets;
+    std::vector<vk::DynamicState> dynamicState;
     bool depthTestEnable;
     bool depthWriteEnable;
     std::vector<vk::VertexInputBindingDescription> vertexBindings;

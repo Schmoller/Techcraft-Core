@@ -100,6 +100,11 @@ PipelineBuilder &PipelineBuilder::withFillMode(FillMode mode) {
     return *this;
 }
 
+PipelineBuilder &PipelineBuilder::withDynamicState(vk::DynamicState state) {
+    dynamicState.push_back(state);
+    return *this;
+}
+
 std::unique_ptr<Pipeline> PipelineBuilder::build() {
     // Check for valid settings
     if (vertexShaderPath.empty()) {
@@ -263,6 +268,10 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
         1.0f
     );
 
+    vk::PipelineDynamicStateCreateInfo dynamicStateInfo(
+        {}, vkUseArray(dynamicState)
+    );
+
     vk::GraphicsPipelineCreateInfo pipelineInfo(
         {},
         vkUseArray(shaderStages),
@@ -274,7 +283,7 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
         &multisampling,
         &depthStencil,
         &colorBlending,
-        nullptr,
+        &dynamicStateInfo,
         pipelineLayout,
         renderPass,
         0,

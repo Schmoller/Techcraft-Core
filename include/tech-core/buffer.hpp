@@ -13,13 +13,13 @@
 // #define DEBUG_BUFFER
 
 namespace vk {
-    enum class MemoryUsage {
-        eUnknown = VMA_MEMORY_USAGE_UNKNOWN,
-        eGPUOnly = VMA_MEMORY_USAGE_GPU_ONLY,
-        eCPUOnly = VMA_MEMORY_USAGE_CPU_ONLY,
-        eCPUToGPU = VMA_MEMORY_USAGE_CPU_TO_GPU,
-        eGPUToCPU = VMA_MEMORY_USAGE_GPU_TO_CPU,
-    };
+enum class MemoryUsage {
+    eUnknown = VMA_MEMORY_USAGE_UNKNOWN,
+    eGPUOnly = VMA_MEMORY_USAGE_GPU_ONLY,
+    eCPUOnly = VMA_MEMORY_USAGE_CPU_ONLY,
+    eCPUToGPU = VMA_MEMORY_USAGE_CPU_TO_GPU,
+    eGPUToCPU = VMA_MEMORY_USAGE_GPU_TO_CPU,
+};
 }
 
 namespace Engine {
@@ -36,7 +36,7 @@ struct BufferFence {
 
 class BufferManager {
     friend class RenderEngine;
-    public:
+public:
     BufferManager(VulkanDevice &device);
 
     /**
@@ -84,7 +84,7 @@ class BufferManager {
      */
     void release(std::unique_ptr<Buffer> &buffer, vk::UniqueFence onlyAfter);
 
-    private:
+private:
     void processActions();
 
     // Provided fields
@@ -110,15 +110,19 @@ class BufferManager {
 };
 
 class Buffer {
-    public:
+public:
     Buffer();
     Buffer(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage);
     virtual ~Buffer();
 
-    virtual void allocate(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage);
+    vk::DeviceSize getSize() const { return size; }
+
+    virtual void
+    allocate(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage);
     void destroy();
 
     void copyIn(const void *data, vk::DeviceSize offset, vk::DeviceSize size);
+
     inline void copyIn(const void *data, vk::DeviceSize size = VK_WHOLE_SIZE) {
         if (size == VK_WHOLE_SIZE) {
             size = this->size;
@@ -128,6 +132,7 @@ class Buffer {
     }
 
     void copyOut(void *dest, vk::DeviceSize offset, vk::DeviceSize size);
+
     inline void copyOut(void *dest, vk::DeviceSize size = VK_WHOLE_SIZE) {
         if (size == VK_WHOLE_SIZE) {
             size = this->size;
@@ -136,10 +141,15 @@ class Buffer {
         copyOut(dest, 0, size);
     }
 
-    void transfer(VkCommandBuffer commandBuffer, Buffer &target, vk::DeviceSize srcOffset, vk::DeviceSize destOffset, vk::DeviceSize size);
+    void transfer(
+        VkCommandBuffer commandBuffer, Buffer &target, vk::DeviceSize srcOffset, vk::DeviceSize destOffset,
+        vk::DeviceSize size
+    );
+
     inline void transfer(VkCommandBuffer commandBuffer, Buffer &target, vk::DeviceSize offset, vk::DeviceSize size) {
         transfer(commandBuffer, target, offset, 0, size);
     }
+
     inline void transfer(VkCommandBuffer commandBuffer, Buffer &target, vk::DeviceSize size = VK_WHOLE_SIZE) {
         if (size == VK_WHOLE_SIZE) {
             size = this->size;
@@ -174,11 +184,11 @@ class Buffer {
         return &internalBuffer;
     }
 
-    protected:
+protected:
     VkDeviceSize size;
     vk::Buffer internalBuffer;
 
-    private:
+private:
     VmaAllocator allocator;
     VmaAllocation allocation;
 };
@@ -190,18 +200,21 @@ struct FreeSpace {
 };
 
 class DivisibleBuffer : public Buffer {
-    public:
+public:
     DivisibleBuffer();
-    DivisibleBuffer(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage);
+    DivisibleBuffer(
+        VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage
+    );
     virtual ~DivisibleBuffer();
 
-    virtual void allocate(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage);
+    virtual void
+    allocate(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage);
 
     /**
      * Releases a previously held region of the buffer
      */
     void freeSection(vk::DeviceSize offset, vk::DeviceSize size);
-    template <typename T>
+    template<typename T>
     void freeSection(vk::DeviceSize offset);
 
     /**
@@ -209,10 +222,10 @@ class DivisibleBuffer : public Buffer {
      * @returns The offset in the buffer. Returns ALLOCATION_FAILED if allocation failed
      */
     vk::DeviceSize allocateSection(vk::DeviceSize size);
-    template <typename T>
+    template<typename T>
     vk::DeviceSize allocateSection();
 
-    private:
+private:
     std::list<FreeSpace> freeSpaceTracking;
 };
 
