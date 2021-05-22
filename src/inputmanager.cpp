@@ -115,6 +115,10 @@ glm::vec2 InputManager::getMousePos() {
     return glm::vec2((float) x, (float) y);
 }
 
+void InputManager::setMousePos(const glm::vec2 &pos) {
+    glfwSetCursorPos(window, pos.x, pos.y);
+}
+
 glm::vec2 InputManager::getMouseDelta() {
     if (mouseCaptured && isMouseAvailable()) {
         double x, y;

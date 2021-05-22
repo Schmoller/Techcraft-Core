@@ -224,6 +224,7 @@ public:
     void releaseMouse();
 
     glm::vec2 getMousePos();
+    void setMousePos(const glm::vec2 &pos);
     glm::vec2 getMouseDelta();
 
     InputManager &operator=(InputManager &other) = delete;
