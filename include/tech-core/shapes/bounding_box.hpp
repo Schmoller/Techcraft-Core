@@ -1,4 +1,5 @@
 #pragma once
+
 #include <glm/glm.hpp>
 
 namespace Engine {
@@ -16,7 +17,7 @@ enum HitAxis {
 };
 
 class BoundingBox {
-    public:
+public:
     float xMin;
     float yMin;
     float zMin;
@@ -44,7 +45,7 @@ class BoundingBox {
 
     BoundingBox expand(float x, float y, float z) const;
     BoundingBox expand(float all) const;
-    
+
     BoundingBox expandSkew(float x, float y, float z) const;
     BoundingBox &expandSkewSelf(float x, float y, float z);
     BoundingBox shrinkSkew(float x, float y, float z) const;
@@ -56,14 +57,18 @@ class BoundingBox {
     bool intersects(const BoundingBox &other) const;
     bool intersects(const BoundingSphere &other) const;
     bool intersects(const Frustum &other) const;
+    bool intersectsRay(const glm::vec3 &origin, const glm::vec3 &direction) const;
+    bool intersectsRay(const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &enter, glm::vec3 &exit) const;
 
     /**
      * Checks for an intersection of this bounding box by an infinitely long ray.
      * This doesnt need to check the end of the ray because the use case already
      * limits the test.
      */
-    bool intersectedBy(const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection, HitAxis &outHitFace, float *outDistance = nullptr);
-    
+    bool intersectedBy(
+        const glm::vec3 &rayOrigin, const glm::vec3 &rayDirection, HitAxis &outHitFace, float *outDistance = nullptr
+    );
+
     glm::vec3 center() const;
     float width() const;
     float depth() const;

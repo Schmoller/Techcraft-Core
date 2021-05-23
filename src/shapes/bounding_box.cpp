@@ -260,8 +260,8 @@ bool BoundingBox::intersects(const BoundingSphere &other) const {
 
 bool BoundingBox::intersects(const Frustum &other) const {
     return other.intersects(
-        {xMin, yMin, zMin},
-        {xMax, yMax, zMax}
+        { xMin, yMin, zMin },
+        { xMax, yMax, zMax }
     );
 }
 
@@ -343,6 +343,76 @@ float BoundingBox::height() const {
     return (zMax - zMin);
 }
 
+bool BoundingBox::intersectsRay(const glm::vec3 &origin, const glm::vec3 &direction) const {
+    double minIntersect = -std::numeric_limits<double>::infinity();
+    double maxIntersect = std::numeric_limits<double>::infinity();
+
+    if (direction.x != 0.0) {
+        double minXIntersect = (xMin - origin.x) / direction.x;
+        double maxXIntersect = (xMax - origin.x) / direction.x;
+
+        minIntersect = std::max(minIntersect, std::min(minXIntersect, maxXIntersect));
+        maxIntersect = std::min(maxIntersect, std::max(minXIntersect, maxXIntersect));
+    }
+
+    if (direction.y != 0.0) {
+        double minYIntersect = (yMin - origin.y) / direction.y;
+        double maxYIntersect = (yMax - origin.y) / direction.y;
+
+        minIntersect = std::max(minIntersect, std::min(minYIntersect, maxYIntersect));
+        maxIntersect = std::min(maxIntersect, std::max(minYIntersect, maxYIntersect));
+    }
+
+    if (direction.z != 0.0) {
+        double minZIntersect = (zMin - origin.z) / direction.z;
+        double maxZIntersect = (zMax - origin.z) / direction.z;
+
+        minIntersect = std::max(minIntersect, std::min(minZIntersect, maxZIntersect));
+        maxIntersect = std::min(maxIntersect, std::max(minZIntersect, maxZIntersect));
+    }
+
+    return maxIntersect >= minIntersect;
+}
+
+bool BoundingBox::intersectsRay(
+    const glm::vec3 &origin, const glm::vec3 &direction, glm::vec3 &enter, glm::vec3 &exit
+) const {
+    double minIntersect = -std::numeric_limits<double>::infinity();
+    double maxIntersect = std::numeric_limits<double>::infinity();
+
+    if (direction.x != 0.0) {
+        double minXIntersect = (xMin - origin.x) / direction.x;
+        double maxXIntersect = (xMax - origin.x) / direction.x;
+
+        minIntersect = std::max(minIntersect, std::min(minXIntersect, maxXIntersect));
+        maxIntersect = std::min(maxIntersect, std::max(minXIntersect, maxXIntersect));
+    }
+
+    if (direction.y != 0.0) {
+        double minYIntersect = (yMin - origin.y) / direction.y;
+        double maxYIntersect = (yMax - origin.y) / direction.y;
+
+        minIntersect = std::max(minIntersect, std::min(minYIntersect, maxYIntersect));
+        maxIntersect = std::min(maxIntersect, std::max(minYIntersect, maxYIntersect));
+    }
+
+    if (direction.z != 0.0) {
+        double minZIntersect = (zMin - origin.z) / direction.z;
+        double maxZIntersect = (zMax - origin.z) / direction.z;
+
+        minIntersect = std::max(minIntersect, std::min(minZIntersect, maxZIntersect));
+        maxIntersect = std::min(maxIntersect, std::max(minZIntersect, maxZIntersect));
+    }
+
+    if (maxIntersect >= minIntersect) {
+        enter = origin + direction * static_cast<float>(std::max(minIntersect, 0.0));
+        exit = origin + direction * static_cast<float>(std::max(maxIntersect, 0.0));
+
+        return true;
+    } else {
+        return false;
+    }
+}
 
 
 }
