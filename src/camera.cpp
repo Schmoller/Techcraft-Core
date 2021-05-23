@@ -1,3 +1,5 @@
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include "tech-core/camera.hpp"
 
 namespace Engine {
@@ -110,6 +112,21 @@ void Camera::updateProjection() {
 
 const Frustum &Camera::getFrustum() const {
     return frustum;
+}
+
+void Camera::rayFromCoord(const glm::vec2 &screenCoord, glm::vec3 &worldOrigin, glm::vec3 &worldDirection) const {
+    auto invViewProj = glm::inverse(uniform.proj * uniform.view);
+    glm::vec4 screenCoordNear { screenCoord.x, screenCoord.y, 0, 1 };
+    glm::vec4 screenCoordFar { screenCoord.x, screenCoord.y, 1, 1 };
+
+    auto worldNear = invViewProj * screenCoordNear;
+    worldNear /= worldNear.w;
+    auto worldFar = invViewProj * screenCoordFar;
+    worldFar /= worldFar.w;
+
+    worldOrigin = { worldNear.x, worldNear.y, worldNear.z };
+    glm::vec3 end = { worldFar.x, worldFar.y, worldFar.z };
+    worldDirection = glm::normalize(end - worldOrigin);
 }
 
 glm::vec3 toForwardVec(float yaw, float pitch) {
