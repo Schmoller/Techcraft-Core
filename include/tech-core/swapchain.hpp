@@ -1,13 +1,12 @@
 #pragma once
 
-#include "tech-core/device.hpp"
-
+#include "forward.hpp"
 #include <vulkan/vulkan.hpp>
 
 namespace Engine {
 
 class SwapChain {
-    public:
+public:
     SwapChain(vk::PhysicalDevice physicalDevice, VulkanDevice &device, vk::SurfaceKHR surface, vk::Extent2D size);
     ~SwapChain();
 
@@ -22,7 +21,7 @@ class SwapChain {
     std::vector<vk::ImageView> imageViews;
     vk::Format imageFormat;
 
-    private:
+private:
     // Provided
     vk::PhysicalDevice physicalDevice;
     vk::SurfaceKHR surface;

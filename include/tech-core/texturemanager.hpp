@@ -1,6 +1,7 @@
 #ifndef TEXTUREMANAGER_HPP
 #define TEXTUREMANAGER_HPP
 
+#include "forward.hpp"
 #include "common_includes.hpp"
 #include "image.hpp"
 #include "tech-core/buffer.hpp"
@@ -17,10 +18,6 @@
 */
 
 namespace Engine {
-
-// Forward declarations
-class TextureBuilder;
-class TextureManager;
 
 struct TextureArray {
     TextureArray(

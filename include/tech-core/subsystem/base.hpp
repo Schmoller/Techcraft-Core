@@ -7,12 +7,9 @@ template<typename T>
 class SubsystemID;
 }
 
+#include "tech-core/forward.hpp"
 #include "tech-core/common_includes.hpp"
-#include "tech-core/camera.hpp"
 #include <vk_mem_alloc.h>
-#include "tech-core/buffer.hpp"
-#include "tech-core/texturemanager.hpp"
-#include "tech-core/engine.hpp"
 
 namespace Engine::Subsystem {
 namespace _E = Engine;

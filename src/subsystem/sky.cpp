@@ -1,4 +1,5 @@
 #include "tech-core/subsystem/sky.hpp"
+#include "tech-core/engine.hpp"
 #include "vulkanutils.hpp"
 
 #include <iostream>
@@ -12,14 +13,14 @@ const SubsystemID<SkySubsystem> SkySubsystem::ID;
 SkySubsystem::SkySubsystem() {
     sky = {
         0.01433f,// sunAngularDiameter
-        {1, 0, 0},// sunAngle
+        { 1, 0, 0 },// sunAngle
     };
 }
 
 void SkySubsystem::setTimeOfDay(float timePercent) {
     float sunAngle = fmodf(3.14159f * 2 * timePercent, 3.14159f * 2);
 
-    sky.sunDirection = {cos(sunAngle), 0, sin(sunAngle)};
+    sky.sunDirection = { cos(sunAngle), 0, sin(sunAngle) };
 }
 
 void SkySubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
@@ -37,20 +38,23 @@ void SkySubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice phy
             vk::ShaderStageFlagBits::eFragment
         }
     }};
-    
-    descriptorLayout = device.createDescriptorSetLayout({
-        {}, vkUseArray(bindings)
-    });
+
+    descriptorLayout = device.createDescriptorSetLayout(
+        {
+            {}, vkUseArray(bindings)
+        }
+    );
 }
 
 void SkySubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
     skyBuffers.resize(swapChainImages);
     for (uint32_t i = 0; i < swapChainImages; ++i) {
-        skyBuffers[i] = std::move(engine.getBufferManager().aquire(
-            sizeof(SkyUBO),
-            vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryUsage::eCPUToGPU
-        ));
+        skyBuffers[i] = std::move(
+            engine.getBufferManager().aquire(
+                sizeof(SkyUBO),
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryUsage::eCPUToGPU
+            ));
     }
 
     // Descriptor pool for allocating the descriptors
@@ -65,19 +69,23 @@ void SkySubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEng
         }
     }};
 
-    descriptorPool = device.createDescriptorPool({
-        {},
-        swapChainImages,
-        vkUseArray(poolSizes)
-    });
+    descriptorPool = device.createDescriptorPool(
+        {
+            {},
+            swapChainImages,
+            vkUseArray(poolSizes)
+        }
+    );
 
     // Descriptor sets
     std::vector<vk::DescriptorSetLayout> layouts(swapChainImages, descriptorLayout);
 
-    descriptorSets = device.allocateDescriptorSets({
-        descriptorPool,
-        vkUseArray(layouts)
-    });
+    descriptorSets = device.allocateDescriptorSets(
+        {
+            descriptorPool,
+            vkUseArray(layouts)
+        }
+    );
 
     // Assign buffers to DS'
     for (uint32_t imageIndex = 0; imageIndex < swapChainImages; ++imageIndex) {

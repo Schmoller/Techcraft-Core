@@ -1,6 +1,7 @@
 #ifndef PIPELINES_HPP
 #define PIPELINES_HPP
 
+#include "forward.hpp"
 #include <unordered_map>
 #include <string>
 
@@ -29,8 +30,6 @@ enum class FillMode {
     Wireframe,
     Point
 };
-
-class Pipeline;
 
 class PipelineBuilder {
     friend class RenderEngine;

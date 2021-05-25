@@ -1,9 +1,11 @@
 #pragma once
 
-#include "device.hpp"
+#include "forward.hpp"
+#include <vulkan/vulkan.hpp>
 
 #include <functional>
 #include <deque>
+#include <memory>
 
 namespace Engine {
 
@@ -12,8 +14,8 @@ class Task;
 
 class TaskManager {
     friend class RenderEngine;
-    public:
-    TaskManager(VulkanDevice &device);
+public:
+    explicit TaskManager(VulkanDevice &device);
     std::unique_ptr<Task> createTask();
 
     /**
@@ -24,7 +26,7 @@ class TaskManager {
      */
     vk::Fence submitTask(std::unique_ptr<Task> task);
 
-    private:
+private:
 
     void processActions();
 
@@ -42,21 +44,24 @@ class TaskManager {
 class Task {
     friend class TaskManager;
 
-    public:
+public:
     ~Task();
 
     /**
      * Executes some function in the context of the command buffer
      */
     void execute(std::function<void(vk::CommandBuffer)>);
-    void addMemoryBarrier(vk::PipelineStageFlags fromStage, vk::AccessFlags fromAccess, vk::PipelineStageFlags toStage, vk::AccessFlags toAccess);
+    void addMemoryBarrier(
+        vk::PipelineStageFlags fromStage, vk::AccessFlags fromAccess, vk::PipelineStageFlags toStage,
+        vk::AccessFlags toAccess
+    );
 
     /**
      * Adds some function to be executed after the task has successfully been run
      */
     void executeWhenComplete(std::function<void()>);
 
-    private:
+private:
     Task(vk::UniqueCommandBuffer, vk::UniqueFence, TaskManager &);
 
     void executeFinishCallbacks();

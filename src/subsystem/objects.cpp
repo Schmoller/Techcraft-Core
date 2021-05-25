@@ -1,4 +1,5 @@
 #include "tech-core/subsystem/objects.hpp"
+#include "tech-core/engine.hpp"
 #include "vulkanutils.hpp"
 
 #include <functional>
@@ -26,9 +27,8 @@ struct ObjectUBO {
 
 // ObjectBuilder
 ObjectBuilder::ObjectBuilder(ObjectAllocator allocator)
-    : allocator(allocator)
-{}
-    
+    : allocator(allocator) {}
+
 ObjectBuilder &ObjectBuilder::withMesh(const _E::Mesh &mesh) {
     this->mesh = &mesh;
     return *this;
@@ -38,6 +38,7 @@ ObjectBuilder &ObjectBuilder::withMaterial(const _E::Material &material) {
     this->material = &material;
     return *this;
 }
+
 ObjectBuilder &ObjectBuilder::withMesh(const _E::Mesh *mesh) {
     this->mesh = mesh;
     return *this;
@@ -149,7 +150,7 @@ std::shared_ptr<Object> ObjectSubsystem::allocate() {
     std::cout << "Allocate object:" << std::endl;
 
     auto object = std::make_shared<Object>(objectId);
-    
+
     // Find the next available slot
     bool allocated = false;
 
@@ -159,7 +160,7 @@ std::shared_ptr<Object> ObjectSubsystem::allocate() {
         if (offset != ALLOCATION_FAILED) {
             allocated = true;
             std::cout << "Used a slot in buffer " << buffer.id << std::endl;
-            object->setObjCoord({buffer.id, offset});
+            object->setObjCoord({ buffer.id, offset });
             break;
         }
     }
@@ -176,12 +177,12 @@ std::shared_ptr<Object> ObjectSubsystem::allocate() {
         if (offset == ALLOCATION_FAILED) {
             throw std::runtime_error("Out of object slots");
         }
-        object->setObjCoord({buffer.id, offset});
+        object->setObjCoord({ buffer.id, offset });
     }
 
     // Mark it as dirty so the data is copied across before rendering
     object->setDirty();
-    
+
     objects[objectId] = object;
     return object;
 }
@@ -193,11 +194,13 @@ ObjectSubsystem::ObjectBuffer &ObjectSubsystem::newObjectBuffer() {
         vk::MemoryUsage::eCPUToGPU
     );
 
-    auto descriptorSets = device.allocateDescriptorSets({
-        objectDSPool,
-        1,
-        &objectDSL
-    });
+    auto descriptorSets = device.allocateDescriptorSets(
+        {
+            objectDSPool,
+            1,
+            &objectDSL
+        }
+    );
 
     auto objectDS = descriptorSets[0];
 
@@ -230,7 +233,7 @@ ObjectSubsystem::ObjectBuffer &ObjectSubsystem::newObjectBuffer() {
     return buffer;
 }
 
-void ObjectSubsystem::updateObjectBuffers(bool force)  {
+void ObjectSubsystem::updateObjectBuffers(bool force) {
     for (auto &pair : objects) {
         auto &obj = *pair.second;
 
@@ -288,7 +291,8 @@ void ObjectSubsystem::updateObjectBuffers(bool force)  {
     // TODO: Buffer flushing. Make these buffers not host coherent and flush only changed regions
 }
 
-void ObjectSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
+void
+ObjectSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
     // Object shader layout contains the camera UBO
     std::array<vk::DescriptorSetLayoutBinding, 1> bindings = {{
         {
@@ -298,10 +302,12 @@ void ObjectSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice 
             vk::ShaderStageFlagBits::eVertex
         }
     }};
-    
-    cameraAndModelDSL = device.createDescriptorSetLayout({
-        {}, vkUseArray(bindings)
-    });
+
+    cameraAndModelDSL = device.createDescriptorSetLayout(
+        {
+            {}, vkUseArray(bindings)
+        }
+    );
 
     // Holds the object information
     std::array<vk::DescriptorSetLayoutBinding, 1> objectBinding = {{
@@ -312,10 +318,12 @@ void ObjectSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice 
             vk::ShaderStageFlagBits::eVertex
         }
     }};
-    
-    objectDSL = device.createDescriptorSetLayout({
-        {}, vkUseArray(objectBinding)
-    });
+
+    objectDSL = device.createDescriptorSetLayout(
+        {
+            {}, vkUseArray(objectBinding)
+        }
+    );
 
     size_t minimumAlignment = physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
     uboBufferAlignment = sizeof(ObjectUBO);
@@ -330,7 +338,8 @@ void ObjectSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice 
     globalLight = engine.getSubsystem(LightSubsystem::ID);
 }
 
-void ObjectSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
+void
+ObjectSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
     // Descriptor pool for allocating the descriptors
     std::array<vk::DescriptorPoolSize, 1> poolSizes = {{
         {
@@ -339,19 +348,23 @@ void ObjectSubsystem::initialiseSwapChainResources(vk::Device device, _E::Render
         }
     }};
 
-    descriptorPool = device.createDescriptorPool({
-        {},
-        swapChainImages,
-        vkUseArray(poolSizes)
-    });
+    descriptorPool = device.createDescriptorPool(
+        {
+            {},
+            swapChainImages,
+            vkUseArray(poolSizes)
+        }
+    );
 
     // Descriptor sets
     std::vector<vk::DescriptorSetLayout> layouts(swapChainImages, cameraAndModelDSL);
 
-    cameraAndModelDS = device.allocateDescriptorSets({
-        descriptorPool,
-        vkUseArray(layouts)
-    });
+    cameraAndModelDS = device.allocateDescriptorSets(
+        {
+            descriptorPool,
+            vkUseArray(layouts)
+        }
+    );
 
     // Assign buffers to DS'
     for (uint32_t imageIndex = 0; imageIndex < swapChainImages; ++imageIndex) {
@@ -399,11 +412,13 @@ void ObjectSubsystem::initObjectBufferDSs() {
         }
     }};
 
-    objectDSPool = device.createDescriptorPool({
-        {},
-        maxObjectBuffers,
-        vkUseArray(poolSizes)
-    });
+    objectDSPool = device.createDescriptorPool(
+        {
+            {},
+            maxObjectBuffers,
+            vkUseArray(poolSizes)
+        }
+    );
 
     // Re-allocate descriptor sets
     if (objectBuffers.empty()) {
@@ -413,10 +428,12 @@ void ObjectSubsystem::initObjectBufferDSs() {
 
     std::vector<vk::DescriptorSetLayout> layouts(objectBuffers.size(), objectDSL);
 
-    auto sets = device.allocateDescriptorSets({
-        objectDSPool,
-        vkUseArray(layouts)
-    });
+    auto sets = device.allocateDescriptorSets(
+        {
+            objectDSPool,
+            vkUseArray(layouts)
+        }
+    );
 
     // Assign buffers to DS'
     for (uint32_t bufferIndex = 0; bufferIndex < objectBuffers.size(); ++bufferIndex) {
@@ -427,7 +444,7 @@ void ObjectSubsystem::initObjectBufferDSs() {
             0,
             sizeof(ObjectUBO)
         );
-        
+
         std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {
             vk::WriteDescriptorSet(
                 sets[bufferIndex],

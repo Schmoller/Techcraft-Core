@@ -2,10 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-#include "tech-core/pipeline.hpp"
-#include "tech-core/buffer.hpp"
-#include "tech-core/task.hpp"
-#include "tech-core/texturemanager.hpp"
+#include "tech-core/forward.hpp"
 #include "common.hpp"
 
 #include <memory>
@@ -43,7 +40,7 @@ struct FreeSpace {
 };
 
 class GuiManager {
-    public:
+public:
     GuiManager(
         vk::Device device,
         Engine::TextureManager &textureManager,
@@ -64,7 +61,7 @@ class GuiManager {
 
     void render(vk::CommandBuffer commandBuffer, vk::CommandBufferInheritanceInfo &cbInheritance);
 
-    private:
+private:
     void renderComponent(BaseComponent *component, ComponentMapping &mapping);
     void markComponentDirty(uint16_t id);
     void processAnchors(BaseComponent *component);

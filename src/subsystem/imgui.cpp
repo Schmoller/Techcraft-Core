@@ -1,4 +1,7 @@
 #include "tech-core/subsystem/imgui.hpp"
+#include "tech-core/engine.hpp"
+#include "tech-core/task.hpp"
+#include "tech-core/pipeline.hpp"
 #include "vulkanutils.hpp"
 
 #include <imgui.h>

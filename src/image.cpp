@@ -4,6 +4,7 @@
 #include "tech-core/buffer.hpp"
 #include "tech-core/engine.hpp"
 #include "tech-core/task.hpp"
+#include "tech-core/device.hpp"
 #include "vulkanutils.hpp"
 
 namespace Engine {

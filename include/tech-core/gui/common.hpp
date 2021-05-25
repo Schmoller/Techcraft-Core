@@ -1,6 +1,6 @@
 #pragma once
 
-#include "tech-core/texturemanager.hpp"
+#include "tech-core/forward.hpp"
 #include "tech-core/utilities/flags.hpp"
 
 #include <glm/glm.hpp>
@@ -9,12 +9,7 @@
 #include <vector>
 #include <functional>
 
-#include "tech-core/font.hpp"
-
 namespace Engine::Gui {
-
-// In lieu of including the drawer
-class Drawer;
 
 typedef uint16_t GuiBufferInt;
 
@@ -23,6 +18,7 @@ struct Rect {
     glm::vec2 bottomRight;
 
     inline float width() const { return bottomRight.x - topLeft.x; }
+
     inline float height() const { return bottomRight.y - topLeft.y; }
 
     inline glm::vec2 center() const {
@@ -33,8 +29,11 @@ struct Rect {
     }
 
     inline float left() const { return topLeft.x; }
+
     inline float top() const { return topLeft.y; }
+
     inline float right() const { return bottomRight.x; }
+
     inline float bottom() const { return bottomRight.y; }
 
     bool contains(float x, float y) const;
@@ -60,6 +59,7 @@ typedef Utilities::Flags<AnchorFlag> Anchor;
 inline Anchor operator|(AnchorFlag value1, AnchorFlag value2) {
     return Anchor(value1) | value2;
 }
+
 inline Anchor operator~(AnchorFlag value1) {
     return ~Anchor(value1);
 }
@@ -69,7 +69,7 @@ const Anchor AnchorAll = AnchorFlag::Top | AnchorFlag::Left | AnchorFlag::Bottom
 class BaseComponent {
     friend class GuiManager;
 
-    public:
+public:
     const Rect &getBounds() const;
     void setBounds(const Rect &bounds);
 
@@ -87,11 +87,13 @@ class BaseComponent {
     virtual void onLayout(const Rect &parentBounds);
 
     bool needsLayout() const { return layoutRequired; }
+
     void markNeedsLayout();
 
-    protected:
+protected:
     BaseComponent(const Rect &bounds, const Anchor &anchor = {}, const AnchorOffsets &offsets = {});
     virtual void onFrameUpdate();
+
     virtual void onPaint(Drawer &drawer) {};
 
     void addChild(std::shared_ptr<BaseComponent> component);
@@ -103,7 +105,7 @@ class BaseComponent {
     Anchor anchor;
     AnchorOffsets anchorOffsets;
 
-    private:
+private:
     void onRegister(uint16_t id, std::function<void()> markDirtyCallback);
 
     bool layoutRequired { true };
@@ -116,26 +118,26 @@ class BaseComponent {
 };
 
 class Image : public BaseComponent {
-    public:
+public:
     Image(const Engine::Texture *texture, const Rect &bounds);
 
-    protected:
+protected:
     void onPaint(Drawer &drawer) override;
 
-    private:
+private:
     const Texture *texture;
 };
 
 class TextBox : public BaseComponent {
-    public:
+public:
     TextBox(const std::wstring &text, const Rect &bounds, Engine::Font *font = nullptr);
 
     void update(const std::wstring &text);
 
-    protected:
+protected:
     void onPaint(Drawer &drawer) override;
 
-    private:
+private:
     Engine::Font *font;
     std::wstring text;
 };

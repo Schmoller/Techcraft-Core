@@ -1,5 +1,6 @@
 #include "tech-core/subsystem/debug.hpp"
 #include "tech-core/shapes/bounding_box.hpp"
+#include "tech-core/engine.hpp"
 #include "vulkanutils.hpp"
 
 namespace Engine::Subsystem {

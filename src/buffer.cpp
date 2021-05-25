@@ -1,11 +1,11 @@
 #include "tech-core/buffer.hpp"
+#include "tech-core/device.hpp"
 #include <iostream>
 
 namespace Engine {
 
 BufferManager::BufferManager(VulkanDevice &device)
-    : device(device)
-{}
+    : device(device) {}
 
 std::unique_ptr<Buffer> BufferManager::aquire(
     vk::DeviceSize size,
@@ -24,9 +24,9 @@ std::unique_ptr<DivisibleBuffer> BufferManager::aquireDivisible(
 }
 
 void BufferManager::releaseAfterFrame(std::unique_ptr<Buffer> buffer) {
-    #ifdef DEBUG_BUFFER
+#ifdef DEBUG_BUFFER
     std::cout << "release buffer after frame " << buffer->buffer() << std::endl;
-    #endif
+#endif
     nextFrameRelease.push_back(std::move(buffer));
 }
 
@@ -41,28 +41,33 @@ std::unique_ptr<Buffer> BufferManager::aquireStaging(vk::DeviceSize size) {
 
 void BufferManager::release(std::unique_ptr<Buffer> &buffer, vk::Fence onlyAfter) {
     if (onlyAfter) {
-        #ifdef DEBUG_BUFFER
+#ifdef DEBUG_BUFFER
         std::cout << "release buffer after fence " << buffer->buffer() << " " << onlyAfter << std::endl;
-        #endif
-        fenceRelease.push_back({
-            std::move(buffer),
-            onlyAfter,
-            vk::UniqueFence()
-        });
+#endif
+        fenceRelease.push_back(
+            {
+                std::move(buffer),
+                onlyAfter,
+                vk::UniqueFence()
+            }
+        );
     } else {
         buffer.reset();
     }
 }
+
 void BufferManager::release(std::unique_ptr<Buffer> &buffer, vk::UniqueFence onlyAfter) {
     if (onlyAfter) {
-        #ifdef DEBUG_BUFFER
+#ifdef DEBUG_BUFFER
         std::cout << "release buffer after fence(own) " << buffer->buffer() << " " << onlyAfter.get() << std::endl;
-        #endif
-        fenceRelease.push_back({
-            std::move(buffer),
-            vk::Fence(),
-            std::move(onlyAfter)
-        });
+#endif
+        fenceRelease.push_back(
+            {
+                std::move(buffer),
+                vk::Fence(),
+                std::move(onlyAfter)
+            }
+        );
     } else {
         buffer.reset();
     }
@@ -80,7 +85,8 @@ void BufferManager::processActions() {
             [this](BufferFence &pair) {
                 // TODO: Is this predicate opposite?
                 if (pair.uniqueFence) {
-                    return this->device.device.waitForFences(1, &pair.uniqueFence.get(), VK_FALSE, 0) == vk::Result::eSuccess;
+                    return this->device.device.waitForFences(1, &pair.uniqueFence.get(), VK_FALSE, 0) ==
+                        vk::Result::eSuccess;
                 } else {
                     return this->device.device.waitForFences(1, &pair.fence, VK_FALSE, 0) == vk::Result::eSuccess;
                 }
@@ -91,13 +97,12 @@ void BufferManager::processActions() {
 }
 
 
-
 Buffer::Buffer()
     : allocator(VK_NULL_HANDLE), size(0), allocation(VK_NULL_HANDLE) {}
 
 Buffer::Buffer(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage)
     : Buffer() {
-    
+
     allocate(allocator, size, usage, targetUsage);
 }
 
@@ -105,10 +110,11 @@ Buffer::~Buffer() {
     destroy();
 }
 
-void Buffer::allocate(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage) {
+void
+Buffer::allocate(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage) {
     this->allocator = allocator;
     this->size = size;
-    
+
     VkBufferCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     createInfo.size = size;
@@ -117,7 +123,7 @@ void Buffer::allocate(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsa
 
     VmaAllocationCreateInfo allocInfo = {};
     allocInfo.usage = static_cast<VmaMemoryUsage>(targetUsage);
-    
+
     VkBuffer temp;
     if (vmaCreateBuffer(allocator, &createInfo, &allocInfo, &temp, &allocation, nullptr) != VK_SUCCESS) {
         throw std::runtime_error("Failed to allocate buffer");
@@ -125,16 +131,16 @@ void Buffer::allocate(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsa
 
     internalBuffer = vk::Buffer(temp);
 
-    #ifdef DEBUG_BUFFER
+#ifdef DEBUG_BUFFER
     std::cout << "Created Buffer " << internalBuffer << std::endl;
-    #endif
+#endif
 }
 
 void Buffer::destroy() {
     if (allocator && allocation) {
-        #ifdef DEBUG_BUFFER
+#ifdef DEBUG_BUFFER
         // std::cout << "Destroyed buffer " << internalBuffer << std::endl;
-        #endif
+#endif
         vmaDestroyBuffer(allocator, internalBuffer, allocation);
 
         allocator = VK_NULL_HANDLE;
@@ -156,12 +162,15 @@ void Buffer::copyOut(void *dest, vk::DeviceSize offset, vk::DeviceSize size) {
     vmaUnmapMemory(allocator, allocation);
 }
 
-void Buffer::transfer(VkCommandBuffer commandBuffer, Buffer &target, vk::DeviceSize srcOffset, vk::DeviceSize destOffset, vk::DeviceSize size) {
+void Buffer::transfer(
+    VkCommandBuffer commandBuffer, Buffer &target, vk::DeviceSize srcOffset, vk::DeviceSize destOffset,
+    vk::DeviceSize size
+) {
     VkBufferCopy copyRegion = {};
     copyRegion.srcOffset = srcOffset;
     copyRegion.dstOffset = destOffset;
     copyRegion.size = size;
-    
+
     vkCmdCopyBuffer(commandBuffer, internalBuffer, target.internalBuffer, 1, &copyRegion);
 }
 
@@ -172,6 +181,7 @@ void Buffer::transfer(VkCommandBuffer commandBuffer, Buffer &target, vk::DeviceS
 void Buffer::flush() {
     vmaFlushAllocation(allocator, allocation, 0, size);
 }
+
 /**
  * Flushes a range of memory.
  * Only applicable for host visible but non-coherent buffers
@@ -182,12 +192,12 @@ void Buffer::flushRange(vk::DeviceSize start, vk::DeviceSize size) {
 
 // DivisibleBuffer
 DivisibleBuffer::DivisibleBuffer()
-    : Buffer()
-{}
+    : Buffer() {}
 
-DivisibleBuffer::DivisibleBuffer(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage)
-    : DivisibleBuffer()
-{
+DivisibleBuffer::DivisibleBuffer(
+    VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage
+)
+    : DivisibleBuffer() {
     allocate(allocator, size, usage, targetUsage);
 }
 
@@ -196,11 +206,13 @@ DivisibleBuffer::~DivisibleBuffer() {
     freeSpaceTracking.clear();
 }
 
-void DivisibleBuffer::allocate(VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage) {
+void DivisibleBuffer::allocate(
+    VmaAllocator allocator, vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryUsage targetUsage
+) {
     Buffer::allocate(allocator, size, usage, targetUsage);
 
     freeSpaceTracking.clear();
-    freeSpaceTracking.push_back({0, size});
+    freeSpaceTracking.push_back({ 0, size });
 }
 
 void DivisibleBuffer::freeSection(vk::DeviceSize offset, vk::DeviceSize size) {
@@ -218,7 +230,7 @@ void DivisibleBuffer::freeSection(vk::DeviceSize offset, vk::DeviceSize size) {
                 lastSpace.size += it->size;
                 freeSpaceTracking.erase(it);
             }
-            
+
             return;
         } else if (offset + size == it->offset) {
             // Contiguous before, but not joined to free space before
@@ -228,18 +240,18 @@ void DivisibleBuffer::freeSection(vk::DeviceSize offset, vk::DeviceSize size) {
             return;
         } else if (it->offset > offset) {
             // Disjoint region
-            freeSpaceTracking.insert(it, {offset, size});
+            freeSpaceTracking.insert(it, { offset, size });
 
             return;
         }
-        
+
     }
 
     // Disjoint region at end
-    freeSpaceTracking.push_back({offset, size});
+    freeSpaceTracking.push_back({ offset, size });
 }
 
-template <typename T>
+template<typename T>
 void DivisibleBuffer::freeSection(vk::DeviceSize offset) {
     freeSection(offset, sizeof(T));
 }
@@ -270,7 +282,7 @@ vk::DeviceSize DivisibleBuffer::allocateSection(vk::DeviceSize size) {
     return ALLOCATION_FAILED;
 }
 
-template <typename T>
+template<typename T>
 vk::DeviceSize DivisibleBuffer::allocateSection() {
     return allocateSection(sizeof(T));
 }

@@ -3,14 +3,9 @@
 #include <glm/vec2.hpp>
 #include <glm/vec3.hpp>
 #include <glm/vec4.hpp>
+#include "forward.hpp"
 
 namespace Engine {
-
-// Forward
-class BoundingSphere;
-class BoundingBox;
-class Frustum;
-class Plane;
 
 void draw(const BoundingSphere &, uint32_t colour = 0xFFFFFFFF);
 void draw(const BoundingBox &, uint32_t colour = 0xFFFFFFFF);

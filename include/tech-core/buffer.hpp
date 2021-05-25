@@ -3,11 +3,11 @@
 
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
-#include "device.hpp"
 
 #include <deque>
 #include <limits>
 #include <list>
+#include "forward.hpp"
 
 // When defined, this will enable debug logging for buffers
 // #define DEBUG_BUFFER
@@ -24,10 +24,6 @@ enum class MemoryUsage {
 
 namespace Engine {
 
-// Forward declarations
-class Buffer;
-class DivisibleBuffer;
-
 struct BufferFence {
     std::unique_ptr<Buffer> buffer;
     vk::Fence fence;
@@ -37,7 +33,7 @@ struct BufferFence {
 class BufferManager {
     friend class RenderEngine;
 public:
-    BufferManager(VulkanDevice &device);
+    explicit BufferManager(VulkanDevice &device);
 
     /**
      * General purpose buffer aquisition.

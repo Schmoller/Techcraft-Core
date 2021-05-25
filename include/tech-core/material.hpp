@@ -1,8 +1,8 @@
 #ifndef MATERIAL_HPP
 #define MATERIAL_HPP
 
+#include "forward.hpp"
 #include "common_includes.hpp"
-#include "texturemanager.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -27,8 +27,7 @@ struct MaterialCreateInfo {
         minFilter(minFilter),
         magFilter(magFilter),
         mipmapMode(mipmapMode),
-        useMipmaps(useMipmaps)
-    {}
+        useMipmaps(useMipmaps) {}
 
     const std::string &name;
     const std::string diffuseTexture;
@@ -65,25 +64,26 @@ struct SamplerDefinition {
 }
 
 namespace std {
-    template<> struct hash<Engine::SamplerDefinition> {
-        std::size_t operator()(Engine::SamplerDefinition const& sampler) const noexcept {
-            auto samplerHash = std::hash<vk::Filter>()(sampler.minFilter);
-            samplerHash = samplerHash ^ (std::hash<vk::Filter>()(sampler.magFilter) << 1);
-            samplerHash = samplerHash ^ (std::hash<vk::SamplerMipmapMode>()(sampler.mipmapMode) << 1);
-            samplerHash = samplerHash ^ (std::hash<bool>()(sampler.useMipmaps) << 1);
+template<>
+struct hash<Engine::SamplerDefinition> {
+    std::size_t operator()(Engine::SamplerDefinition const &sampler) const noexcept {
+        auto samplerHash = std::hash<vk::Filter>()(sampler.minFilter);
+        samplerHash = samplerHash ^ (std::hash<vk::Filter>()(sampler.magFilter) << 1);
+        samplerHash = samplerHash ^ (std::hash<vk::SamplerMipmapMode>()(sampler.mipmapMode) << 1);
+        samplerHash = samplerHash ^ (std::hash<bool>()(sampler.useMipmaps) << 1);
 
-            return samplerHash;
-        }
-    };
+        return samplerHash;
+    }
+};
 }
 
 namespace Engine {
 
 class MaterialManager {
-    public:
+public:
     void initialize(vk::Device device, TextureManager *textureManager);
     void destroy();
-    
+
     Material *addMaterial(const MaterialCreateInfo &materialInfo);
     Material *getMaterial(const std::string &name);
     void destroyMaterial(const std::string &name);
@@ -93,7 +93,7 @@ class MaterialManager {
     vk::Sampler getSamplerById(uint32_t id);
     uint32_t createSampler(const SamplerDefinition &definition);
 
-    private:
+private:
     vk::Device device;
     TextureManager *textureManager;
 

@@ -1,4 +1,5 @@
 #include "tech-core/material.hpp"
+#include "tech-core/texturemanager.hpp"
 
 namespace Engine {
 

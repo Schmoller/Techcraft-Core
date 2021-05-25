@@ -1,8 +1,8 @@
 #ifndef __MODEL_HPP
 #define __MODEL_HPP
 
+#include "forward.hpp"
 #include "vertex.hpp"
-#include "tech-core/buffer.hpp"
 
 #include <vk_mem_alloc.h>
 
@@ -12,14 +12,10 @@
 
 namespace Engine {
 
-// From "mesh.hpp"
-template <typename VertexType>
-class StaticMeshBuilder;
-
 bool loadModel(const std::string &path, StaticMeshBuilder<Vertex> &meshBuilder);
 
 class Model {
-    public:
+public:
     Model(const std::string &path);
     Model();
 
@@ -28,7 +24,7 @@ class Model {
     void applyCombined(StaticMeshBuilder<Vertex> &meshBuilder) const;
     void applySubModel(StaticMeshBuilder<Vertex> &meshBuilder, const std::string &name) const;
 
-    private:
+private:
     struct SubModel {
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;

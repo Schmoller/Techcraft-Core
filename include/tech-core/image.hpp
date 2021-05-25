@@ -1,7 +1,7 @@
 #ifndef IMAGE_HPP
 #define IMAGE_HPP
 
-
+#include "forward.hpp"
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
 #include "tech-core/buffer.hpp"
@@ -20,12 +20,6 @@ enum MipType {
     StoredStandard,
     Generate
 };
-
-class RenderEngine;
-
-class TaskManager;
-
-class Image;
 
 class ImageBuilder {
     friend class RenderEngine;

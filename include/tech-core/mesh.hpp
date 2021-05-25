@@ -1,6 +1,7 @@
 #ifndef __MESH_HPP
 #define __MESH_HPP
 
+#include "forward.hpp"
 #include "tech-core/vertex.hpp"
 #include "tech-core/buffer.hpp"
 #include "tech-core/task.hpp"
@@ -8,6 +9,7 @@
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+
 #include <glm/glm.hpp>
 #include <vulkan/vulkan.hpp>
 #include <vk_mem_alloc.h>
@@ -17,17 +19,11 @@ namespace Engine {
 
 #define VERTEX_ALIGN 4
 
-// Forward declarations
-class Mesh;
-class StaticMesh;
-template <typename>
-class DynamicMesh;
-
-template <typename VertexType>
+template<typename VertexType>
 class StaticMeshBuilder {
     friend class RenderEngine;
 
-    public:
+public:
     StaticMeshBuilder &withVertices(const std::vector<VertexType> &vertices);
     StaticMeshBuilder &withIndices(const std::vector<uint32_t> &indices);
     StaticMeshBuilder &withIndices(const std::vector<uint16_t> &indices);
@@ -37,7 +33,7 @@ class StaticMeshBuilder {
 
     StaticMesh *build();
 
-    private:
+private:
     StaticMeshBuilder(
         BufferManager &bufferManager,
         TaskManager &taskManager,
@@ -59,8 +55,9 @@ class StaticMeshBuilder {
 };
 
 class Mesh {
-    public:
+public:
     virtual ~Mesh() {}
+
     virtual uint32_t getIndexCount() const = 0;
     virtual vk::IndexType getIndexType() const = 0;
 
@@ -68,24 +65,26 @@ class Mesh {
 };
 
 class StaticMesh : public Mesh {
-    template <typename>
-    friend class StaticMeshBuilder;
+    template<typename>
+    friend
+    class StaticMeshBuilder;
 
-    public:
+public:
     virtual ~StaticMesh();
 
     virtual uint32_t getIndexCount() const {
         return indexCount;
     }
+
     virtual vk::IndexType getIndexType() const {
         return indexType;
     }
 
     virtual void bind(vk::CommandBuffer commandBuffer) const;
 
-    private:
+private:
     StaticMesh(
-        BufferManager& bufferManager,
+        BufferManager &bufferManager,
         std::unique_ptr<Buffer> &combinedBuffer,
         vk::DeviceSize vertexOffset,
         vk::DeviceSize indexOffset,
@@ -93,7 +92,7 @@ class StaticMesh : public Mesh {
         vk::IndexType indexType
     );
 
-    BufferManager& bufferManager;
+    BufferManager &bufferManager;
 
     std::unique_ptr<Buffer> combinedBuffer;
     vk::DeviceSize vertexOffset;
@@ -102,11 +101,11 @@ class StaticMesh : public Mesh {
     const vk::IndexType indexType;
 };
 
-template <typename VertexType>
+template<typename VertexType>
 class DynamicMeshBuilder {
     friend class RenderEngine;
-    
-    public:
+
+public:
     DynamicMeshBuilder &withInitialVertexCapacity(uint32_t capacity);
     DynamicMeshBuilder &withInitialIndexCapacity(uint32_t capacity);
 
@@ -118,22 +117,22 @@ class DynamicMeshBuilder {
 
     DynamicMesh<VertexType> *build();
 
-    private:
+private:
     DynamicMeshBuilder(
-        BufferManager&,
+        BufferManager &,
         TaskManager &,
         std::function<void(std::unique_ptr<DynamicMesh<VertexType>> &)>
     );
 
     // Non-configurable
-    BufferManager& bufferManager;
+    BufferManager &bufferManager;
     TaskManager &taskManager;
     std::function<void(std::unique_ptr<DynamicMesh<VertexType>> &)> registerCallback;
 
     // Configurable parameters
     vk::DeviceSize vertexBufferSize;
     vk::DeviceSize indexBufferSize;
-    
+
     vk::DeviceSize vertexBufferMaxSize;
     vk::DeviceSize indexBufferMaxSize;
 
@@ -145,11 +144,11 @@ class DynamicMeshBuilder {
 
 typedef uint16_t DynMeshSize;
 
-template <typename VertexType>
+template<typename VertexType>
 class DynamicMesh : public Mesh {
     friend DynamicMesh *DynamicMeshBuilder<VertexType>::build();
 
-    public:
+public:
     virtual ~DynamicMesh();
     /**
      * Replaces all vertices and indices with the provided data
@@ -182,7 +181,7 @@ class DynamicMesh : public Mesh {
 
     virtual void bind(vk::CommandBuffer commandBuffer) const override;
 
-    private:
+private:
     DynamicMesh(
         BufferManager &bufferManager,
         TaskManager &taskManager,
@@ -208,7 +207,7 @@ class DynamicMesh : public Mesh {
     vk::DeviceSize indexOffset;
     vk::DeviceSize totalCapacity;
     uint32_t indexCount;
-    
+
     // Reallocation Settings
     vk::DeviceSize vertexMaxCapacity;
     vk::DeviceSize indexMaxCapacity;
@@ -220,7 +219,7 @@ class DynamicMesh : public Mesh {
 };
 
 
-template <typename VertexType>
+template<typename VertexType>
 StaticMeshBuilder<VertexType>::StaticMeshBuilder(
     BufferManager &bufferManager,
     TaskManager &taskManager,
@@ -229,17 +228,16 @@ StaticMeshBuilder<VertexType>::StaticMeshBuilder(
     taskManager(taskManager),
     registerCallback(registerCallback),
     indexCount(0),
-    indexType(vk::IndexType::eNoneNV)
-{}
+    indexType(vk::IndexType::eNoneNV) {}
 
-template <typename VertexType>
+template<typename VertexType>
 StaticMeshBuilder<VertexType> &StaticMeshBuilder<VertexType>::withVertices(const std::vector<VertexType> &vertices) {
     this->vertices = vertices;
 
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 StaticMeshBuilder<VertexType> &StaticMeshBuilder<VertexType>::withIndices(const std::vector<uint32_t> &indices) {
     this->indices32 = indices;
     indexCount = indices.size();
@@ -248,7 +246,7 @@ StaticMeshBuilder<VertexType> &StaticMeshBuilder<VertexType>::withIndices(const 
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 StaticMeshBuilder<VertexType> &StaticMeshBuilder<VertexType>::withIndices(const std::vector<uint16_t> &indices) {
     this->indices16 = indices;
     indexCount = indices.size();
@@ -257,26 +255,27 @@ StaticMeshBuilder<VertexType> &StaticMeshBuilder<VertexType>::withIndices(const 
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 StaticMeshBuilder<VertexType> &StaticMeshBuilder<VertexType>::fromModel(const std::string &path) {
     loadModel(path, *this);
 
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 StaticMeshBuilder<VertexType> &StaticMeshBuilder<VertexType>::fromModel(const Model &model) {
     model.applyCombined(*this);
     return *this;
 }
 
-template <typename VertexType>
-StaticMeshBuilder<VertexType> &StaticMeshBuilder<VertexType>::fromModel(const Model &model, const std::string &subModel) {
+template<typename VertexType>
+StaticMeshBuilder<VertexType> &
+StaticMeshBuilder<VertexType>::fromModel(const Model &model, const std::string &subModel) {
     model.applySubModel(*this, subModel);
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 StaticMesh *StaticMeshBuilder<VertexType>::build() {
     if (indexCount == 0 || vertices.size() == 0 || indexType == vk::IndexType::eNoneNV) {
         throw std::runtime_error("Incomplete mesh definition");
@@ -293,7 +292,7 @@ StaticMesh *StaticMeshBuilder<VertexType>::build() {
 
     // Ensure proper alignment of the indices
     vk::DeviceSize indexOffset = ((vertexSize + VERTEX_ALIGN - 1) / VERTEX_ALIGN) * VERTEX_ALIGN;
-    
+
     vk::DeviceSize totalBufferSize = indexOffset + indexSize;
 
     // Stage the data ready for transfer to the GPU
@@ -309,27 +308,31 @@ StaticMesh *StaticMeshBuilder<VertexType>::build() {
     // Prepare GPU
     std::unique_ptr<Buffer> gpuBuffer = bufferManager.aquire(
         totalBufferSize,
-        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer,
+        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer |
+            vk::BufferUsageFlagBits::eIndexBuffer,
         vk::MemoryUsage::eGPUOnly
     );
 
     auto task = taskManager.createTask();
 
-    task->execute([&, gpuBuffRef = gpuBuffer.get()](auto commandBuffer) {
-        staging->transfer(commandBuffer, *gpuBuffRef);
-    });
+    task->execute(
+        [&, gpuBuffRef = gpuBuffer.get()](auto commandBuffer) {
+            staging->transfer(commandBuffer, *gpuBuffRef);
+        }
+    );
 
     auto fence = taskManager.submitTask(std::move(task));
     bufferManager.release(staging, fence);
 
-    std::unique_ptr<StaticMesh> mesh(new StaticMesh(
-        bufferManager,
-        gpuBuffer,
-        0,
-        indexOffset,
-        static_cast<uint32_t>(indexCount),
-        indexType
-    ));
+    std::unique_ptr<StaticMesh> mesh(
+        new StaticMesh(
+            bufferManager,
+            gpuBuffer,
+            0,
+            indexOffset,
+            static_cast<uint32_t>(indexCount),
+            indexType
+        ));
 
     // Register with the engine
     StaticMesh *meshInst = mesh.get();
@@ -339,7 +342,7 @@ StaticMesh *StaticMeshBuilder<VertexType>::build() {
 }
 
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMeshBuilder<VertexType>::DynamicMeshBuilder(
     BufferManager &bufferManager,
     TaskManager &taskManager,
@@ -353,63 +356,64 @@ DynamicMeshBuilder<VertexType>::DynamicMeshBuilder(
     indexBufferMaxSize(0),
     vertexGrowSize(0),
     indexGrowSize(0),
-    reclaimSize(0)
-{}
+    reclaimSize(0) {}
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMeshBuilder<VertexType> &DynamicMeshBuilder<VertexType>::withInitialVertexCapacity(uint32_t capacity) {
     vertexBufferSize = capacity * sizeof(VertexType);
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMeshBuilder<VertexType> &DynamicMeshBuilder<VertexType>::withInitialIndexCapacity(uint32_t capacity) {
     indexBufferSize = capacity * sizeof(DynMeshSize);
     return *this;
 }
 
-template <typename VertexType>
-DynamicMeshBuilder<VertexType> &DynamicMeshBuilder<VertexType>::withGrowing(uint32_t vertexChunks, uint32_t indexChunks) {
+template<typename VertexType>
+DynamicMeshBuilder<VertexType> &
+DynamicMeshBuilder<VertexType>::withGrowing(uint32_t vertexChunks, uint32_t indexChunks) {
     vertexGrowSize = vertexChunks * sizeof(VertexType);
     indexGrowSize = indexChunks * sizeof(DynMeshSize);
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMeshBuilder<VertexType> &DynamicMeshBuilder<VertexType>::withShinking(uint32_t minimumReclaimSize) {
     reclaimSize = minimumReclaimSize;
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMeshBuilder<VertexType> &DynamicMeshBuilder<VertexType>::withMaximumVertexCapacity(uint32_t capacity) {
     vertexBufferMaxSize = capacity * sizeof(VertexType);
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMeshBuilder<VertexType> &DynamicMeshBuilder<VertexType>::withMaximumIndexCapacity(uint32_t capacity) {
     indexBufferMaxSize = capacity * sizeof(DynMeshSize);
     return *this;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMesh<VertexType> *DynamicMeshBuilder<VertexType>::build() {
     if (vertexBufferSize == 0 || indexBufferSize == 0) {
         throw std::runtime_error("Incomplete mesh definition");
     }
 
-    std::unique_ptr<DynamicMesh<VertexType>> mesh(new DynamicMesh<VertexType>(
-        bufferManager,
-        taskManager,
-        vertexBufferSize,
-        indexBufferSize,
-        vertexBufferMaxSize,
-        indexBufferMaxSize,
-        vertexGrowSize,
-        indexGrowSize,
-        reclaimSize
-    ));
+    std::unique_ptr<DynamicMesh<VertexType>> mesh(
+        new DynamicMesh<VertexType>(
+            bufferManager,
+            taskManager,
+            vertexBufferSize,
+            indexBufferSize,
+            vertexBufferMaxSize,
+            indexBufferMaxSize,
+            vertexGrowSize,
+            indexGrowSize,
+            reclaimSize
+        ));
 
     // Register with the engine
     DynamicMesh<VertexType> *meshInst = mesh.get();
@@ -419,7 +423,7 @@ DynamicMesh<VertexType> *DynamicMeshBuilder<VertexType>::build() {
 }
 
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMesh<VertexType>::DynamicMesh(
     BufferManager &bufferManager,
     TaskManager &taskManager,
@@ -438,8 +442,7 @@ DynamicMesh<VertexType>::DynamicMesh(
     indexMaxCapacity(indexMaxCapacity),
     vertexGrowSize(vertexGrowSize),
     indexGrowSize(indexGrowSize),
-    reclaimSize(reclaimSize)
-{
+    reclaimSize(reclaimSize) {
     vk::DeviceSize newIndexOffset = ((vertexCapacity + VERTEX_ALIGN - 1) / VERTEX_ALIGN) * VERTEX_ALIGN;
     vk::DeviceSize totalAllocationSize = newIndexOffset + indexCapacity;
     indexOffset = newIndexOffset;
@@ -448,13 +451,14 @@ DynamicMesh<VertexType>::DynamicMesh(
     reallocate(totalAllocationSize);
 }
 
-template <typename VertexType>
+template<typename VertexType>
 DynamicMesh<VertexType>::~DynamicMesh() {
     bufferManager.releaseAfterFrame(std::move(combinedBuffer));
 }
 
-template <typename VertexType>
-bool DynamicMesh<VertexType>::replaceAll(const std::vector<VertexType> &vertices, const std::vector<DynMeshSize> &indices) {
+template<typename VertexType>
+bool
+DynamicMesh<VertexType>::replaceAll(const std::vector<VertexType> &vertices, const std::vector<DynMeshSize> &indices) {
     vk::DeviceSize newVertexUsage = vertices.size() * sizeof(VertexType);
     vk::DeviceSize newIndexUsage = indices.size() * sizeof(DynMeshSize);
 
@@ -520,7 +524,8 @@ bool DynamicMesh<VertexType>::replaceAll(const std::vector<VertexType> &vertices
 
         // If we are shinking one side but growing the other, it might be 
         // possible to fit the result in the existing buffer?
-        if (totalAllocationSize > totalCapacity || (totalCapacity - totalAllocationSize > reclaimSize && reclaimSize > 0)) {
+        if (totalAllocationSize > totalCapacity ||
+            (totalCapacity - totalAllocationSize > reclaimSize && reclaimSize > 0)) {
             reallocate(totalAllocationSize);
         }
 
@@ -535,9 +540,11 @@ bool DynamicMesh<VertexType>::replaceAll(const std::vector<VertexType> &vertices
     staging->copyIn(vertices.data(), newVertexUsage);
     staging->copyIn(indices.data(), indexOffset, newIndexUsage);
 
-    task->execute([&](vk::CommandBuffer commandBuffer) {
-        staging->transfer(commandBuffer, *combinedBuffer, totalCapacity);
-    });
+    task->execute(
+        [&](vk::CommandBuffer commandBuffer) {
+            staging->transfer(commandBuffer, *combinedBuffer, totalCapacity);
+        }
+    );
 
     task->addMemoryBarrier(
         vk::PipelineStageFlagBits::eTransfer,
@@ -554,8 +561,9 @@ bool DynamicMesh<VertexType>::replaceAll(const std::vector<VertexType> &vertices
     return true;
 }
 
-template <typename VertexType>
-bool DynamicMesh<VertexType>::replaceVertices(uint32_t srcOffset, uint32_t dstOffset, uint32_t count, VertexType *vertices) {
+template<typename VertexType>
+bool
+DynamicMesh<VertexType>::replaceVertices(uint32_t srcOffset, uint32_t dstOffset, uint32_t count, VertexType *vertices) {
     vk::DeviceSize newVertexUsage = (dstOffset + count) * sizeof(VertexType);
 
     if (newVertexUsage > vertexCapacity) {
@@ -573,9 +581,11 @@ bool DynamicMesh<VertexType>::replaceVertices(uint32_t srcOffset, uint32_t dstOf
 
     staging->copyIn(vertices, targetVertexSize);
 
-    task->execute([&](auto commandBuffer) {
-        staging->transfer(commandBuffer, *combinedBuffer, targetOffset, targetVertexSize);
-    });
+    task->execute(
+        [&](auto commandBuffer) {
+            staging->transfer(commandBuffer, *combinedBuffer, targetOffset, targetVertexSize);
+        }
+    );
 
     auto fence = taskManager.submitTask(std::move(task));
     bufferManager.release(staging, fence);
@@ -583,8 +593,9 @@ bool DynamicMesh<VertexType>::replaceVertices(uint32_t srcOffset, uint32_t dstOf
     return true;
 }
 
-template <typename VertexType>
-bool DynamicMesh<VertexType>::replaceIndices(uint32_t srcOffset, uint32_t dstOffset, uint32_t count, DynMeshSize *indices) {
+template<typename VertexType>
+bool
+DynamicMesh<VertexType>::replaceIndices(uint32_t srcOffset, uint32_t dstOffset, uint32_t count, DynMeshSize *indices) {
     vk::DeviceSize newIndexUsage = (dstOffset + count) * sizeof(DynMeshSize);
 
     if (newIndexUsage > indexCapacity) {
@@ -602,9 +613,11 @@ bool DynamicMesh<VertexType>::replaceIndices(uint32_t srcOffset, uint32_t dstOff
 
     staging->copyIn(indices, targetIndexSize);
 
-    task->execute([&](auto commandBuffer) {
-        staging->transfer(commandBuffer, *combinedBuffer, targetOffset, targetIndexSize);
-    });
+    task->execute(
+        [&](auto commandBuffer) {
+            staging->transfer(commandBuffer, *combinedBuffer, targetOffset, targetIndexSize);
+        }
+    );
 
     auto fence = taskManager.submitTask(std::move(task));
     bufferManager.release(staging, fence);
@@ -612,14 +625,14 @@ bool DynamicMesh<VertexType>::replaceIndices(uint32_t srcOffset, uint32_t dstOff
     return true;
 }
 
-template <typename VertexType>
+template<typename VertexType>
 void DynamicMesh<VertexType>::bind(vk::CommandBuffer commandBuffer) const {
     vk::DeviceSize vertexOffset = 0;
     commandBuffer.bindVertexBuffers(0, 1, combinedBuffer->bufferArray(), &vertexOffset);
     commandBuffer.bindIndexBuffer(combinedBuffer->buffer(), indexOffset, vk::IndexType::eUint16);
 }
 
-template <typename VertexType>
+template<typename VertexType>
 void DynamicMesh<VertexType>::reallocate(vk::DeviceSize totalAllocationSize) {
     if (combinedBuffer) {
         // Ensure that the buffer is not in use
@@ -628,7 +641,8 @@ void DynamicMesh<VertexType>::reallocate(vk::DeviceSize totalAllocationSize) {
 
     combinedBuffer = bufferManager.aquire(
         totalAllocationSize,
-        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer,
+        vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer |
+            vk::BufferUsageFlagBits::eIndexBuffer,
         vk::MemoryUsage::eGPUOnly
     );
 

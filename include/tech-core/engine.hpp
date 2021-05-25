@@ -1,34 +1,24 @@
 #ifndef ENGINE_HPP
 #define ENGINE_HPP
 
+#include "forward.hpp"
+
 // Forward declarations
 namespace Engine {
-class RenderEngine;
-
 struct QueueFamilyIndices;
 struct SwapChainSupportDetails;
 }
 
 #include "common_includes.hpp"
-#include "device.hpp"
-#include "swapchain.hpp"
 
-#include <optional>
-
-#include "buffer.hpp"
-#include "image.hpp"
-#include "model.hpp"
-#include "object.hpp"
-#include "texturemanager.hpp"
-#include "camera.hpp"
-#include "inputmanager.hpp"
 #include "material.hpp"
-#include "pipeline.hpp"
 #include "task.hpp"
-#include "font.hpp"
+#include "texturemanager.hpp"
+#include "inputmanager.hpp"
 #include "tech-core/gui/manager.hpp"
 #include "tech-core/subsystem/base.hpp"
 
+#include <optional>
 #include <unordered_map>
 #include <vector>
 #include <set>

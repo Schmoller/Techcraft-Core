@@ -1,12 +1,12 @@
 #include "tech-core/swapchain.hpp"
+#include "tech-core/device.hpp"
 
 #include "vulkanutils.hpp"
 
 namespace Engine {
 
 SwapChain::SwapChain(vk::PhysicalDevice physicalDevice, VulkanDevice &device, vk::SurfaceKHR surface, vk::Extent2D size)
-  : device(device), physicalDevice(physicalDevice), surface(surface)
-{
+    : device(device), physicalDevice(physicalDevice), surface(surface) {
     capabilities = physicalDevice.getSurfaceCapabilitiesKHR(surface);
     formats = physicalDevice.getSurfaceFormatsKHR(surface);
     presentModes = physicalDevice.getSurfacePresentModesKHR(surface);
@@ -30,8 +30,10 @@ void SwapChain::setup(vk::Extent2D desiredExtent) {
     if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
         actualExtent = capabilities.currentExtent;
     } else {
-        actualExtent.width = std::max(capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, desiredExtent.width));
-        actualExtent.height = std::max(capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, desiredExtent.height));
+        actualExtent.width = std::max(
+            capabilities.minImageExtent.width, std::min(capabilities.maxImageExtent.width, desiredExtent.width));
+        actualExtent.height = std::max(
+            capabilities.minImageExtent.height, std::min(capabilities.maxImageExtent.height, desiredExtent.height));
     }
 
     vk::SurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(formats);
@@ -56,7 +58,7 @@ void SwapChain::setup(vk::Extent2D desiredExtent) {
     );
 
     if (device.graphicsQueue.index != device.presentQueue.index) {
-        uint32_t queueFamilyIndices[] = {device.graphicsQueue.index, device.presentQueue.index};
+        uint32_t queueFamilyIndices[] = { device.graphicsQueue.index, device.presentQueue.index };
 
         createInfo.setImageSharingMode(vk::SharingMode::eConcurrent);
         createInfo.setQueueFamilyIndexCount(2);
@@ -80,20 +82,22 @@ void SwapChain::setup(vk::Extent2D desiredExtent) {
 
     for (auto &image : images) {
         imageViews.push_back(
-            device.device.createImageView({
-                {},
-                image,
-                vk::ImageViewType::e2D,
-                imageFormat,
-                {},
+            device.device.createImageView(
                 {
-                    vk::ImageAspectFlagBits::eColor,
-                    0,
-                    1,
-                    0,
-                    1
+                    {},
+                    image,
+                    vk::ImageViewType::e2D,
+                    imageFormat,
+                    {},
+                    {
+                        vk::ImageAspectFlagBits::eColor,
+                        0,
+                        1,
+                        0,
+                        1
+                    }
                 }
-            })
+            )
         );
     }
 }

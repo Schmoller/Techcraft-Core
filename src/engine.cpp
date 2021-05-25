@@ -20,12 +20,15 @@
 
 #include "tech-core/engine.hpp"
 #include "tech-core/mesh.hpp"
-#include "tech-core/model.hpp"
 #include "tech-core/buffer.hpp"
 #include "tech-core/image.hpp"
+#include "tech-core/camera.hpp"
+#include "tech-core/device.hpp"
+#include "tech-core/swapchain.hpp"
+#include "tech-core/pipeline.hpp"
+#include "tech-core/font.hpp"
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
-
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;

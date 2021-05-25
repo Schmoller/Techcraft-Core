@@ -1,4 +1,5 @@
 #include "tech-core/subsystem/light.hpp"
+#include "tech-core/engine.hpp"
 #include "vulkanutils.hpp"
 
 #define DAY_SKY_BRIGHTNESS glm::vec3{0.8, 0.8, 0.8}
@@ -6,11 +7,11 @@
 namespace Engine::Subsystem {
 
 const SubsystemID<LightSubsystem> LightSubsystem::ID;
-LightSubsystem::LightSubsystem()
-{
+
+LightSubsystem::LightSubsystem() {
     light = {
         DAY_SKY_BRIGHTNESS, // Sky light
-        {0.3, 0.3, 0.3} // Ambient
+        { 0.3, 0.3, 0.3 } // Ambient
     };
 }
 
@@ -33,7 +34,8 @@ vk::DescriptorSet LightSubsystem::descriptor(uint32_t activeImage) const {
 
 // For engine use
 
-void LightSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
+void
+LightSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
     std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {{
         { // light binding
             1, // binding
@@ -42,22 +44,26 @@ void LightSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice p
             vk::ShaderStageFlagBits::eVertex
         }
     }};
-    
-    descriptorLayout = device.createDescriptorSetLayout({
-        {}, vkUseArray(bindings)
-    });
+
+    descriptorLayout = device.createDescriptorSetLayout(
+        {
+            {}, vkUseArray(bindings)
+        }
+    );
 
     bufferManager = &engine.getBufferManager();
 }
 
-void LightSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
+void
+LightSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
     lightBuffers.resize(swapChainImages);
     for (uint32_t i = 0; i < swapChainImages; ++i) {
-        lightBuffers[i] = std::move(engine.getBufferManager().aquire(
-            sizeof(LightUBO),
-            vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryUsage::eCPUToGPU
-        ));
+        lightBuffers[i] = std::move(
+            engine.getBufferManager().aquire(
+                sizeof(LightUBO),
+                vk::BufferUsageFlagBits::eUniformBuffer,
+                vk::MemoryUsage::eCPUToGPU
+            ));
     }
 
     // Descriptor pool for allocating the descriptors
@@ -68,19 +74,23 @@ void LightSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderE
         }
     }};
 
-    descriptorPool = device.createDescriptorPool({
-        {},
-        swapChainImages,
-        vkUseArray(poolSizes)
-    });
+    descriptorPool = device.createDescriptorPool(
+        {
+            {},
+            swapChainImages,
+            vkUseArray(poolSizes)
+        }
+    );
 
     // Descriptor sets
     std::vector<vk::DescriptorSetLayout> layouts(swapChainImages, descriptorLayout);
 
-    descriptorSets = device.allocateDescriptorSets({
-        descriptorPool,
-        vkUseArray(layouts)
-    });
+    descriptorSets = device.allocateDescriptorSets(
+        {
+            descriptorPool,
+            vkUseArray(layouts)
+        }
+    );
 
     // Assign buffers to DS'
     for (uint32_t imageIndex = 0; imageIndex < swapChainImages; ++imageIndex) {

@@ -1,10 +1,10 @@
 #include "tech-core/task.hpp"
+#include "tech-core/device.hpp"
 
 namespace Engine {
 
 TaskManager::TaskManager(VulkanDevice &device)
-    : device(device)
-{}
+    : device(device) {}
 
 std::unique_ptr<Task> TaskManager::createTask() {
     vk::CommandBufferAllocateInfo allocInfo(
@@ -12,7 +12,7 @@ std::unique_ptr<Task> TaskManager::createTask() {
         vk::CommandBufferLevel::ePrimary,
         1
     );
-    
+
     auto commandBuffer = std::move(device.device.allocateCommandBuffersUnique(allocInfo)[0]);
 
     vk::CommandBufferBeginInfo beginInfo(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
@@ -20,11 +20,12 @@ std::unique_ptr<Task> TaskManager::createTask() {
 
     vk::UniqueFence submitFence = device.device.createFenceUnique({});
 
-    return std::unique_ptr<Task>(new Task(
-        std::move(commandBuffer),
-        std::move(submitFence),
-        *this
-    ));
+    return std::unique_ptr<Task>(
+        new Task(
+            std::move(commandBuffer),
+            std::move(submitFence),
+            *this
+        ));
 }
 
 vk::Fence TaskManager::submitTask(std::unique_ptr<Task> task) {
@@ -45,7 +46,8 @@ void TaskManager::processActions() {
             submittedTasks.begin(),
             submittedTasks.end(),
             [this](std::unique_ptr<Task> &task) {
-                if (this->device.device.waitForFences(1, &task->submitFence.get(), VK_FALSE, 0) == vk::Result::eSuccess) {
+                if (this->device.device.waitForFences(1, &task->submitFence.get(), VK_FALSE, 0) ==
+                    vk::Result::eSuccess) {
                     // Complete
                     task->executeFinishCallbacks();
                     return true;
@@ -64,8 +66,7 @@ Task::Task(
     TaskManager &taskManager
 ) : commandBuffer(std::move(commandBuffer)),
     submitFence(std::move(submitFence)),
-    taskManager(taskManager)
-{}
+    taskManager(taskManager) {}
 
 Task::~Task() {
 }
@@ -96,7 +97,7 @@ void Task::executeWhenComplete(std::function<void()> callback) {
 }
 
 void Task::executeFinishCallbacks() {
-    for(auto callback : finishCallbacks) {
+    for (auto callback : finishCallbacks) {
         callback();
     }
 }

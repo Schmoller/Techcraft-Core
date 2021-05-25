@@ -1,5 +1,6 @@
 #include "tech-core/gui/manager.hpp"
 #include "tech-core/gui/drawer.hpp"
+#include "tech-core/pipeline.hpp"
 #include <iostream>
 
 namespace Engine::Gui {
@@ -17,8 +18,7 @@ GuiManager::GuiManager(
     bufferManager(bufferManager),
     taskManager(taskManager),
     fontManager(fontManager),
-    windowSize(windowSize)
-{
+    windowSize(windowSize) {
     recreatePipeline(pipelineBuilder, windowSize);
 
     combinedVertexIndexBuffer = bufferManager.aquireDivisible(
@@ -51,7 +51,7 @@ void GuiManager::recreatePipeline(Engine::PipelineBuilder pipelineBuilder, const
         .withoutFaceCulling()
         .withAlpha()
         .build();
-    
+
     this->windowSize = windowSize;
 
     viewState.view = glm::orthoRH_ZO(
@@ -70,17 +70,19 @@ void GuiManager::recreatePipeline(Engine::PipelineBuilder pipelineBuilder, const
 
 uint16_t GuiManager::addComponent(std::shared_ptr<BaseComponent> component) {
     auto id = nextId++;
-    auto pair = components.emplace(id, ComponentMapping{
-        id,
-        component,
-    });
+    auto pair = components.emplace(
+        id, ComponentMapping {
+            id,
+            component,
+        }
+    );
 
     auto &mapping = pair.first->second;
 
     renderComponent(component.get(), mapping);
     component->onRegister(
         mapping.id,
-        [=]() {markComponentDirty(mapping.id);}
+        [=]() { markComponentDirty(mapping.id); }
     );
 
     return mapping.id;
@@ -153,14 +155,16 @@ void GuiManager::renderComponent(BaseComponent *component, ComponentMapping &map
         combinedVertexIndexBuffer->copyIn(region.indices.data(), indexOffset, indexSize);
         combinedVertexIndexBuffer->flushRange(offset, vertexSize + indexSize);
 
-        mapping.regions.emplace_back(ComponentMapping::Region{
-            region.textureArrayId,
-            offset,
-            size,
-            region.vertices.size(),
-            region.indices.size(),
-            indexOffset
-        });
+        mapping.regions.emplace_back(
+            ComponentMapping::Region {
+                region.textureArrayId,
+                offset,
+                size,
+                region.vertices.size(),
+                region.indices.size(),
+                indexOffset
+            }
+        );
     }
 
     // std::cout << "Rendered component " << mapping.vertStart << "(" << mapping.vertCount << ") - " << mapping.indexStart << "(" << mapping.indexCount << ")";
@@ -179,7 +183,7 @@ void GuiManager::markComponentDirty(uint16_t id) {
 
 void GuiManager::update() {
     // Update all components
-    Rect windowBounds = {{0,0}, {windowSize.width, windowSize.height}};
+    Rect windowBounds = {{ 0, 0 }, { windowSize.width, windowSize.height }};
 
     for (auto &pair : components) {
         auto &component = pair.second.component;
@@ -224,8 +228,8 @@ void GuiManager::render(vk::CommandBuffer commandBuffer, vk::CommandBufferInheri
         vk::PipelineStageFlagBits::eTransfer,
         vk::PipelineStageFlagBits::eVertexInput,
         vk::DependencyFlagBits::eDeviceGroup,
-        1, &barrier, 
-        0, nullptr, 
+        1, &barrier,
+        0, nullptr,
         0, nullptr
     );
 
@@ -235,7 +239,9 @@ void GuiManager::render(vk::CommandBuffer commandBuffer, vk::CommandBufferInheri
         for (auto &region : component.regions) {
             // Vertex info
             commandBuffer.bindVertexBuffers(0, 1, combinedVertexIndexBuffer->bufferArray(), &region.offset);
-            commandBuffer.bindIndexBuffer(combinedVertexIndexBuffer->buffer(), region.indexOffset, vk::IndexType::eUint16);
+            commandBuffer.bindIndexBuffer(
+                combinedVertexIndexBuffer->buffer(), region.indexOffset, vk::IndexType::eUint16
+            );
 
             // texture info
             if (region.textureArrayId != 0xFFFFFFFF) {

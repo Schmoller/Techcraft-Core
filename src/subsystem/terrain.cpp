@@ -1,9 +1,13 @@
 #include "tech-core/subsystem/terrain.hpp"
+#include "tech-core/engine.hpp"
+#include "tech-core/camera.hpp"
+#include "tech-core/task.hpp"
 #include "vulkanutils.hpp"
 
 #include "tech-core/utilities/profiler.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
+
 #include <glm/gtx/norm.hpp>
 #include <iostream>
 
@@ -36,7 +40,7 @@ uint32_t TerrainSubsystem::addSegment(
     // Note: The indices should be aligned to 2 bytes, as long as the vertices at an even size we are ok.
     vk::DeviceSize size = vertexSize + indexSize;
     TerrainSegment &segment = allocate(size, isTranslucent);
-    
+
     segment.indexOffset = segment.offset + vertexSize;
     segment.indexType = vk::IndexType::eUint16;
     segment.indexCount = indices.size();
@@ -56,16 +60,20 @@ uint32_t TerrainSubsystem::addSegment(
 
         // TODO: more efficient copying
         std::shared_ptr<Buffer> tempBuffer = bufferManager->aquireStaging(size);
-        
+
         tempBuffer->copyIn(vertices.data(), vertexSize);
         tempBuffer->copyIn(indices.data(), vertexSize, indexSize);
 
-        task->execute([&segment, staging = tempBuffer.get(), size](vk::CommandBuffer commandBuffer) {
-            staging->transfer(commandBuffer, *segment.buffer, 0, segment.offset, size);
-        });
-        task->executeWhenComplete([this, tempBuffer] () mutable {
-            tempBuffer.reset();
-        });
+        task->execute(
+            [&segment, staging = tempBuffer.get(), size](vk::CommandBuffer commandBuffer) {
+                staging->transfer(commandBuffer, *segment.buffer, 0, segment.offset, size);
+            }
+        );
+        task->executeWhenComplete(
+            [this, tempBuffer]() mutable {
+                tempBuffer.reset();
+            }
+        );
     }
 
     task->addMemoryBarrier(
@@ -141,13 +149,17 @@ uint32_t TerrainSubsystem::updateSegment(
         tempBuffer->copyIn(vertices.data(), vertexSize);
         tempBuffer->copyIn(indices.data(), vertexSize, indexSize);
 
-        task->execute([&segment, staging = tempBuffer.get(), size](vk::CommandBuffer commandBuffer) {
-            staging->transfer(commandBuffer, *segment->buffer, 0, segment->offset, size);
-        });
+        task->execute(
+            [&segment, staging = tempBuffer.get(), size](vk::CommandBuffer commandBuffer) {
+                staging->transfer(commandBuffer, *segment->buffer, 0, segment->offset, size);
+            }
+        );
 
-        task->executeWhenComplete([this, tempBuffer] () mutable {
-            tempBuffer.reset();
-        });
+        task->executeWhenComplete(
+            [this, tempBuffer]() mutable {
+                tempBuffer.reset();
+            }
+        );
     }
 
     task->addMemoryBarrier(
@@ -202,7 +214,8 @@ TerrainSegment &TerrainSubsystem::allocate(vk::DeviceSize size, bool transparent
     if (targetBuffer == nullptr) {
         auto buffer = bufferManager->aquireDivisible(
             BUFFER_ALLOCATE_SIZES,
-            vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eIndexBuffer,
+            vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer |
+                vk::BufferUsageFlagBits::eIndexBuffer,
             transparent ? vk::MemoryUsage::eCPUToGPU : vk::MemoryUsage::eGPUOnly
         );
         targetBuffer = buffer.get();
@@ -258,7 +271,8 @@ void TerrainSubsystem::free(TerrainSegment *segment) {
     // segment pointer not valid beyond here
 }
 
-void TerrainSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
+void
+TerrainSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
     std::array<vk::DescriptorSetLayoutBinding, 1> bindings = {{
         { // Camera binding
             0, // binding
@@ -267,27 +281,32 @@ void TerrainSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice
             vk::ShaderStageFlagBits::eVertex
         }
     }};
-    
-    descriptorLayout = device.createDescriptorSetLayout({
-        {}, vkUseArray(bindings)
-    });
+
+    descriptorLayout = device.createDescriptorSetLayout(
+        {
+            {}, vkUseArray(bindings)
+        }
+    );
 
     bufferManager = &engine.getBufferManager();
     taskManager = &engine.getTaskManager();
     textureManager = &engine.getTextureManager();
 
-    terrainSamplerId = engine.getMaterialManager().createSampler({
-        vk::Filter::eNearest,
-        vk::Filter::eNearest,
-        vk::SamplerMipmapMode::eNearest,
-        false
-    });
+    terrainSamplerId = engine.getMaterialManager().createSampler(
+        {
+            vk::Filter::eNearest,
+            vk::Filter::eNearest,
+            vk::SamplerMipmapMode::eNearest,
+            false
+        }
+    );
     terrainSampler = engine.getMaterialManager().getSamplerById(terrainSamplerId);
     globalLight = engine.getSubsystem(LightSubsystem::ID);
     this->engine = &engine;
 }
 
-void TerrainSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
+void
+TerrainSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
     // Descriptor pool for allocating the descriptors
     std::array<vk::DescriptorPoolSize, 1> poolSizes = {{
         {
@@ -296,19 +315,23 @@ void TerrainSubsystem::initialiseSwapChainResources(vk::Device device, _E::Rende
         }
     }};
 
-    descriptorPool = device.createDescriptorPool({
-        {},
-        swapChainImages,
-        vkUseArray(poolSizes)
-    });
+    descriptorPool = device.createDescriptorPool(
+        {
+            {},
+            swapChainImages,
+            vkUseArray(poolSizes)
+        }
+    );
 
     // Descriptor sets
     std::vector<vk::DescriptorSetLayout> layouts(swapChainImages, descriptorLayout);
 
-    descriptorSets = device.allocateDescriptorSets({
-        descriptorPool,
-        vkUseArray(layouts)
-    });
+    descriptorSets = device.allocateDescriptorSets(
+        {
+            descriptorPool,
+            vkUseArray(layouts)
+        }
+    );
 
     // Assign buffers to DS'
     for (uint32_t imageIndex = 0; imageIndex < swapChainImages; ++imageIndex) {
@@ -384,7 +407,7 @@ void TerrainSubsystem::writeFrameCommands(vk::CommandBuffer commandBuffer, uint3
     pipelineNormal->bindDescriptorSets(commandBuffer, 0, vkUseArray(globalDescriptors), 0, nullptr);
 
     auto &frustum = this->engine->getCamera()->getFrustum();
-    
+
     for (auto &segmentPair : segments) {
         auto &segment = segmentPair.second;
         if (segment.indexCount == 0 || segment.translucent) {
@@ -409,7 +432,7 @@ void TerrainSubsystem::writeFrameCommands(vk::CommandBuffer commandBuffer, uint3
     pipelineTranslucent->bind(commandBuffer);
 
     pipelineTranslucent->bindDescriptorSets(commandBuffer, 0, vkUseArray(globalDescriptors), 0, nullptr);
-    
+
     for (auto segment : orderedTransparentSegments) {
         if (segment->indexCount == 0) {
             continue;
@@ -461,7 +484,7 @@ void TerrainSubsystem::sortTriangles(bool force) {
     std::vector<float> distVec;
 
     distVec.reserve(transparentSegments.size());
-    
+
     for (auto &pair : transparentSegments) {
         auto &segment = pair.second;
         auto center = (segment.minCorner + segment.maxCorner);
@@ -490,7 +513,7 @@ void TerrainSubsystem::sortTriangles(bool force) {
             orderedTransparentSegments.insert(orderedTransparentSegments.begin() + low, &segment);
         }
 
-        #ifdef TC_SORT_TRIANGLES
+#ifdef TC_SORT_TRIANGLES
         // Second: order triangles within segments
         void *data;
         segment.buffer->map(&data);
@@ -570,7 +593,7 @@ void TerrainSubsystem::sortTriangles(bool force) {
         segment.buffer->unmap();
         segment.buffer->flushRange(segment.offset, segment.size);
 
-        #endif
+#endif
     }
 
     auto task = taskManager->createTask();
