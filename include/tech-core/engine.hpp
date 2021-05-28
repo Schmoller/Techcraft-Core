@@ -98,6 +98,7 @@ public:
     //  Builders
     // ==============================================
     PipelineBuilder createPipeline();
+    ComputeTaskBuilder createComputeTask();
 
     // ==============================================
     //  Managers
@@ -188,6 +189,7 @@ private:
     vk::CommandBuffer renderCommandBuffer;
     vk::CommandBuffer guiCommandBuffer;
     std::vector<Buffer> uniformBuffers;
+    std::unique_ptr<ExecutionController> executionController;
 
     vk::DescriptorSetLayout textureDescriptorLayout;
     TextureManager textureManager;

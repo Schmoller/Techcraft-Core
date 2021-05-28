@@ -309,7 +309,12 @@ Pipeline::~Pipeline() {
 }
 
 void Pipeline::bind(vk::CommandBuffer commandBuffer) {
+    // TODO: allow this to use the compute bind point
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+
+    // Ensure that all resources are in the correct states
+
+
 }
 
 void Pipeline::bindDescriptorSets(
@@ -325,5 +330,28 @@ void Pipeline::bindDescriptorSets(
         dynamicOffsetCount, dynamicOffsets
     );
 }
+
+void
+Pipeline::bindInputResource(const std::shared_ptr<Image> &image, uint32_t binding, const vk::ShaderStageFlags &stage) {
+    boundInputImages[{ 0, binding }] = image;
+}
+
+void Pipeline::bindInputResource(
+    const std::shared_ptr<Image> &image, uint32_t binding, uint32_t set, const vk::ShaderStageFlags &stage
+) {
+    boundInputImages[{ set, binding }] = image;
+}
+
+void
+Pipeline::bindOutputResource(const std::shared_ptr<Image> &image, uint32_t binding, const vk::ShaderStageFlags &stage) {
+    boundOutputImages[{ 0, binding }] = image;
+}
+
+void Pipeline::bindOutputResource(
+    const std::shared_ptr<Image> &image, uint32_t binding, uint32_t set, const vk::ShaderStageFlags &stage
+) {
+    boundOutputImages[{ set, binding }] = image;
+}
+
 
 }

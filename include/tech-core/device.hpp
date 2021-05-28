@@ -20,7 +20,7 @@ class VulkanDevice {
         std::optional<uint32_t> compute;
     };
 
-    public:
+public:
     /**
      * Attempts to initiate a vulkan device.
      * 
@@ -47,9 +47,11 @@ class VulkanDevice {
 
     vk::Semaphore renderFinished;
     vk::Semaphore presentFinished;
+    vk::Semaphore computeFinished;
     vk::Fence renderReady;
+    vk::Fence computeReady;
 
-    private:
+private:
     // Provided
     vk::PhysicalDevice physicalDevice;
     vk::SurfaceKHR surface;
@@ -58,6 +60,7 @@ class VulkanDevice {
     bool hasAllRequiredExtensions() const;
 };
 
-class DeviceNotSuitable : public std::exception {};
+class DeviceNotSuitable : public std::exception {
+};
 
 }

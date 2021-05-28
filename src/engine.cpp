@@ -27,8 +27,11 @@
 #include "tech-core/swapchain.hpp"
 #include "tech-core/pipeline.hpp"
 #include "tech-core/font.hpp"
+#include "tech-core/compute.hpp"
+
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
+#include "execution_controller.hpp"
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
@@ -119,6 +122,7 @@ void RenderEngine::initVulkan() {
     // Other resources
     bufferManager = std::make_unique<BufferManager>(*device);
     taskManager = std::make_unique<TaskManager>(*device);
+    executionController = std::make_unique<ExecutionController>(*device);
 
     createRenderPass();
     createDescriptorSetLayout();
@@ -490,6 +494,7 @@ bool RenderEngine::beginFrame() {
     taskManager->processActions();
     inputManager.updateStates();
     glfwPollEvents();
+    executionController->beginFrame();
 
     for (auto &subsystem : orderedSubsystems) {
         subsystem->beginFrame();
@@ -501,6 +506,7 @@ bool RenderEngine::beginFrame() {
 void RenderEngine::render() {
     guiManager->update();
     drawFrame();
+    executionController->endFrame();
 }
 
 void RenderEngine::fillFrameCommands(
@@ -803,6 +809,11 @@ PipelineBuilder RenderEngine::createPipeline() {
         swapChain->extent
     );
 }
+
+ComputeTaskBuilder RenderEngine::createComputeTask() {
+    return ComputeTaskBuilder(device->device, *executionController);
+}
+
 
 // ==============================================
 //  Utilities

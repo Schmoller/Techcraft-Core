@@ -51,6 +51,11 @@ class VulkanDevice;
 class Pipeline;
 class PipelineBuilder;
 class SwapChain;
+class ExecutionController;
+
+class ComputeTaskBuilder;
+class ComputeTask;
+class ComputeManager;
 
 // Gui
 namespace Gui {

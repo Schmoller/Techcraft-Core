@@ -124,8 +124,10 @@ VulkanDevice::VulkanDevice(vk::PhysicalDevice device, vk::Instance instance, vk:
     // Semaphores
     renderFinished = this->device.createSemaphore({});
     presentFinished = this->device.createSemaphore({});
+    computeFinished = this->device.createSemaphore({});
 
     renderReady = this->device.createFence({ vk::FenceCreateFlagBits::eSignaled });
+    computeReady = this->device.createFence({ vk::FenceCreateFlagBits::eSignaled });
 }
 
 VulkanDevice::~VulkanDevice() {
@@ -138,7 +140,9 @@ VulkanDevice::~VulkanDevice() {
 
     this->device.destroySemaphore(renderFinished);
     this->device.destroySemaphore(presentFinished);
+    this->device.destroySemaphore(computeFinished);
     this->device.destroyFence(renderReady);
+    this->device.destroyFence(computeReady);
 
     if (allocator) {
         vmaDestroyAllocator(allocator);

@@ -9,7 +9,7 @@ namespace Engine::Subsystem {
 
 class ImGuiSubsystem : public Subsystem {
 public:
-    static const SubsystemID <ImGuiSubsystem> ID;
+    static const SubsystemID<ImGuiSubsystem> ID;
 
     bool hasMouseFocus() const;
     bool hasKeyboardFocus() const;
@@ -34,7 +34,7 @@ private:
     vk::DescriptorPool descriptorPool;
     std::vector<vk::DescriptorSet> imageSamplerDS;
     vk::Sampler fontSampler;
-    std::unique_ptr<Image> fontImage;
+    std::shared_ptr<Image> fontImage;
     std::vector<VertexAndIndexBuffer> vertexBuffers;
     ImDrawData *drawData { nullptr };
 

@@ -2,11 +2,13 @@
 #define PIPELINES_HPP
 
 #include "forward.hpp"
+#include "helpers/descriptors.hpp"
 #include <unordered_map>
-#include <string>
 
+#include <string>
 #include "common_includes.hpp"
 #include <memory>
+#include <map>
 
 namespace Engine {
 
@@ -36,36 +38,22 @@ class PipelineBuilder {
 
 public:
     PipelineBuilder &withVertexShader(const std::string &path);
-
     PipelineBuilder &withFragmentShader(const std::string &path);
-
     PipelineBuilder &withGeometryType(PipelineGeometryType type);
-
     template<typename T>
     PipelineBuilder &withPushConstants(vk::ShaderStageFlags where);
 
     PipelineBuilder &withDescriptorSet(vk::DescriptorSetLayout ds);
-
     PipelineBuilder &withoutDepthWrite();
-
     PipelineBuilder &withoutDepthTest();
-
     PipelineBuilder &withVertexBindingDescription(const vk::VertexInputBindingDescription &);
-
     PipelineBuilder &withVertexBindingDescriptions(const vk::ArrayProxy<const vk::VertexInputBindingDescription> &);
-
     PipelineBuilder &withVertexAttributeDescription(const vk::VertexInputAttributeDescription &);
-
     PipelineBuilder &withVertexAttributeDescriptions(const vk::ArrayProxy<const vk::VertexInputAttributeDescription> &);
-
     PipelineBuilder &withoutFaceCulling();
-
     PipelineBuilder &withAlpha();
-
     PipelineBuilder &withFillMode(FillMode);
-
     PipelineBuilder &withDynamicState(vk::DynamicState);
-
     std::unique_ptr<Pipeline> build();
 
 private:
@@ -74,7 +62,7 @@ private:
     );
 
     // Configurable
-    PipelineGeometryType geomType = PipelineGeometryType::Polygons;
+    PipelineGeometryType geomType { PipelineGeometryType::Polygons };
     std::string vertexShaderPath;
     std::string fragmentShaderPath;
     std::vector<vk::PushConstantRange> pushConstants;
@@ -99,6 +87,17 @@ class Pipeline {
 
 public:
     ~Pipeline();
+
+    void bindInputResource(const std::shared_ptr<Image> &image, uint32_t binding, const vk::ShaderStageFlags &stage);
+    void
+    bindInputResource(
+        const std::shared_ptr<Image> &image, uint32_t binding, uint32_t set, const vk::ShaderStageFlags &stage
+    );
+    void bindOutputResource(const std::shared_ptr<Image> &image, uint32_t binding, const vk::ShaderStageFlags &stage);
+    void
+    bindOutputResource(
+        const std::shared_ptr<Image> &image, uint32_t binding, uint32_t set, const vk::ShaderStageFlags &stage
+    );
 
     void bind(vk::CommandBuffer);
 
@@ -125,6 +124,10 @@ private:
     // Owned resources
     vk::Pipeline pipeline;
     vk::PipelineLayout layout;
+
+    // Bound resources
+    std::map<std::pair<uint32_t, uint32_t>, std::shared_ptr<Image>> boundInputImages;
+    std::map<std::pair<uint32_t, uint32_t>, std::shared_ptr<Image>> boundOutputImages;
 };
 
 template<typename T>

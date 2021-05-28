@@ -26,20 +26,13 @@ class ImageBuilder {
 
 public:
     ImageBuilder &withUsage(const vk::ImageUsageFlags &);
-
     ImageBuilder &withImageTiling(vk::ImageTiling);
-
     ImageBuilder &withFormat(vk::Format);
-
     ImageBuilder &withSampleCount(const vk::SampleCountFlags &);
-
     ImageBuilder &withMemoryUsage(vk::MemoryUsage);
-
     ImageBuilder &withMipLevels(uint32_t);
-
     ImageBuilder &withDestinationStage(const vk::PipelineStageFlags &);
-
-    std::unique_ptr<Image> build();
+    std::shared_ptr<Image> build();
 
 private:
     explicit ImageBuilder(VulkanDevice &, uint32_t width, uint32_t height);
@@ -60,7 +53,28 @@ private:
     uint32_t height { 0 };
 };
 
-
+// TODO: Allow this class to track its usages in the pipeline:
+/*
+ * This means we should be able to check that it's been written to in a compute shader
+ * and been read from in a fragment shader.
+ * We can then use this to automatically transition the image
+ *
+ * Need a transitionForPipeline() function which takes the pipeline and command buffer.
+ * Needs to only transition if it needs to. Eg. If it is used in a compute shader
+ * and vertex shader, but the compute shader is not used often then it should
+ * only transition when it is used.
+ *
+ * It also needs to handle queue transfer. This means, if the compute shader is run in a compute dedicated queue,
+ * it would need to do a release in the graphics queue, then an aquire in the compute queue, and vice versa.
+ *
+ * To do this we need to know that it will be needed in the other state. ie. if the compute shader is going to be run,
+ * then we must do a release at the end of the graphics pipeline. If the graphics one will be run, then it needs to
+ * do a release at the end of the compute pipeline.
+ * It might be possible to prepare the release ahead of time because it should respect the srcAccessMask and srcStage.
+ *
+ * As an interim step, we could just make sure we use shared mode instead of exclusive mode.
+ *
+ */
 class Image {
 public:
     Image();
@@ -90,6 +104,11 @@ public:
     const vk::ImageView imageView() const {
         return internalImageView;
     }
+
+    void markUsage(
+        vk::Pipeline pipeline, const vk::ShaderStageFlags &stages, vk::ImageLayout layout,
+        const vk::AccessFlags &access
+    );
 
 private:
     ImageLoadState state;

@@ -221,8 +221,8 @@ ImageBuilder &ImageBuilder::withDestinationStage(const vk::PipelineStageFlags &f
     return *this;
 }
 
-std::unique_ptr<Image> ImageBuilder::build() {
-    auto image = std::make_unique<Image>();
+std::shared_ptr<Image> ImageBuilder::build() {
+    auto image = std::make_shared<Image>();
     image->allocate(
         device.allocator, device.device, width, height, imageFormat, imageTiling,
         usageFlags, static_cast<VmaMemoryUsage>(memoryUsage),
