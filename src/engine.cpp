@@ -122,7 +122,7 @@ void RenderEngine::initVulkan() {
     // Other resources
     bufferManager = std::make_unique<BufferManager>(*device);
     taskManager = std::make_unique<TaskManager>(*device);
-    executionController = std::make_unique<ExecutionController>(*device);
+    executionController = std::make_unique<ExecutionController>(*device, swapChain->size());
 
     createRenderPass();
     createDescriptorSetLayout();
@@ -365,25 +365,8 @@ void RenderEngine::createFramebuffers() {
 
 
 void RenderEngine::createCommandBuffers() {
-    commandBuffers.resize(swapChain->size());
-
-    vk::CommandBufferAllocateInfo allocateInfo(
-        device->graphicsPool,
-        vk::CommandBufferLevel::ePrimary,
-        static_cast<uint32_t>(commandBuffers.size())
-    );
-
-    commandBuffers = device->device.allocateCommandBuffers(allocateInfo);
-
-    vk::CommandBufferAllocateInfo guiAlloc(
-        device->graphicsPool,
-        vk::CommandBufferLevel::eSecondary,
-        2
-    );
-
-    auto buffers = device->device.allocateCommandBuffers(guiAlloc);
-    guiCommandBuffer = buffers[0];
-    renderCommandBuffer = buffers[1];
+    guiCommandBuffer = executionController->acquireSecondaryGraphicsCommandBuffer();
+    renderCommandBuffer = executionController->acquireSecondaryGraphicsCommandBuffer();
 }
 
 void RenderEngine::createUniformBuffers() {
@@ -494,7 +477,6 @@ bool RenderEngine::beginFrame() {
     taskManager->processActions();
     inputManager.updateStates();
     glfwPollEvents();
-    executionController->beginFrame();
 
     for (auto &subsystem : orderedSubsystems) {
         subsystem->beginFrame();
@@ -506,31 +488,9 @@ bool RenderEngine::beginFrame() {
 void RenderEngine::render() {
     guiManager->update();
     drawFrame();
-    executionController->endFrame();
 }
 
-void RenderEngine::fillFrameCommands(
-    vk::CommandBuffer primaryCommandBuffer, vk::CommandBufferInheritanceInfo &cbInheritance, uint32_t currentImage
-) {
-    vk::CommandBufferBeginInfo beginInfo(
-        vk::CommandBufferUsageFlagBits::eRenderPassContinue
-    );
-    primaryCommandBuffer.begin(beginInfo);
-
-    std::array<VkClearValue, 2> clearColors;
-    clearColors[0].color = { 0.0f, 0.0f, 0.0f, 1.0f };
-    clearColors[1].depthStencil = { 1.0f, 0 };
-
-    vk::RenderPassBeginInfo renderPassInfo(
-        renderPass,
-        swapChainFramebuffers[currentImage],
-        {{ 0, 0 }, swapChain->extent },
-        static_cast<uint32_t>(clearColors.size()),
-        reinterpret_cast<const vk::ClearValue *>(clearColors.data())
-    );
-
-    primaryCommandBuffer.beginRenderPass(renderPassInfo, vk::SubpassContents::eSecondaryCommandBuffers);
-
+void RenderEngine::fillFrameCommands(vk::CommandBufferInheritanceInfo &cbInheritance, uint32_t currentImage) {
     vk::CommandBufferBeginInfo renderBeginInfo(
         vk::CommandBufferUsageFlagBits::eRenderPassContinue,
         &cbInheritance
@@ -543,18 +503,13 @@ void RenderEngine::fillFrameCommands(
 
     renderCommandBuffer.end();
 
-    primaryCommandBuffer.executeCommands(1, &renderCommandBuffer);
-
-    // Draw gui
-    primaryCommandBuffer.executeCommands(1, &guiCommandBuffer);
-
-    primaryCommandBuffer.endRenderPass();
-
-    primaryCommandBuffer.end();
+    executionController->addToRender(renderCommandBuffer);
+    executionController->addToRender(guiCommandBuffer);
 }
 
 void RenderEngine::drawFrame() {
     device->device.waitForFences(1, &device->renderReady, VK_TRUE, std::numeric_limits<uint64_t>::max());
+    device->device.waitForFences(1, &device->computeReady, VK_TRUE, std::numeric_limits<uint64_t>::max());
 
     uint32_t imageIndex;
     try {
@@ -565,9 +520,16 @@ void RenderEngine::drawFrame() {
         return;
     }
 
+    executionController->startRender(imageIndex);
+
     for (auto &subsystem : orderedSubsystems) {
         subsystem->prepareFrame(imageIndex);
     }
+    updateUniformBuffer(imageIndex);
+
+    executionController->beginRenderPass(
+        renderPass, swapChainFramebuffers[imageIndex], swapChain->extent, { 0, 0, 0, 1 }
+    );
 
     vk::CommandBufferInheritanceInfo cbInheritance(
         renderPass,
@@ -575,24 +537,12 @@ void RenderEngine::drawFrame() {
         swapChainFramebuffers[imageIndex]
     );
 
-    updateUniformBuffer(imageIndex);
-
     guiManager->render(guiCommandBuffer, cbInheritance);
 
-    vk::CommandBuffer frameCommands = commandBuffers[imageIndex];
-    fillFrameCommands(frameCommands, cbInheritance, imageIndex);
+    fillFrameCommands(cbInheritance, imageIndex);
 
-    vk::PipelineStageFlags flags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-
-    vk::SubmitInfo submitInfo(
-        1, &device->presentFinished,
-        &flags,
-        1, &frameCommands,
-        1, &device->renderFinished
-    );
-
-    device->device.resetFences(1, &device->renderReady);
-    device->graphicsQueue.queue.submit(1, &submitInfo, device->renderReady);
+    executionController->endRenderPass();
+    executionController->endRender();
 
     vk::PresentInfoKHR presentInfo(
         1, &device->renderFinished,
@@ -600,23 +550,22 @@ void RenderEngine::drawFrame() {
         &imageIndex
     );
 
+    bool needsRecreateSwapChain = false;
     vk::Result result;
     try {
         result = device->presentQueue.queue.presentKHR(presentInfo);
     } catch (vk::OutOfDateKHRError const &e) {
-        recreateSwapChain();
-        return;
+        result = vk::Result::eSuboptimalKHR;
     }
 
     if (framebufferResized) {
-        recreateSwapChain();
-        return;
+        result = vk::Result::eSuboptimalKHR;
     }
 
     switch (result) {
         case vk::Result::eSuboptimalKHR:
-            recreateSwapChain();
-            return;
+            needsRecreateSwapChain = true;
+            break;
         case vk::Result::eSuccess:
             // Do nothing
             break;
@@ -626,6 +575,10 @@ void RenderEngine::drawFrame() {
 
     for (auto &subsystem : orderedSubsystems) {
         subsystem->afterFrame(imageIndex);
+    }
+
+    if (needsRecreateSwapChain) {
+        recreateSwapChain();
     }
 }
 
@@ -654,10 +607,6 @@ void RenderEngine::cleanupSwapChain() {
         uniformBuffers[i].destroy();
     }
 
-    device->device.freeCommandBuffers(device->graphicsPool, commandBuffers);
-    device->device.freeCommandBuffers(device->graphicsPool, guiCommandBuffer);
-    device->device.freeCommandBuffers(device->graphicsPool, renderCommandBuffer);
-
     device->device.destroyRenderPass(renderPass);
 }
 
@@ -680,6 +629,7 @@ void RenderEngine::cleanup() {
     bufferManager->processActions();
     taskManager.reset();
     device->device.destroyDescriptorSetLayout(textureDescriptorLayout);
+    executionController.reset();
 
     swapChain->cleanup();
     swapChain.reset();

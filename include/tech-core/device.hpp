@@ -47,6 +47,7 @@ public:
 
     vk::Semaphore renderFinished;
     vk::Semaphore presentFinished;
+    vk::Semaphore readyForCompute;
     vk::Semaphore computeFinished;
     vk::Fence renderReady;
     vk::Fence computeReady;

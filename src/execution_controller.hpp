@@ -2,6 +2,7 @@
 
 #include "tech-core/forward.hpp"
 #include <vulkan/vulkan.hpp>
+#include <glm/fwd.hpp>
 
 namespace Engine {
 
@@ -28,11 +29,22 @@ enum class BindPoint {
 
 class ExecutionController {
 public:
-    explicit ExecutionController(VulkanDevice &device);
+    ExecutionController(VulkanDevice &device, uint32_t chainSize);
     ~ExecutionController();
 
-    void beginFrame();
-    void endFrame();
+    vk::CommandBuffer acquireSecondaryGraphicsCommandBuffer();
+    vk::CommandBuffer acquireSecondaryComputeCommandBuffer();
+
+    void startRender(uint32_t imageIndex);
+    void endRender();
+
+    // Render pipeline
+    void beginRenderPass(vk::RenderPass, vk::Framebuffer, vk::Extent2D, const glm::vec4 &clear);
+    void addToRender(vk::CommandBuffer);
+    void endRenderPass();
+
+    // Compute pipeline
+    void queueCompute(ComputeTask &);
 
     /**
      * Marks a resource as used within this frame. This will handle automatic memory barriers, layout transitions,
@@ -63,11 +75,23 @@ private:
     VulkanDevice &device;
 
     // Owned resources
-    vk::CommandBuffer commandBuffer;
+    struct {
+        std::vector<vk::CommandBuffer> graphics;
+        std::vector<vk::CommandBuffer> compute;
+    } primaryCommandBuffers;
+    struct {
+        std::vector<vk::CommandBuffer> graphics;
+        std::vector<vk::CommandBuffer> compute;
+    } secondaryCommandBuffers;
 
-    bool hasComputeThisFrame { false };
+    // Current primary command buffers
+    vk::CommandBuffer currentGraphicsBuffer;
+    vk::CommandBuffer currentComputeBuffer;
+    uint32_t activeIndex { 0 };
 
-    void initializeCompute();
+    std::vector<ComputeTask *> queuedComputeTasks;
+
+    void fillComputeBuffers();
 };
 
 }

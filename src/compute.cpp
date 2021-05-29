@@ -1,5 +1,6 @@
-#include "tech-core/pipeline.hpp"
 #include "tech-core/compute.hpp"
+#include "tech-core/image.hpp"
+#include "tech-core/buffer.hpp"
 
 #include <utility>
 #include "vulkanutils.hpp"
@@ -10,10 +11,14 @@ namespace Engine {
 ComputeTask::ComputeTask(
     vk::Device device, const Pipeline &pipeline,
     ExecutionController &controller,
-    std::map<uint32_t, ComputeTask::BindingDefinition> bindings, uint32_t xSize, uint32_t ySize, uint32_t zSize
+    std::map<uint32_t, ComputeTask::BindingDefinition> bindings, uint32_t xSize, uint32_t ySize, uint32_t zSize,
+    size_t pushSize
 ) : device(device), pipeline(pipeline), controller(controller), bindings(std::move(bindings)), xSize(xSize),
-    ySize(ySize), zSize(zSize) {
+    ySize(ySize), zSize(zSize), pushSize(pushSize) {
 
+    if (pushSize > 0) {
+        pushStorage = new char[pushSize];
+    }
 }
 
 ComputeTask::~ComputeTask() {
@@ -23,6 +28,8 @@ ComputeTask::~ComputeTask() {
     device.destroyPipelineLayout(pipeline.layout);
     device.destroyDescriptorPool(pipeline.descriptorPool);
     device.destroyDescriptorSetLayout(pipeline.descriptorLayout);
+
+    delete[] pushStorage;
 }
 
 void ComputeTask::execute(uint32_t xElements, uint32_t yElements, uint32_t zElements) {
@@ -31,10 +38,16 @@ void ComputeTask::execute(uint32_t xElements, uint32_t yElements, uint32_t zElem
 }
 
 void ComputeTask::push(const void *data, size_t size) {
-    buffer.pushConstants(pipeline.layout, vk::ShaderStageFlagBits::eCompute, 0, size, data);
+    assert(size == pushSize);
+
+    isUsingPushData = true;
+    std::memcpy(pushStorage, data, size);
 }
 
 void ComputeTask::beginExecute() {
+    isQueuedForExecution = true;
+    isUsingPushData = false;
+
     if (!descriptorUpdates.empty()) {
         device.updateDescriptorSets(descriptorUpdates, {});
 
@@ -45,58 +58,14 @@ void ComputeTask::beginExecute() {
 
         descriptorUpdates.clear();
     }
-
-    buffer = controller.beginExecution(*this);
-    buffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline.pipeline);
-    buffer.bindDescriptorSets(
-        vk::PipelineBindPoint::eCompute, pipeline.layout, 0, 1, &pipeline.descriptorSet, 0, nullptr
-    );
-
-    // DEBUG: we're just going to temporarily force image layout transition. This will be through the use resource
-    std::vector<vk::ImageMemoryBarrier> barriers;
-
-    for (auto &imagePair : boundImages) {
-        auto binding = bindings[imagePair.first];
-        controller.useResource(
-            *imagePair.second, ExecutionStage::Compute, BindPoint::Storage, static_cast<ResourceUsage>(binding.usage)
-        );
-        // DEBUG: This is just temporary
-        barriers.emplace_back(
-            vk::ImageMemoryBarrier(
-                {}, vk::AccessFlagBits::eShaderWrite,
-                vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral,
-                VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                imagePair.second->image(),
-                { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
-            ));
-
-    }
-
-    // DEBUG: This is just temporary
-    buffer.pipelineBarrier(
-        vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader,
-        {},
-        0, nullptr,
-        0, nullptr,
-        barriers.size(), barriers.data()
-    );
-
-    for (auto &bufferPair : boundBuffers) {
-        auto binding = bindings[bufferPair.first];
-        BindPoint bindPoint;
-        if (binding.isUniform) {
-            bindPoint = BindPoint::Uniform;
-        } else {
-            bindPoint = BindPoint::Storage;
-        }
-        controller.useResource(
-            *bufferPair.second, ExecutionStage::Compute, bindPoint, static_cast<ResourceUsage>(binding.usage)
-        );
-    }
 }
 
 void ComputeTask::internalExecute(uint32_t xElements, uint32_t yElements, uint32_t zElements) {
-    buffer.dispatch(xElements / xSize, yElements / ySize, zElements / zSize);
+    xGroupSize = xElements / xSize;
+    yGroupSize = yElements / ySize;
+    zGroupSize = zElements / zSize;
+
+    controller.queueCompute(*this);
 }
 
 void ComputeTask::bindImage(uint32_t binding, const std::shared_ptr<Image> &image) {
@@ -164,6 +133,62 @@ void ComputeTask::bindBuffer(uint32_t binding, const std::shared_ptr<Buffer> &bu
         )
     );
 
+}
+
+void ComputeTask::fillCommandBuffer(vk::CommandBuffer buffer) {
+    buffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline.pipeline);
+    buffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute, pipeline.layout, 0, 1, &pipeline.descriptorSet, 0, nullptr
+    );
+
+    // DEBUG: we're just going to temporarily force image layout transition. This will be through the use resource
+    std::vector<vk::ImageMemoryBarrier> barriers;
+
+    for (auto &imagePair : boundImages) {
+        auto binding = bindings[imagePair.first];
+        controller.useResource(
+            *imagePair.second, ExecutionStage::Compute, BindPoint::Storage, static_cast<ResourceUsage>(binding.usage)
+        );
+        // DEBUG: This is just temporary
+        barriers.emplace_back(
+            vk::ImageMemoryBarrier(
+                {}, vk::AccessFlagBits::eShaderWrite,
+                vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral,
+                VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+                imagePair.second->image(),
+                { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
+            ));
+
+    }
+
+    // DEBUG: This is just temporary
+    buffer.pipelineBarrier(
+        vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader,
+        {},
+        0, nullptr,
+        0, nullptr,
+        barriers.size(), barriers.data()
+    );
+
+    for (auto &bufferPair : boundBuffers) {
+        auto binding = bindings[bufferPair.first];
+        BindPoint bindPoint;
+        if (binding.isUniform) {
+            bindPoint = BindPoint::Uniform;
+        } else {
+            bindPoint = BindPoint::Storage;
+        }
+        controller.useResource(
+            *bufferPair.second, ExecutionStage::Compute, bindPoint, static_cast<ResourceUsage>(binding.usage)
+        );
+    }
+
+    if (isUsingPushData) {
+        buffer.pushConstants(pipeline.layout, vk::ShaderStageFlagBits::eCompute, 0, pushSize, pushStorage);
+    }
+    buffer.dispatch(xGroupSize, yGroupSize, zGroupSize);
+
+    isQueuedForExecution = false;
 }
 
 
@@ -274,9 +299,13 @@ std::unique_ptr<ComputeTask> ComputeTaskBuilder::build() {
         1, &descriptorLayout
     );
 
+    size_t pushSize;
     if (pushConstant) {
         pipelineLayoutInfo.pushConstantRangeCount = 1;
         pipelineLayoutInfo.pPushConstantRanges = &(*pushConstant);
+        pushSize = pushConstant->size;
+    } else {
+        pushSize = 0;
     }
 
     auto pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
@@ -317,7 +346,8 @@ std::unique_ptr<ComputeTask> ComputeTaskBuilder::build() {
             bindings,
             xSize,
             ySize,
-            zSize
+            zSize,
+            pushSize
         )
     );
 

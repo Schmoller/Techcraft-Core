@@ -40,6 +40,9 @@ public:
 
     void bindImage(uint32_t binding, const std::shared_ptr<Image> &image);
     void bindBuffer(uint32_t binding, const std::shared_ptr<Buffer> &buffer);
+
+    // This is for ExecutionController use only
+    void fillCommandBuffer(vk::CommandBuffer);
 private:
     // Keep track of all images we use and make sure that the images are transitioned as appropriate
     // for example, if we put in image here that we're going to write to, we need to ensure that it is in the shader write layout.
@@ -52,9 +55,17 @@ private:
     uint32_t ySize { 1 };
     uint32_t zSize { 1 };
     std::map<uint32_t, BindingDefinition> bindings;
+    size_t pushSize { 0 };
 
     // Exists for the life of the task
-    vk::CommandBuffer buffer;
+    char *pushStorage { nullptr };
+
+    // queued execution
+    bool isQueuedForExecution { false };
+    bool isUsingPushData { false };
+    uint32_t xGroupSize { 1 };
+    uint32_t yGroupSize { 1 };
+    uint32_t zGroupSize { 1 };
 
     // Bound Items
     std::map<uint32_t, std::shared_ptr<Image>> boundImages;
@@ -63,7 +74,7 @@ private:
 
     ComputeTask(
         vk::Device, const Pipeline &pipeline, ExecutionController &controller,
-        std::map<uint32_t, BindingDefinition> bindings, uint32_t xSize, uint32_t ySize, uint32_t zSize
+        std::map<uint32_t, BindingDefinition> bindings, uint32_t xSize, uint32_t ySize, uint32_t zSize, size_t pushSize
     );
 
     void push(const void *data, size_t size);

@@ -2,7 +2,6 @@
 #define PIPELINES_HPP
 
 #include "forward.hpp"
-#include "helpers/descriptors.hpp"
 #include <unordered_map>
 
 #include <string>

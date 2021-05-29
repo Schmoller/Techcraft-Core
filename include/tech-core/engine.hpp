@@ -185,7 +185,6 @@ private:
     std::unique_ptr<SwapChain> swapChain;
     vk::RenderPass renderPass;
     std::vector<vk::Framebuffer> swapChainFramebuffers;
-    std::vector<vk::CommandBuffer> commandBuffers;
     vk::CommandBuffer renderCommandBuffer;
     vk::CommandBuffer guiCommandBuffer;
     std::vector<Buffer> uniformBuffers;
@@ -266,9 +265,7 @@ private:
 
     void drawFrame();
 
-    void fillFrameCommands(
-        vk::CommandBuffer commandBuffer, vk::CommandBufferInheritanceInfo &cbInheritance, uint32_t currentImage
-    );
+    void fillFrameCommands(vk::CommandBufferInheritanceInfo &cbInheritance, uint32_t currentImage);
 
     void updateUniformBuffer(uint32_t currentImage);
 
