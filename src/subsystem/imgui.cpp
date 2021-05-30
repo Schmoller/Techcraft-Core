@@ -36,49 +36,6 @@ void ImGuiSubsystem::initialiseResources(
             .setMaxAnisotropy(1.0f)
     );
 
-    std::array<vk::DescriptorSetLayoutBinding, 1> bindings = {{
-        { // font sampler
-            0,
-            vk::DescriptorType::eCombinedImageSampler,
-            1, // count
-            vk::ShaderStageFlagBits::eFragment,
-            &fontSampler
-        }
-    }};
-
-    imageSamplerLayout = device.createDescriptorSetLayout(
-        {
-            {}, vkUseArray(bindings)
-        }
-    );
-
-    std::array<vk::DescriptorPoolSize, 1> poolSizes = {{
-        {
-            vk::DescriptorType::eCombinedImageSampler,
-            1
-        }
-    }};
-
-
-    descriptorPool = device.createDescriptorPool(
-        {
-            {},
-            1,
-            vkUseArray(poolSizes)
-        }
-    );
-
-
-    // Descriptor sets
-    std::vector<vk::DescriptorSetLayout> layouts(1, imageSamplerLayout);
-
-    imageSamplerDS = device.allocateDescriptorSets(
-        {
-            descriptorPool,
-            vkUseArray(layouts)
-        }
-    );
-
     setupFont(device);
 }
 
@@ -112,10 +69,10 @@ void ImGuiSubsystem::initialiseSwapChainResources(
         .withAlpha()
         .withDynamicState(vk::DynamicState::eViewport)
         .withDynamicState(vk::DynamicState::eScissor)
-        .withDescriptorSet(imageSamplerLayout)
         .withPushConstants<ImGuiPushConstant>(vk::ShaderStageFlagBits::eVertex)
         .withoutDepthWrite()
         .withoutDepthTest()
+        .bindSampledImageImmutable(0, 0, fontImage, fontSampler)
         .build();
 
     vertexBuffers.resize(swapChainImages);
@@ -128,8 +85,6 @@ void ImGuiSubsystem::cleanupSwapChainResources(vk::Device device, _E::RenderEngi
 void ImGuiSubsystem::cleanupResources(vk::Device device, _E::RenderEngine &engine) {
     fontImage.reset();
     device.destroy(fontSampler);
-    device.destroy(imageSamplerLayout);
-    device.destroy(descriptorPool);
 
     vertexBuffers.clear();
     vertexBuffers.shrink_to_fit();
@@ -268,7 +223,6 @@ void ImGuiSubsystem::setupFrame(
 ) {
     // bind descriptor sets
     pipeline->bind(commandBuffer);
-    pipeline->bindDescriptorSets(commandBuffer, 0, 1, imageSamplerDS.data(), 0, nullptr);
 
     // bind vertex and index buffer
     if (drawData->TotalVtxCount > 0) {
@@ -313,18 +267,6 @@ void ImGuiSubsystem::setupFont(vk::Device device) {
         .withUsage(vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst)
         .withDestinationStage(vk::PipelineStageFlagBits::eFragmentShader)
         .build();
-
-    // Update the DS
-    vk::DescriptorImageInfo imageInfo(fontSampler, fontImage->imageView(), vk::ImageLayout::eShaderReadOnlyOptimal);
-
-    std::array<vk::WriteDescriptorSet, 1> descriptorUpdate {
-        vk::WriteDescriptorSet(imageSamplerDS[0])
-            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-            .setDescriptorCount(1)
-            .setPImageInfo(&imageInfo)
-    };
-
-    device.updateDescriptorSets(descriptorUpdate, {});
 
     // Upload font pixels
     auto task = engine->getTaskManager().createTask();

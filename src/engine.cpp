@@ -754,9 +754,11 @@ void RenderEngine::destroyMaterial(const char *name) {
 
 PipelineBuilder RenderEngine::createPipeline() {
     return PipelineBuilder(
+        *this,
         device->device,
         renderPass,
-        swapChain->extent
+        swapChain->extent,
+        swapChainFramebuffers.size()
     );
 }
 

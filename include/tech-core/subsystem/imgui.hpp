@@ -30,9 +30,6 @@ private:
 
     RenderEngine *engine;
     std::unique_ptr<Pipeline> pipeline;
-    vk::DescriptorSetLayout imageSamplerLayout;
-    vk::DescriptorPool descriptorPool;
-    std::vector<vk::DescriptorSet> imageSamplerDS;
     vk::Sampler fontSampler;
     std::shared_ptr<Image> fontImage;
     std::vector<VertexAndIndexBuffer> vertexBuffers;

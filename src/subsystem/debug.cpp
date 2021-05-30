@@ -71,92 +71,29 @@ void DebugSubsystem::debugDrawBox(const BoundingBox &box, uint32_t color) {
 
 void
 DebugSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine) {
-    // Debug shader layout contains the camera UBO only
-    std::array<vk::DescriptorSetLayoutBinding, 1> bindings = {{
-        {
-            0, // binding
-            vk::DescriptorType::eUniformBuffer,
-            1, // count
-            vk::ShaderStageFlagBits::eVertex
-        }
-    }};
-
-    cameraOnlyDSL = device.createDescriptorSetLayout(
-        {
-            {}, vkUseArray(bindings)
-        }
-    );
 }
 
 void
 DebugSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
-    // Descriptor pool for allocating the descriptors
-    std::array<vk::DescriptorPoolSize, 1> poolSizes = {{
-        {
-            vk::DescriptorType::eUniformBuffer,
-            swapChainImages
-        }
-    }};
-
-    descriptorPool = device.createDescriptorPool(
-        {
-            {},
-            swapChainImages,
-            vkUseArray(poolSizes)
-        }
-    );
-
-    // Descriptor sets
-    std::vector<vk::DescriptorSetLayout> layouts(swapChainImages, cameraOnlyDSL);
-
-    cameraOnlyDS = device.allocateDescriptorSets(
-        {
-            descriptorPool,
-            vkUseArray(layouts)
-        }
-    );
-
-    // Assign buffers to DS'
-    for (uint32_t imageIndex = 0; imageIndex < swapChainImages; ++imageIndex) {
-        auto cameraUbo = engine.getCameraDBI(imageIndex);
-
-        std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {
-            vk::WriteDescriptorSet(
-                cameraOnlyDS[imageIndex],
-                0, // Binding
-                0, // Array element
-                1, // Count
-                vk::DescriptorType::eUniformBuffer,
-                nullptr,
-                &cameraUbo
-            )
-        };
-
-        device.updateDescriptorSets(descriptorWrites, {});
-    }
-
     pipeline = engine.createPipeline()
         .withVertexShader("assets/shaders/debugline-vert.spv")
         .withFragmentShader("assets/shaders/debugline-frag.spv")
         .withGeometryType(PipelineGeometryType::SegmentedLines)
-        .withDescriptorSet(cameraOnlyDSL)
         .withPushConstants<DebugLinePC>(vk::ShaderStageFlagBits::eVertex)
+        .bindCamera(0, 0)
         .build();
 }
 
 void DebugSubsystem::cleanupResources(vk::Device device, _E::RenderEngine &engine) {
-    device.destroyDescriptorSetLayout(cameraOnlyDSL);
 }
 
 void DebugSubsystem::cleanupSwapChainResources(vk::Device device, _E::RenderEngine &engine) {
     pipeline.reset();
-    device.destroyDescriptorPool(descriptorPool);
 }
 
 void DebugSubsystem::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t activeImage) {
     if (debugDrawCmds.size() > 0) {
-        pipeline->bind(commandBuffer);
-        pipeline->bindDescriptorSets(commandBuffer, 0, 1, &cameraOnlyDS[activeImage], 0, nullptr);
+        pipeline->bind(commandBuffer, activeImage);
 
         for (auto command : debugDrawCmds) {
             pipeline->push(commandBuffer, vk::ShaderStageFlagBits::eVertex, command);

@@ -32,6 +32,32 @@ enum class FillMode {
     Point
 };
 
+enum class BindingCount {
+    Single,
+    PerSwapChain,
+    External
+};
+
+enum class SpecialBinding {
+    None,
+    Camera,
+    Textures
+};
+
+struct PipelineBinding {
+    uint32_t set { 0 };
+    uint32_t binding { 0 };
+    BindingCount count { BindingCount::Single };
+    vk::DescriptorSetLayoutBinding definition;
+    SpecialBinding type { SpecialBinding::None };
+
+    vk::Sampler sampler;
+    std::shared_ptr<Image> image;
+    vk::ImageLayout targetLayout { vk::ImageLayout::eShaderReadOnlyOptimal };
+    std::shared_ptr<Buffer> buffer;
+    bool isSamplerImmutable { false };
+};
+
 class PipelineBuilder {
     friend class RenderEngine;
 
@@ -53,11 +79,56 @@ public:
     PipelineBuilder &withAlpha();
     PipelineBuilder &withFillMode(FillMode);
     PipelineBuilder &withDynamicState(vk::DynamicState);
+
+    PipelineBuilder &bindCamera(uint32_t set, uint32_t binding);
+    PipelineBuilder &bindTextures(uint32_t set, uint32_t binding);
+    PipelineBuilder &bindSampledImage(
+        uint32_t set, uint32_t binding,
+        const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment, vk::Sampler sampler = {}
+    );
+    PipelineBuilder &bindSampledImage(
+        uint32_t set, uint32_t binding,
+        const vk::ShaderStageFlags &stages, vk::ImageLayout imageLayout, vk::Sampler sampler = {}
+    );
+    PipelineBuilder &bindSampledImage(
+        uint32_t set, uint32_t binding, std::shared_ptr<Image> image,
+        const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment,
+        vk::Sampler sampler = {}
+    );
+    PipelineBuilder &bindSampledImage(
+        uint32_t set, uint32_t binding, std::shared_ptr<Image> image,
+        const vk::ShaderStageFlags &stages, vk::ImageLayout imageLayout,
+        vk::Sampler sampler = {}
+    );
+    PipelineBuilder &bindSampledImageImmutable(
+        uint32_t set, uint32_t binding, vk::Sampler sampler,
+        const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment
+    );
+    PipelineBuilder &bindSampledImageImmutable(
+        uint32_t set, uint32_t binding, vk::Sampler sampler,
+        const vk::ShaderStageFlags &stages, vk::ImageLayout imageLayout
+    );
+    PipelineBuilder &bindSampledImageImmutable(
+        uint32_t set, uint32_t binding, std::shared_ptr<Image> image, vk::Sampler sampler,
+        const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment
+    );
+    PipelineBuilder &bindSampledImageImmutable(
+        uint32_t set, uint32_t binding, std::shared_ptr<Image> image, vk::Sampler sampler,
+        const vk::ShaderStageFlags &stages, vk::ImageLayout imageLayout
+    );
+    PipelineBuilder &bindUniformBuffer(
+        uint32_t set, uint32_t binding, const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eVertex
+    );
+    PipelineBuilder &bindUniformBuffer(
+        uint32_t set, uint32_t binding, std::shared_ptr<Buffer> buffer,
+        const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eVertex
+    );
+
     std::unique_ptr<Pipeline> build();
 
 private:
     PipelineBuilder(
-        vk::Device, vk::RenderPass, vk::Extent2D windowSize
+        RenderEngine &, vk::Device, vk::RenderPass, vk::Extent2D windowSize, uint32_t swapChainImages
     );
 
     // Configurable
@@ -65,7 +136,7 @@ private:
     std::string vertexShaderPath;
     std::string fragmentShaderPath;
     std::vector<vk::PushConstantRange> pushConstants;
-    std::vector<vk::DescriptorSetLayout> descriptorSets;
+    std::vector<vk::DescriptorSetLayout> providedDescriptorLayouts;
     std::vector<vk::DynamicState> dynamicState;
     bool depthTestEnable;
     bool depthWriteEnable;
@@ -75,30 +146,48 @@ private:
     bool alpha;
     FillMode fillMode { FillMode::Solid };
 
+    // Shader bindings
+    std::vector<PipelineBinding> bindings;
+
     // Non-configurable
+    RenderEngine &engine;
     vk::Device device;
     vk::RenderPass renderPass;
     vk::Extent2D windowSize;
+    uint32_t swapChainImages;
+
+    void processBindings(
+        std::vector<vk::DescriptorSetLayout> &layouts, std::vector<uint32_t> &setCounts,
+        std::vector<vk::DescriptorPoolSize> &poolSizes, uint32_t &totalSets
+    );
 };
 
 class Pipeline {
     friend std::unique_ptr<Pipeline> PipelineBuilder::build();
+    struct PipelineResources {
+        vk::Pipeline pipeline;
+        vk::PipelineLayout layout;
+        std::vector<std::vector<vk::DescriptorSet>> descriptorSets;
+        std::vector<vk::DescriptorSetLayout> descriptorLayouts;
+        vk::DescriptorPool descriptorPool;
+    };
+
+    struct PipelineBindingDetails {
+        vk::DescriptorType type;
+        vk::ImageLayout targetLayout;
+        vk::Sampler sampler;
+    };
 
 public:
     ~Pipeline();
 
-    void bindInputResource(const std::shared_ptr<Image> &image, uint32_t binding, const vk::ShaderStageFlags &stage);
-    void
-    bindInputResource(
-        const std::shared_ptr<Image> &image, uint32_t binding, uint32_t set, const vk::ShaderStageFlags &stage
-    );
-    void bindOutputResource(const std::shared_ptr<Image> &image, uint32_t binding, const vk::ShaderStageFlags &stage);
-    void
-    bindOutputResource(
-        const std::shared_ptr<Image> &image, uint32_t binding, uint32_t set, const vk::ShaderStageFlags &stage
-    );
+    void bindImage(uint32_t set, uint32_t binding, const std::shared_ptr<Image> &image);
+    void bindImage(uint32_t set, uint32_t binding, const std::shared_ptr<Image> &image, vk::Sampler sampler);
+    void bindBuffer(uint32_t set, uint32_t binding, const std::shared_ptr<Buffer> &buffer);
 
-    void bind(vk::CommandBuffer);
+    void bindCamera(uint32_t set, uint32_t binding, RenderEngine &);
+
+    void bind(vk::CommandBuffer, uint32_t activeImage = 0);
 
     void bindDescriptorSets(
         vk::CommandBuffer commandBuffer, uint32_t firstSet,
@@ -115,18 +204,20 @@ public:
     );
 
 private:
-    Pipeline(vk::Device, vk::Pipeline, vk::PipelineLayout);
+    Pipeline(vk::Device, PipelineResources resources, std::map<uint32_t, PipelineBindingDetails> bindings);
 
     // Shared resources
     vk::Device device;
 
     // Owned resources
-    vk::Pipeline pipeline;
-    vk::PipelineLayout layout;
+    PipelineResources resources;
+    std::map<uint32_t, PipelineBindingDetails> bindings;
 
     // Bound resources
-    std::map<std::pair<uint32_t, uint32_t>, std::shared_ptr<Image>> boundInputImages;
-    std::map<std::pair<uint32_t, uint32_t>, std::shared_ptr<Image>> boundOutputImages;
+
+    std::map<uint32_t, std::shared_ptr<Image>> boundImages;
+    std::map<uint32_t, std::shared_ptr<Buffer>> boundBuffers;
+    std::vector<vk::WriteDescriptorSet> descriptorUpdates;
 };
 
 template<typename T>
@@ -150,7 +241,7 @@ void Pipeline::push(
     uint32_t offset
 ) {
     commandBuffer.pushConstants(
-        layout,
+        resources.layout,
         stage,
         offset,
         sizeof(T), &constantData

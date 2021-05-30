@@ -22,7 +22,7 @@ struct DebugLinePC {
 };
 
 class DebugSubsystem : public Subsystem {
-    public:
+public:
     static const SubsystemID<DebugSubsystem> ID;
     static DebugSubsystem *instance();
     DebugSubsystem();
@@ -40,7 +40,7 @@ class DebugSubsystem : public Subsystem {
     void writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t activeImage);
     void afterFrame(uint32_t activeImage);
 
-    private:
+private:
     static DebugSubsystem *inst;
 
     // State
@@ -48,9 +48,6 @@ class DebugSubsystem : public Subsystem {
 
     // Render state
     std::unique_ptr<_E::Pipeline> pipeline;
-    vk::DescriptorSetLayout cameraOnlyDSL;
-    vk::DescriptorPool descriptorPool;
-    std::vector<vk::DescriptorSet> cameraOnlyDS;
 };
 
 

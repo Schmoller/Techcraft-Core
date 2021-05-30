@@ -44,7 +44,7 @@ void GuiManager::recreatePipeline(Engine::PipelineBuilder pipelineBuilder, const
         .withFragmentShader("assets/shaders/gui-frag.spv")
         .withoutDepthTest()
         .withoutDepthWrite()
-        .withDescriptorSet(textureManager.getLayout()) // Enables use of texture system
+        .bindTextures(0, 2)
         .withPushConstants<GuiPC>(vk::ShaderStageFlagBits::eVertex)
         .withVertexBindingDescription(Vertex::getBindingDescription())
         .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions())
