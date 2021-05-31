@@ -120,12 +120,18 @@ void Image::completeTransfer() {
     }
 }
 
-void Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout) {
+void
+Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout, bool read, vk::PipelineStageFlagBits stage) {
     vk::ImageAspectFlags aspectMask;
     vk::AccessFlags srcAccessMask;
     vk::AccessFlags dstAccessMask;
     vk::PipelineStageFlags sourceStage;
     vk::PipelineStageFlags destStage;
+
+    if (layout == currentLayout && read == !previousWasWriting) {
+        // no-op
+        return;
+    }
 
     if (layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
         aspectMask = vk::ImageAspectFlagBits::eDepth;
@@ -137,27 +143,65 @@ void Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout) 
         aspectMask = vk::ImageAspectFlagBits::eColor;
     }
 
-    if (currentLayout == vk::ImageLayout::eUndefined && layout == vk::ImageLayout::eTransferDstOptimal) {
-        dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+    switch (layout) {
+        case vk::ImageLayout::eTransferDstOptimal:
+            // Original layout is ignored
+            dstAccessMask = vk::AccessFlagBits::eTransferWrite;
 
-        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-        destStage = vk::PipelineStageFlagBits::eTransfer;
-    } else if (currentLayout == vk::ImageLayout::eTransferDstOptimal &&
-        layout == vk::ImageLayout::eShaderReadOnlyOptimal) {
-        srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-        dstAccessMask = vk::AccessFlagBits::eShaderRead;
+            sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+            destStage = vk::PipelineStageFlagBits::eTransfer;
+            break;
+        case vk::ImageLayout::eShaderReadOnlyOptimal: {
+            dstAccessMask = vk::AccessFlagBits::eShaderRead;
+            destStage = destinationStage;
 
-        sourceStage = vk::PipelineStageFlagBits::eTransfer;
-        destStage = destinationStage;
-    } else if (currentLayout == vk::ImageLayout::eUndefined &&
-        layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
-        dstAccessMask =
-            vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+            switch (currentLayout) {
+                case vk::ImageLayout::eTransferDstOptimal:
+                    srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+                    sourceStage = vk::PipelineStageFlagBits::eTransfer;
+                    break;
+                default:
+                    if (previousWasWriting) {
+                        srcAccessMask = vk::AccessFlagBits::eShaderWrite;
+                    } else {
+                        srcAccessMask = vk::AccessFlagBits::eShaderRead;
+                    }
+                    sourceStage = previousStages;
+                    break;
+            }
+            break;
+        }
+        case vk::ImageLayout::eDepthStencilAttachmentOptimal:
+            dstAccessMask = (
+                vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite
+            );
 
-        sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-        destStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
-    } else {
-        throw std::runtime_error("unsupported layout transition");
+            sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+            destStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+            break;
+        case vk::ImageLayout::eGeneral:
+            if (currentLayout == vk::ImageLayout::eUndefined) {
+                srcAccessMask = {};
+                sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+            } else {
+                if (previousWasWriting) {
+                    srcAccessMask = vk::AccessFlagBits::eShaderWrite;
+                } else {
+                    srcAccessMask = vk::AccessFlagBits::eShaderRead;
+                }
+                sourceStage = previousStages;
+            }
+
+            if (read) {
+                dstAccessMask = vk::AccessFlagBits::eShaderRead;
+            } else {
+                dstAccessMask = vk::AccessFlagBits::eShaderWrite;
+            }
+
+            destStage = stage;
+            break;
+        default:
+            throw std::runtime_error("unsupported layout transition");
     }
 
     vk::ImageMemoryBarrier barrier(
@@ -168,15 +212,19 @@ void Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout) 
         { aspectMask, 0, 1, 0, 1 }
     );
 
-    commandBuffer.pipelineBarrier(
+    commandBuffer.
+        pipelineBarrier(
         sourceStage, destStage,
-        {},
+        {
+        },
         0, nullptr,
         0, nullptr,
         1, &barrier
     );
 
     currentLayout = layout;
+    previousStages = destStage;
+    previousWasWriting = !read;
 }
 
 ImageBuilder::ImageBuilder(VulkanDevice &device, uint32_t width, uint32_t height) : device(device), width(width),

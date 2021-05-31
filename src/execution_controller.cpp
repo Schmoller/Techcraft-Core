@@ -188,5 +188,9 @@ void ExecutionController::fillComputeBuffers() {
     queuedComputeTasks.clear();
 }
 
+void ExecutionController::addBarriers(Subsystem::Subsystem &subsystem) {
+    subsystem.writeBarriers(currentGraphicsBuffer);
+}
+
 
 }

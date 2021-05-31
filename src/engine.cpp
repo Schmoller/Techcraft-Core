@@ -304,8 +304,30 @@ void RenderEngine::createRenderPass() {
         vk::DependencyFlagBits::eDeviceGroup
     );
 
+    vk::SubpassDependency depWriteToRead(
+        0,
+        0,
+        vk::PipelineStageFlagBits::eComputeShader | vk::PipelineStageFlagBits::eTopOfPipe,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        vk::AccessFlagBits::eShaderWrite,
+        vk::AccessFlagBits::eShaderRead,
+        vk::DependencyFlagBits::eDeviceGroup
+    );
+
+    vk::SubpassDependency depReadToWrite(
+        0,
+        0,
+        vk::PipelineStageFlagBits::eFragmentShader,
+        vk::PipelineStageFlagBits::eComputeShader,
+        vk::AccessFlagBits::eShaderRead,
+        vk::AccessFlagBits::eShaderWrite,
+        vk::DependencyFlagBits::eDeviceGroup
+    );
+
     std::array<vk::AttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
-    std::array<vk::SubpassDependency, 2> dependencies = { depColourWrite, depVertexBarrier };
+    std::array<vk::SubpassDependency, 4> dependencies = {
+        depColourWrite, depVertexBarrier, depWriteToRead, depReadToWrite
+    };
 
     vk::RenderPassCreateInfo renderPassInfo(
         {},
@@ -524,6 +546,7 @@ void RenderEngine::drawFrame() {
 
     for (auto &subsystem : orderedSubsystems) {
         subsystem->prepareFrame(imageIndex);
+        executionController->addBarriers(*subsystem);
     }
     updateUniformBuffer(imageIndex);
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "tech-core/forward.hpp"
+#include "tech-core/subsystem/base.hpp"
 #include <vulkan/vulkan.hpp>
 #include <glm/fwd.hpp>
 
@@ -43,6 +44,8 @@ public:
     void addToRender(vk::CommandBuffer);
     void endRenderPass();
 
+    void addBarriers(Subsystem::Subsystem &subsystem);
+
     // Compute pipeline
     void queueCompute(ComputeTask &);
 
@@ -68,8 +71,6 @@ public:
     void useResource(
         const Buffer &buffer, ExecutionStage where, BindPoint bindPoint, ResourceUsage usage = ResourceUsage::Read
     );
-
-    vk::CommandBuffer beginExecution(const ComputeTask &task);
 private:
     // Provided
     VulkanDevice &device;

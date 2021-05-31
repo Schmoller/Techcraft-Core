@@ -93,7 +93,10 @@ public:
     void
     transfer(vk::CommandBuffer commandBuffer, void *pixelData, VkDeviceSize size, MipType mipType = MipType::NoMipmap);
 
-    void transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout);
+    void transition(
+        vk::CommandBuffer commandBuffer, vk::ImageLayout layout, bool read = true,
+        vk::PipelineStageFlagBits destStage = vk::PipelineStageFlagBits::eFragmentShader
+    );
 
     void completeTransfer();
 
@@ -104,11 +107,6 @@ public:
     const vk::ImageView imageView() const {
         return internalImageView;
     }
-
-    void markUsage(
-        vk::Pipeline pipeline, const vk::ShaderStageFlags &stages, vk::ImageLayout layout,
-        const vk::AccessFlags &access
-    );
 
 private:
     ImageLoadState state;
@@ -126,7 +124,9 @@ private:
     Buffer stagingBuffer;
 
     // Tracked for transitions
-    vk::ImageLayout currentLayout;
+    vk::ImageLayout currentLayout { vk::ImageLayout::eUndefined };
+    bool previousWasWriting { false };
+    vk::PipelineStageFlags previousStages;
 };
 
 }

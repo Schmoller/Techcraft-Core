@@ -180,7 +180,9 @@ VulkanDevice::VulkanQueueIndices VulkanDevice::findQueueIndices() const {
     std::optional<uint32_t> transferIndex;
     bool transferDedicated = false;
     std::optional<uint32_t> computeIndex;
-    bool computeDedicated = false;
+//    bool computeDedicated = false;
+    // For the time being, we want to share
+    bool computeDedicated = true;
 
     vk::Bool32 canPresent;
 
@@ -202,16 +204,27 @@ VulkanDevice::VulkanQueueIndices VulkanDevice::findQueueIndices() const {
                 }
             }
 
-            // Compute would like to be dedicated if possible
+//            // Compute would like to be dedicated if possible
+//            if (family.queueFlags & vk::QueueFlagBits::eCompute) {
+//                if (!computeDedicated) {
+//                    computeIndex = index;
+//
+//                    if (family.queueFlags == static_cast<vk::QueueFlags>(vk::QueueFlagBits::eCompute)) {
+//                        computeDedicated = true;
+//                    }
+//                }
+//            }
+            // For the time being, it will be easier to share with graphics
             if (family.queueFlags & vk::QueueFlagBits::eCompute) {
-                if (!computeDedicated) {
+                if (computeDedicated) {
                     computeIndex = index;
 
-                    if (family.queueFlags == static_cast<vk::QueueFlags>(vk::QueueFlagBits::eCompute)) {
-                        computeDedicated = true;
+                    if (family.queueFlags & vk::QueueFlagBits::eGraphics) {
+                        computeDedicated = false;
                     }
                 }
             }
+
 
             // Presentation. Try to put as part of the same queue as graphics
             if (!presentIndex || !sharedPresent) {

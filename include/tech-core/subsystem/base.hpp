@@ -61,6 +61,8 @@ public:
      */
     virtual void beginFrame() {};
 
+    virtual void writeBarriers(vk::CommandBuffer commandBuffer) {};
+
     /**
      * Prepares for a frame to be executed
      */

@@ -149,26 +149,17 @@ void ComputeTask::fillCommandBuffer(vk::CommandBuffer buffer) {
         controller.useResource(
             *imagePair.second, ExecutionStage::Compute, BindPoint::Storage, static_cast<ResourceUsage>(binding.usage)
         );
-        // DEBUG: This is just temporary
-        barriers.emplace_back(
-            vk::ImageMemoryBarrier(
-                {}, vk::AccessFlagBits::eShaderWrite,
-                vk::ImageLayout::eUndefined, vk::ImageLayout::eGeneral,
-                VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-                imagePair.second->image(),
-                { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1 }
-            ));
 
+        if (binding.usage == UsageType::Input) {
+            imagePair.second->transition(
+                buffer, vk::ImageLayout::eGeneral, true, vk::PipelineStageFlagBits::eComputeShader
+            );
+        } else {
+            imagePair.second->transition(
+                buffer, vk::ImageLayout::eGeneral, false, vk::PipelineStageFlagBits::eComputeShader
+            );
+        }
     }
-
-    // DEBUG: This is just temporary
-    buffer.pipelineBarrier(
-        vk::PipelineStageFlagBits::eTopOfPipe, vk::PipelineStageFlagBits::eComputeShader,
-        {},
-        0, nullptr,
-        0, nullptr,
-        barriers.size(), barriers.data()
-    );
 
     for (auto &bufferPair : boundBuffers) {
         auto binding = bindings[bufferPair.first];
