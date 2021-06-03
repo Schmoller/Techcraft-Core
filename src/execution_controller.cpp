@@ -3,7 +3,6 @@
 #include "tech-core/compute.hpp"
 #include "vulkanutils.hpp"
 #include <glm/glm.hpp>
-#include <iostream>
 
 namespace Engine {
 
@@ -182,7 +181,6 @@ vk::CommandBuffer ExecutionController::acquireSecondaryComputeCommandBuffer() {
 
 void ExecutionController::fillComputeBuffers() {
     for (auto task : queuedComputeTasks) {
-        std::cout << "Executing compute task" << std::endl;
         task->fillCommandBuffer(currentComputeBuffer);
     }
     queuedComputeTasks.clear();

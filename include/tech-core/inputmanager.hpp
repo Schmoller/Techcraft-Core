@@ -226,6 +226,7 @@ public:
     glm::vec2 getMousePos();
     void setMousePos(const glm::vec2 &pos);
     glm::vec2 getMouseDelta();
+    glm::vec2 getMouseWheel();
 
     InputManager &operator=(InputManager &other) = delete;
 
@@ -241,6 +242,7 @@ private:
     // only keys whose state has been checked will be
     std::unordered_map<Key, bool> keyStatus;
     std::unordered_map<Key, bool> pendingKeyStatus;
+    glm::vec2 mouseWheel;
     bool mouseCaptured { false };
     std::vector<InputCallback> callbacks;
     std::vector<TextInputCallback> textCallbacks;

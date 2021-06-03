@@ -95,6 +95,8 @@ void InputManager::updateStates() {
     if (mouseCaptured) {
         glfwSetCursorPos(window, 0, 0);
     }
+
+    mouseWheel = {};
 }
 
 void InputManager::captureMouse() {
@@ -128,6 +130,10 @@ glm::vec2 InputManager::getMouseDelta() {
     } else {
         return {};
     }
+}
+
+glm::vec2 InputManager::getMouseWheel() {
+    return mouseWheel;
 }
 
 void InputManager::addCallback(InputCallback inputCallback) {
@@ -310,6 +316,9 @@ void InputManager::onCursorPosUpdate(double x, double y) {
 }
 
 void InputManager::onScroll(double scrollX, double scrollY) {
+    mouseWheel.x += static_cast<float>(scrollX);
+    mouseWheel.y += static_cast<float>(scrollY);
+
     for (auto &callback : scrollCallbacks) {
         callback(scrollX, scrollY);
     }
