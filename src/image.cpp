@@ -183,6 +183,9 @@ Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout, bool 
             if (currentLayout == vk::ImageLayout::eUndefined) {
                 srcAccessMask = {};
                 sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
+            } else if (currentLayout == vk::ImageLayout::eTransferDstOptimal) {
+                srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+                sourceStage = vk::PipelineStageFlagBits::eTransfer;
             } else {
                 if (previousWasWriting) {
                     srcAccessMask = vk::AccessFlagBits::eShaderWrite;
