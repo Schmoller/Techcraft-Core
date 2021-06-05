@@ -388,6 +388,112 @@ PipelineBuilder &PipelineBuilder::bindUniformBuffer(
     return *this;
 }
 
+PipelineBuilder &PipelineBuilder::bindSampledImagePool(
+    uint32_t set, uint32_t binding, uint32_t size, const vk::ShaderStageFlags &stages, vk::Sampler sampler
+) {
+    bindings.emplace_back(
+        PipelineBinding {
+            set,
+            binding,
+            BindingCount::Pool,
+            {
+                binding,
+                vk::DescriptorType::eCombinedImageSampler,
+                1,
+                stages
+            },
+            SpecialBinding::None,
+            sampler,
+            {},
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+            {},
+            false,
+            size
+        }
+    );
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::bindSampledImagePool(
+    uint32_t set, uint32_t binding, uint32_t size, const vk::ShaderStageFlags &stages, vk::ImageLayout imageLayout,
+    vk::Sampler sampler
+) {
+    bindings.emplace_back(
+        PipelineBinding {
+            set,
+            binding,
+            BindingCount::Pool,
+            {
+                binding,
+                vk::DescriptorType::eCombinedImageSampler,
+                1,
+                stages
+            },
+            SpecialBinding::None,
+            sampler,
+            {},
+            imageLayout,
+            {},
+            false,
+            size
+        }
+    );
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::bindSampledImagePoolImmutable(
+    uint32_t set, uint32_t binding, uint32_t size, vk::Sampler sampler, const vk::ShaderStageFlags &stages
+) {
+    bindings.emplace_back(
+        PipelineBinding {
+            set,
+            binding,
+            BindingCount::Pool,
+            {
+                binding,
+                vk::DescriptorType::eCombinedImageSampler,
+                1,
+                stages
+            },
+            SpecialBinding::None,
+            sampler,
+            {},
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+            {},
+            true,
+            size
+        }
+    );
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::bindSampledImagePoolImmutable(
+    uint32_t set, uint32_t binding, uint32_t size, vk::Sampler sampler, const vk::ShaderStageFlags &stages,
+    vk::ImageLayout imageLayout
+) {
+    bindings.emplace_back(
+        PipelineBinding {
+            set,
+            binding,
+            BindingCount::Pool,
+            {
+                binding,
+                vk::DescriptorType::eCombinedImageSampler,
+                1,
+                stages
+            },
+            SpecialBinding::None,
+            sampler,
+            {},
+            imageLayout,
+            {},
+            true,
+            size
+        }
+    );
+    return *this;
+}
+
 void PipelineBuilder::processBindings(
     std::vector<vk::DescriptorSetLayout> &layouts, std::vector<uint32_t> &setCounts,
     std::vector<vk::DescriptorPoolSize> &poolSizes, uint32_t &totalSets
@@ -413,6 +519,8 @@ void PipelineBuilder::processBindings(
             count = 1;
         } else if (binding.count == BindingCount::External) {
             count = 0;
+        } else if (binding.count == BindingCount::Pool) {
+            count = binding.poolSize;
         } else {
             count = swapChainImages;
         }
@@ -899,6 +1007,105 @@ void Pipeline::bindCamera(uint32_t set, uint32_t binding, RenderEngine &engine) 
         );
         ++index;
     }
+}
+
+void Pipeline::bindPoolImage(vk::CommandBuffer commandBuffer, uint32_t set, uint32_t binding, uint32_t index) {
+    auto descriptorSets = resources.descriptorSets[set];
+    bindDescriptorSets(commandBuffer, set, 1, &descriptorSets[index], 0, nullptr);
+}
+
+void Pipeline::updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, const Image &image) {
+    auto &config = bindings[binding];
+    auto descriptorSets = resources.descriptorSets[set];
+
+    // Update the descriptor
+    auto *imageInfo = new vk::DescriptorImageInfo(
+        config.sampler,
+        image.imageView(),
+        config.targetLayout
+    );
+
+    descriptorUpdates.emplace_back(
+        vk::WriteDescriptorSet(
+            descriptorSets[index],
+            binding,
+            0,
+            1,
+            config.type,
+            imageInfo
+        )
+    );
+}
+
+void
+Pipeline::updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, const Image &image, vk::ImageLayout layout) {
+    auto &config = bindings[binding];
+    auto descriptorSets = resources.descriptorSets[set];
+
+    // Update the descriptor
+    auto *imageInfo = new vk::DescriptorImageInfo(
+        config.sampler,
+        image.imageView(),
+        layout
+    );
+
+    descriptorUpdates.emplace_back(
+        vk::WriteDescriptorSet(
+            descriptorSets[index],
+            binding,
+            0,
+            1,
+            config.type,
+            imageInfo
+        )
+    );
+}
+
+void Pipeline::updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, vk::ImageView image) {
+    auto &config = bindings[binding];
+    auto descriptorSets = resources.descriptorSets[set];
+
+    // Update the descriptor
+    auto *imageInfo = new vk::DescriptorImageInfo(
+        config.sampler,
+        image,
+        config.targetLayout
+    );
+
+    descriptorUpdates.emplace_back(
+        vk::WriteDescriptorSet(
+            descriptorSets[index],
+            binding,
+            0,
+            1,
+            config.type,
+            imageInfo
+        )
+    );
+}
+
+void
+Pipeline::updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, vk::ImageView image, vk::ImageLayout layout) {
+    auto &config = bindings[binding];
+    auto descriptorSets = resources.descriptorSets[set];
+
+    // Update the descriptor
+    auto *imageInfo = new vk::DescriptorImageInfo(
+        config.sampler,
+        image,
+        layout
+    );
+
+    descriptorUpdates.emplace_back(
+        vk::WriteDescriptorSet(
+            descriptorSets[index],
+            binding,
+            0,
+            1,
+            config.type,
+            imageInfo
+        )
+    );
 }
 
 

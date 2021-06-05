@@ -35,6 +35,7 @@ enum class FillMode {
 enum class BindingCount {
     Single,
     PerSwapChain,
+    Pool,
     External
 };
 
@@ -56,6 +57,7 @@ struct PipelineBinding {
     vk::ImageLayout targetLayout { vk::ImageLayout::eShaderReadOnlyOptimal };
     std::shared_ptr<Buffer> buffer;
     bool isSamplerImmutable { false };
+    uint32_t poolSize { 0 };
 };
 
 class PipelineBuilder {
@@ -123,6 +125,23 @@ public:
         uint32_t set, uint32_t binding, std::shared_ptr<Buffer> buffer,
         const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eVertex
     );
+    PipelineBuilder &bindSampledImagePool(
+        uint32_t set, uint32_t binding, uint32_t size,
+        const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment,
+        vk::Sampler sampler = {}
+    );
+    PipelineBuilder &bindSampledImagePool(
+        uint32_t set, uint32_t binding, uint32_t size, const vk::ShaderStageFlags &stages, vk::ImageLayout imageLayout,
+        vk::Sampler sampler = {}
+    );
+    PipelineBuilder &bindSampledImagePoolImmutable(
+        uint32_t set, uint32_t binding, uint32_t size, vk::Sampler sampler,
+        const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment
+    );
+    PipelineBuilder &bindSampledImagePoolImmutable(
+        uint32_t set, uint32_t binding, uint32_t size, vk::Sampler sampler, const vk::ShaderStageFlags &stages,
+        vk::ImageLayout imageLayout
+    );
 
     std::unique_ptr<Pipeline> build();
 
@@ -189,6 +208,12 @@ public:
     void bindCamera(uint32_t set, uint32_t binding, RenderEngine &);
 
     void bind(vk::CommandBuffer, uint32_t activeImage = 0);
+
+    void bindPoolImage(vk::CommandBuffer commandBuffer, uint32_t set, uint32_t binding, uint32_t index);
+    void updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, const Image &image);
+    void updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, const Image &image, vk::ImageLayout layout);
+    void updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, vk::ImageView image);
+    void updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, vk::ImageView image, vk::ImageLayout layout);
 
     void bindDescriptorSets(
         vk::CommandBuffer commandBuffer, uint32_t firstSet,
