@@ -66,7 +66,7 @@ public:
     PipelineBuilder &withFragmentShader(const std::string &path);
     PipelineBuilder &withGeometryType(PipelineGeometryType type);
     template<typename T>
-    PipelineBuilder &withPushConstants(vk::ShaderStageFlags where);
+    PipelineBuilder &withPushConstants(const vk::ShaderStageFlags &where);
 
     PipelineBuilder &withDescriptorSet(vk::DescriptorSetLayout ds);
     PipelineBuilder &withoutDepthWrite();
@@ -145,6 +145,7 @@ private:
     bool cullFaces;
     bool alpha;
     FillMode fillMode { FillMode::Solid };
+    size_t pushOffset { 0 };
 
     // Shader bindings
     std::vector<PipelineBinding> bindings;
@@ -221,12 +222,14 @@ private:
 };
 
 template<typename T>
-PipelineBuilder &PipelineBuilder::withPushConstants(vk::ShaderStageFlags where) {
+PipelineBuilder &PipelineBuilder::withPushConstants(const vk::ShaderStageFlags &where) {
     vk::PushConstantRange range(
         where,
-        0,
+        pushOffset,
         sizeof(T)
     );
+
+    pushOffset += sizeof(T);
 
     pushConstants.push_back(range);
 
