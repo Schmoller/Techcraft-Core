@@ -316,11 +316,13 @@ void InputManager::onCursorPosUpdate(double x, double y) {
 }
 
 void InputManager::onScroll(double scrollX, double scrollY) {
-    mouseWheel.x += static_cast<float>(scrollX);
-    mouseWheel.y += static_cast<float>(scrollY);
+    if (isMouseAvailable()) {
+        mouseWheel.x += static_cast<float>(scrollX);
+        mouseWheel.y += static_cast<float>(scrollY);
 
-    for (auto &callback : scrollCallbacks) {
-        callback(scrollX, scrollY);
+        for (auto &callback : scrollCallbacks) {
+            callback(scrollX, scrollY);
+        }
     }
 }
 
