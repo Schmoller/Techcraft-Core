@@ -7,9 +7,11 @@ class ImDrawData;
 
 namespace Engine::Subsystem {
 
+
 class ImGuiSubsystem : public Subsystem {
 public:
     static const SubsystemID<ImGuiSubsystem> ID;
+    static constexpr uint32_t MaxTexturesPerFrame { 40 };
 
     bool hasMouseFocus() const;
     bool hasKeyboardFocus() const;
@@ -22,6 +24,7 @@ public:
     void writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t activeImage) override;
     void prepareFrame(uint32_t activeImage) override;
     void beginFrame() override;
+    void writeBarriers(vk::CommandBuffer commandBuffer) override;
 private:
     struct VertexAndIndexBuffer {
         std::unique_ptr<Buffer> vertex;
@@ -29,18 +32,29 @@ private:
     };
 
     RenderEngine *engine;
+    vk::Device device;
+
     std::unique_ptr<Pipeline> pipeline;
+    std::unique_ptr<Pipeline> pipelineForTextures;
     vk::Sampler fontSampler;
     std::shared_ptr<Image> fontImage;
     std::vector<VertexAndIndexBuffer> vertexBuffers;
+
+    // Current frame
     ImDrawData *drawData { nullptr };
+    glm::vec2 currentScale;
+    glm::vec2 currentTranslate;
+
+    std::unordered_map<Image *, uint32_t> imagePoolMapping;
+    std::unordered_map<Texture *, uint32_t> texturePoolMapping;
 
     void setupFont(vk::Device device);
     void
     transferVertexInformation(ImDrawData *drawData, vk::CommandBuffer commandBuffer, VertexAndIndexBuffer &buffers);
     void
     setupFrame(
-        ImDrawData *drawData, vk::CommandBuffer commandBuffer, VertexAndIndexBuffer &buffers, int width, int height
+        ImDrawData *drawData, Pipeline *currentPipeline, vk::CommandBuffer commandBuffer, VertexAndIndexBuffer &buffers,
+        int width, int height
     );
 
 };

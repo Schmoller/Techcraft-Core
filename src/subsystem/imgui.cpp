@@ -7,6 +7,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <glm/glm.hpp>
+#include <iostream>
 
 namespace Engine::Subsystem {
 const SubsystemID<ImGuiSubsystem> ImGuiSubsystem::ID;
@@ -25,6 +26,7 @@ void ImGuiSubsystem::initialiseResources(
     vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine
 ) {
     this->engine = &engine;
+    this->device = device;
 
     // create font sampler
     fontSampler = device.createSampler(
@@ -42,9 +44,7 @@ void ImGuiSubsystem::initialiseResources(
 void ImGuiSubsystem::initialiseSwapChainResources(
     vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages
 ) {
-    pipeline = engine.createPipeline()
-        .withVertexShader("assets/shaders/imgui-vert.spv")
-        .withFragmentShader("assets/shaders/imgui-frag.spv")
+    auto builder = engine.createPipeline()
         .withVertexBindingDescription(
             {
                 0, sizeof(ImDrawVert), vk::VertexInputRate::eVertex
@@ -69,10 +69,20 @@ void ImGuiSubsystem::initialiseSwapChainResources(
         .withAlpha()
         .withDynamicState(vk::DynamicState::eViewport)
         .withDynamicState(vk::DynamicState::eScissor)
-        .withPushConstants<ImGuiPushConstant>(vk::ShaderStageFlagBits::eVertex)
         .withoutDepthWrite()
         .withoutDepthTest()
-        .bindSampledImageImmutable(0, 0, fontImage, fontSampler)
+        .bindSampledImagePoolImmutable(0, 0, MaxTexturesPerFrame, fontSampler)
+        .withPushConstants<ImGuiPushConstant>(vk::ShaderStageFlagBits::eVertex);
+
+    pipeline = builder
+        .withVertexShader("assets/shaders/engine/imgui/vertex.spv")
+        .withFragmentShader("assets/shaders/engine/imgui/fragment_plain.spv")
+        .build();
+
+    pipelineForTextures = builder
+        .withVertexShader("assets/shaders/engine/imgui/vertex.spv")
+        .withFragmentShader("assets/shaders/engine/imgui/fragment_texarray.spv")
+        .withPushConstants<uint32_t>(vk::ShaderStageFlagBits::eFragment)
         .build();
 
     vertexBuffers.resize(swapChainImages);
@@ -80,6 +90,7 @@ void ImGuiSubsystem::initialiseSwapChainResources(
 
 void ImGuiSubsystem::cleanupSwapChainResources(vk::Device device, _E::RenderEngine &engine) {
     pipeline.reset();
+    pipelineForTextures.reset();
 }
 
 void ImGuiSubsystem::cleanupResources(vk::Device device, _E::RenderEngine &engine) {
@@ -102,7 +113,6 @@ void ImGuiSubsystem::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_
     auto &buffers = vertexBuffers[activeImage];
 
     transferVertexInformation(drawData, commandBuffer, buffers);
-    setupFrame(drawData, commandBuffer, buffers, fbWidth, fbHeight);
 
     // Will project scissor/clipping rectangles into framebuffer space
     ImVec2 clip_off = drawData->DisplayPos;         // (0,0) unless using multi-viewports
@@ -112,15 +122,72 @@ void ImGuiSubsystem::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_
     // (Because we merged all buffers into a single one, we maintain our own offset into them)
     int vertexOffset = 0;
     int indexOffset = 0;
+    uint32_t lastBound = 0xFFFFFFFF;
+    uint32_t lastSlot = 0xFFFFFFFF;
+
+    Pipeline *currentPipeline { nullptr };
+
     for (int n = 0; n < drawData->CmdListsCount; n++) {
         const ImDrawList *commandList = drawData->CmdLists[n];
         for (int commandIndex = 0; commandIndex < commandList->CmdBuffer.Size; commandIndex++) {
             const ImDrawCmd *command = &commandList->CmdBuffer[commandIndex];
+            if (Image::isImage(command->TextureId, device)) {
+                auto image = reinterpret_cast<Image *>(command->TextureId);
+                auto it = imagePoolMapping.find(image);
+                if (it != imagePoolMapping.end()) {
+                    if (currentPipeline != pipeline.get()) {
+                        currentPipeline = pipeline.get();
+
+                        setupFrame(drawData, pipeline.get(), commandBuffer, buffers, fbWidth, fbHeight);
+                        lastBound = 0xFFFFFFFF;
+                        lastSlot = 0xFFFFFFFF;
+                    }
+
+                    if (it->second != lastBound) {
+                        currentPipeline->bindPoolImage(commandBuffer, 0, 0, it->second);
+                        lastBound = it->second;
+                    }
+                } else {
+                    std::cerr << "Unable to find pool mapping for image " << image << std::endl;
+                    continue;
+                }
+            } else {
+                auto texture = reinterpret_cast<Texture *>(command->TextureId);
+                auto it = texturePoolMapping.find(texture);
+                if (it != texturePoolMapping.end()) {
+                    if (currentPipeline != pipelineForTextures.get()) {
+                        currentPipeline = pipelineForTextures.get();
+
+                        setupFrame(drawData, pipelineForTextures.get(), commandBuffer, buffers, fbWidth, fbHeight);
+                        lastBound = 0xFFFFFFFF;
+                        lastSlot = 0xFFFFFFFF;
+                    }
+
+                    if (it->second != lastBound) {
+                        currentPipeline->bindPoolImage(commandBuffer, 0, 0, it->second);
+                        lastBound = it->second;
+                    }
+
+                    if (texture->arraySlot != lastSlot) {
+                        auto arraySlot = static_cast<uint32_t>(texture->arraySlot);
+
+                        currentPipeline->push(
+                            commandBuffer, vk::ShaderStageFlagBits::eFragment, arraySlot, sizeof(ImGuiPushConstant)
+                        );
+
+                        lastSlot = arraySlot;
+                    }
+                } else {
+                    std::cerr << "Unable to find pool mapping for image " << texture << std::endl;
+                    continue;
+                }
+            }
+
             if (command->UserCallback != nullptr) {
                 // User callback, registered via ImDrawList::AddCallback()
                 // (ImDrawCallback_ResetRenderState is a special callback value used by the user to request the renderer to reset render state.)
                 if (command->UserCallback == ImDrawCallback_ResetRenderState) {
-                    setupFrame(drawData, commandBuffer, buffers, fbWidth, fbHeight);
+                    setupFrame(drawData, nullptr, commandBuffer, buffers, fbWidth, fbHeight);
                 } else {
                     command->UserCallback(commandList, command);
                 }
@@ -211,18 +278,73 @@ void ImGuiSubsystem::transferVertexInformation(
 void ImGuiSubsystem::prepareFrame(uint32_t activeImage) {
     ImGui::Render();
     drawData = ImGui::GetDrawData();
+
+    // Prepare the images and descriptor sets
+    uint32_t nextImagePoolIndex = 0;
+    uint32_t nextTexturePoolIndex = 0;
+
+    for (int n = 0; n < drawData->CmdListsCount; n++) {
+        const ImDrawList *commandList = drawData->CmdLists[n];
+        for (int commandIndex = 0; commandIndex < commandList->CmdBuffer.Size; commandIndex++) {
+            const ImDrawCmd *command = &commandList->CmdBuffer[commandIndex];
+            if (Image::isImage(command->TextureId, device)) {
+                auto image = reinterpret_cast<Image *>(command->TextureId);
+
+                auto it = imagePoolMapping.find(image);
+                if (it == imagePoolMapping.end()) {
+                    if (nextImagePoolIndex >= MaxTexturesPerFrame) {
+                        // Too many textures
+                        std::cerr << "Too many textures per frame for ImGui. Only " << MaxTexturesPerFrame
+                            << " are supported" << std::endl;
+                        continue;
+                    }
+
+                    if (image->isReadyForSampling()) {
+                        pipeline->updatePoolImage(0, 0, nextImagePoolIndex, *image, image->getCurrentLayout());
+                    } else {
+                        pipeline->updatePoolImage(0, 0, nextImagePoolIndex, *image);
+                    }
+
+                    imagePoolMapping[image] = nextImagePoolIndex;
+                    ++nextImagePoolIndex;
+                }
+            } else {
+                auto texture = reinterpret_cast<Texture *>(command->TextureId);
+
+                auto it = texturePoolMapping.find(texture);
+                if (it == texturePoolMapping.end()) {
+                    if (nextTexturePoolIndex >= MaxTexturesPerFrame) {
+                        // Too many textures
+                        std::cerr << "Too many textures per frame for ImGui. Only " << MaxTexturesPerFrame
+                            << " are supported" << std::endl;
+                        continue;
+                    }
+
+                    auto image = engine->getTextureManager().getTextureView(*texture);
+
+                    pipelineForTextures->updatePoolImage(0, 0, nextTexturePoolIndex, image);
+
+                    texturePoolMapping[texture] = nextTexturePoolIndex;
+                    ++nextTexturePoolIndex;
+                }
+            }
+        }
+    }
 }
 
 void ImGuiSubsystem::beginFrame() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+    texturePoolMapping.clear();
+    imagePoolMapping.clear();
 }
 
 void ImGuiSubsystem::setupFrame(
-    ImDrawData *drawData, vk::CommandBuffer commandBuffer, VertexAndIndexBuffer &buffers, int width, int height
+    ImDrawData *drawData, Pipeline *currentPipeline, vk::CommandBuffer commandBuffer, VertexAndIndexBuffer &buffers,
+    int width, int height
 ) {
     // bind descriptor sets
-    pipeline->bind(commandBuffer);
+    currentPipeline->bind(commandBuffer);
 
     // bind vertex and index buffer
     if (drawData->TotalVtxCount > 0) {
@@ -250,8 +372,7 @@ void ImGuiSubsystem::setupFrame(
         { -1.0f - drawData->DisplayPos.x * scale.x, -1.0f - drawData->DisplayPos.y * scale.y }
     };
 
-    pipeline->push(commandBuffer, vk::ShaderStageFlagBits::eVertex, scaleAndTranslate);
-
+    currentPipeline->push(commandBuffer, vk::ShaderStageFlagBits::eVertex, scaleAndTranslate);
 }
 
 void ImGuiSubsystem::setupFont(vk::Device device) {
@@ -288,7 +409,15 @@ void ImGuiSubsystem::setupFont(vk::Device device) {
     engine->getTaskManager().submitTask(std::move(task));
 
     // Store our identifier
-    io.Fonts->SetTexID((ImTextureID) reinterpret_cast<intptr_t>(static_cast<VkImage>(fontImage->image())));
+    io.Fonts->SetTexID(static_cast<ImTextureID>(*fontImage));
+}
+
+void ImGuiSubsystem::writeBarriers(vk::CommandBuffer commandBuffer) {
+    for (auto &pair : imagePoolMapping) {
+        if (!pair.first->isReadyForSampling()) {
+            pair.first->transition(commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
+        }
+    }
 }
 
 bool ImGuiSubsystem::hasMouseFocus() const {

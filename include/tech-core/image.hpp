@@ -6,6 +6,9 @@
 #include <vk_mem_alloc.h>
 #include "tech-core/buffer.hpp"
 
+// Forward def
+typedef void *ImTextureID;
+
 namespace Engine {
 
 enum ImageLoadState {
@@ -107,6 +110,16 @@ public:
     const vk::ImageView imageView() const {
         return internalImageView;
     }
+
+    vk::ImageLayout getCurrentLayout() const { return currentLayout; }
+
+    bool isReadyForSampling() const {
+        return currentLayout == vk::ImageLayout::eShaderReadOnlyOptimal || currentLayout == vk::ImageLayout::eGeneral;
+    }
+
+    explicit operator ImTextureID() const;
+
+    static bool isImage(ImTextureID id, vk::Device device);
 
 private:
     ImageLoadState state;

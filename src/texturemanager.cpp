@@ -602,4 +602,13 @@ TextureManager::getBinding(uint32_t arrayId, uint32_t samplerId, const vk::Sampl
     }
 }
 
+vk::ImageView TextureManager::getTextureView(const Texture &texture) const {
+    const auto &array = textureArrays.at(texture.arrayId);
+    if (texture.mipmaps) {
+        return array.textureView;
+    } else {
+        return array.textureNonMipView;
+    }
+}
+
 }

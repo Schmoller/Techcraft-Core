@@ -129,10 +129,12 @@ public:
     }
 
     vk::DescriptorSet getBinding(uint32_t arrayId, uint32_t samplerId, const vk::Sampler &sampler, bool mipmaps = true);
+    vk::ImageView getTextureView(const Texture &texture) const;
 
     vk::DescriptorSetLayout getLayout() {
         return descriptorLayout;
     }
+
 
 private:
     std::unordered_map<uint32_t, TextureArray> textureArrays;

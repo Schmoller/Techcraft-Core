@@ -230,6 +230,19 @@ Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout, bool 
     previousWasWriting = !read;
 }
 
+Image::operator ImTextureID() const {
+    return reinterpret_cast<ImTextureID>(const_cast<Image *>(this));
+}
+
+bool Image::isImage(ImTextureID id, vk::Device device) {
+    auto image = reinterpret_cast<Image *>(id);
+    if (image->device != device) {
+        return false;
+    }
+
+    return true;
+}
+
 ImageBuilder::ImageBuilder(VulkanDevice &device, uint32_t width, uint32_t height) : device(device), width(width),
     height(height) {
 
