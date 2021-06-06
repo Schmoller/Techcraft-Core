@@ -46,10 +46,26 @@ public:
     );
 
     /**
+     * General purpose buffer aquisition.
+     * Do not use for staging buffers, use the aquireStaging() method.
+     */
+    std::shared_ptr<Buffer> aquireShared(unsigned long size, vk::BufferUsageFlags usage, vk::MemoryUsage memoryUsage);
+
+    /**
      * Divisible buffer aquisition.
      * This buffer can have segments allocated for specific tasks
      */
     std::unique_ptr<DivisibleBuffer> aquireDivisible(
+        vk::DeviceSize size,
+        vk::BufferUsageFlags usage,
+        vk::MemoryUsage memoryUsage
+    );
+
+    /**
+     * Divisible buffer aquisition.
+     * This buffer can have segments allocated for specific tasks
+     */
+    std::shared_ptr<DivisibleBuffer> aquireDivisibleShared(
         vk::DeviceSize size,
         vk::BufferUsageFlags usage,
         vk::MemoryUsage memoryUsage

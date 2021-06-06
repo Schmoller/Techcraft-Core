@@ -15,12 +15,28 @@ std::unique_ptr<Buffer> BufferManager::aquire(
     return std::make_unique<Buffer>(device.allocator, size, usage, memoryUsage);
 }
 
+std::shared_ptr<Buffer> BufferManager::aquireShared(
+    vk::DeviceSize size,
+    vk::BufferUsageFlags usage,
+    vk::MemoryUsage memoryUsage
+) {
+    return std::make_shared<Buffer>(device.allocator, size, usage, memoryUsage);
+}
+
 std::unique_ptr<DivisibleBuffer> BufferManager::aquireDivisible(
     vk::DeviceSize size,
     vk::BufferUsageFlags usage,
     vk::MemoryUsage memoryUsage
 ) {
     return std::make_unique<DivisibleBuffer>(device.allocator, size, usage, memoryUsage);
+}
+
+std::shared_ptr<DivisibleBuffer> BufferManager::aquireDivisibleShared(
+    vk::DeviceSize size,
+    vk::BufferUsageFlags usage,
+    vk::MemoryUsage memoryUsage
+) {
+    return std::make_shared<DivisibleBuffer>(device.allocator, size, usage, memoryUsage);
 }
 
 void BufferManager::releaseAfterFrame(std::unique_ptr<Buffer> buffer) {
