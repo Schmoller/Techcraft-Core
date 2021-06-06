@@ -113,6 +113,21 @@ void Image::transfer(vk::CommandBuffer commandBuffer, void *pixelData, VkDeviceS
     state = ImageLoadState::PreTransfer;
 }
 
+void Image::transferOut(vk::CommandBuffer commandBuffer, Buffer *buffer, MipType mipType) {
+    vk::BufferImageCopy region(
+        0,
+        0,
+        0,
+        { vk::ImageAspectFlagBits::eColor, 0, 0, 1 },
+        {},
+        { width, height, 1 }
+    );
+
+    commandBuffer.copyImageToBuffer(
+        internalImage, currentLayout, buffer->buffer(), 1, &region
+    );
+}
+
 void Image::completeTransfer() {
     if (state == ImageLoadState::PreTransfer) {
         stagingBuffer.destroy();

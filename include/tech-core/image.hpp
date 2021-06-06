@@ -96,6 +96,9 @@ public:
     void
     transfer(vk::CommandBuffer commandBuffer, void *pixelData, VkDeviceSize size, MipType mipType = MipType::NoMipmap);
 
+    void
+    transferOut(vk::CommandBuffer commandBuffer, Buffer *buffer, MipType mipType = MipType::NoMipmap);
+
     void transition(
         vk::CommandBuffer commandBuffer, vk::ImageLayout layout, bool read = true,
         vk::PipelineStageFlagBits destStage = vk::PipelineStageFlagBits::eFragmentShader
@@ -112,6 +115,10 @@ public:
     }
 
     vk::ImageLayout getCurrentLayout() const { return currentLayout; }
+
+    uint32_t getWidth() const { return width; }
+
+    uint32_t getHeight() const { return height; }
 
     bool isReadyForSampling() const {
         return currentLayout == vk::ImageLayout::eShaderReadOnlyOptimal || currentLayout == vk::ImageLayout::eGeneral;
