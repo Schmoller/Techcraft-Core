@@ -12,14 +12,16 @@ namespace Engine {
 
 enum class UsageType {
     Input,
-    Output
+    Output,
+    InputOutput
 };
 
 class ComputeTask {
     friend class ComputeTaskBuilder;
     struct BindingDefinition {
-        UsageType usage;
-        bool isUniform;
+        UsageType usage { UsageType::Input };
+        bool isUniform { false };
+        std::shared_ptr<Buffer> copyDest;
     };
 
     struct Pipeline {
@@ -97,6 +99,7 @@ public:
     ComputeTaskBuilder &withUniformBuffer(uint32_t binding);
     ComputeTaskBuilder &withUniformBuffer(uint32_t binding, std::shared_ptr<Buffer> buffer);
     ComputeTaskBuilder &withWorkgroups(uint32_t xSize, uint32_t ySize = 1, uint32_t zSize = 1);
+    ComputeTaskBuilder &withImageResultTo(uint32_t binding, std::shared_ptr<Buffer> buffer);
 
     std::unique_ptr<ComputeTask> build();
 private:

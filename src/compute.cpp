@@ -179,6 +179,13 @@ void ComputeTask::fillCommandBuffer(vk::CommandBuffer buffer) {
     }
     buffer.dispatch(xGroupSize, yGroupSize, zGroupSize);
 
+    for (auto &imagePair : boundImages) {
+        auto binding = bindings[imagePair.first];
+        if (binding.copyDest) {
+            imagePair.second->transferOut(buffer, binding.copyDest.get());
+        }
+    }
+
     isQueuedForExecution = false;
 }
 
@@ -235,6 +242,11 @@ ComputeTaskBuilder::withStorageImage(uint32_t binding, UsageType usage, std::sha
     withStorageImage(binding, usage);
     immediateImages.emplace_back(std::pair(binding, image));
 
+    return *this;
+}
+
+ComputeTaskBuilder &ComputeTaskBuilder::withImageResultTo(uint32_t binding, std::shared_ptr<Buffer> buffer) {
+    bindings[binding].copyDest = std::move(buffer);
     return *this;
 }
 
