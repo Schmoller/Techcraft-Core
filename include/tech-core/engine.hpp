@@ -182,10 +182,26 @@ private:
     vk::PhysicalDevice physicalDevice;
     VkSurfaceKHR surface;
     std::unique_ptr<VulkanDevice> device;
+
     std::unique_ptr<SwapChain> swapChain;
-    vk::RenderPass renderPass;
-    std::vector<vk::Framebuffer> swapChainFramebuffers;
-    vk::CommandBuffer renderCommandBuffer;
+    std::vector<std::shared_ptr<Image>> intermediateAttachments;
+
+    // Depth resources
+    std::shared_ptr<Image> intermediateDepthAttachment;
+    std::shared_ptr<Image> finalDepthAttachment;
+
+    struct {
+        vk::RenderPass renderPass;
+        std::vector<vk::Framebuffer> framebuffers;
+        vk::CommandBuffer commandBuffer;
+    } layerMain;
+
+    struct {
+        vk::RenderPass renderPass;
+        std::vector<vk::Framebuffer> framebuffers;
+        vk::CommandBuffer commandBuffer;
+    } layerOverlay;
+
     vk::CommandBuffer guiCommandBuffer;
     std::vector<Buffer> uniformBuffers;
     std::unique_ptr<ExecutionController> executionController;
@@ -210,12 +226,6 @@ private:
     std::unordered_map<const void *, std::unique_ptr<Subsystem::Subsystem>> subsystems;
     std::vector<Subsystem::Subsystem *> orderedSubsystems;
 
-    // Materials and pipelines
-
-
-
-    // Stuff to be removed from engine
-    Image depthImage;
 
     bool framebufferResized = false;
 
@@ -235,7 +245,8 @@ private:
 
     void createInstance();
 
-    void createRenderPass();
+    void createMainRenderPass();
+    void createOverlayRenderPass();
 
     void createDescriptorSetLayout();
 
@@ -265,7 +276,9 @@ private:
 
     void drawFrame();
 
-    void fillFrameCommands(vk::CommandBufferInheritanceInfo &cbInheritance, uint32_t currentImage);
+    void fillFrameCommands(
+        vk::CommandBuffer, uint32_t currentImage, Subsystem::SubsystemLayer layer
+    );
 
     void updateUniformBuffer(uint32_t currentImage);
 

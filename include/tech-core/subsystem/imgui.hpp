@@ -13,6 +13,8 @@ public:
     static const SubsystemID<ImGuiSubsystem> ID;
     static constexpr uint32_t MaxTexturesPerFrame { 40 };
 
+    SubsystemLayer getLayer() const override { return SubsystemLayer::Overlay; }
+
     bool hasMouseFocus() const;
     bool hasKeyboardFocus() const;
 

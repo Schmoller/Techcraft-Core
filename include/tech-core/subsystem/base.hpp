@@ -14,6 +14,11 @@ class SubsystemID;
 namespace Engine::Subsystem {
 namespace _E = Engine;
 
+enum class SubsystemLayer {
+    Main,
+    Overlay
+};
+
 /**
  * A subset of the scene.
  * This is an abstract class. Subclass to implement logic
@@ -72,6 +77,8 @@ public:
      * Handles any cleanup after a frame
      */
     virtual void afterFrame(uint32_t activeImage) {};
+
+    virtual SubsystemLayer getLayer() const { return SubsystemLayer::Main; }
 };
 
 template<typename T>

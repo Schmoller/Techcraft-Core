@@ -216,22 +216,22 @@ void GuiManager::render(vk::CommandBuffer commandBuffer, vk::CommandBufferInheri
     pipeline->bind(commandBuffer);
     pipeline->push(commandBuffer, vk::ShaderStageFlagBits::eVertex, viewState);
     bool hasBoundTexture = false;
-
-    // Wait for any changes to be propagated before rendering
-    // Prevents weird artifacts with partially transferred data being rendered
-    vk::MemoryBarrier barrier {
-        vk::AccessFlagBits::eTransferWrite,
-        vk::AccessFlagBits::eVertexAttributeRead | vk::AccessFlagBits::eIndexRead
-    };
-
-    commandBuffer.pipelineBarrier(
-        vk::PipelineStageFlagBits::eTransfer,
-        vk::PipelineStageFlagBits::eVertexInput,
-        vk::DependencyFlagBits::eDeviceGroup,
-        1, &barrier,
-        0, nullptr,
-        0, nullptr
-    );
+//
+//    // Wait for any changes to be propagated before rendering
+//    // Prevents weird artifacts with partially transferred data being rendered
+//    vk::MemoryBarrier barrier {
+//        vk::AccessFlagBits::eTransferWrite,
+//        vk::AccessFlagBits::eVertexAttributeRead | vk::AccessFlagBits::eIndexRead
+//    };
+//
+//    commandBuffer.pipelineBarrier(
+//        vk::PipelineStageFlagBits::eTransfer,
+//        vk::PipelineStageFlagBits::eVertexInput,
+//        vk::DependencyFlagBits::eDeviceGroup,
+//        1, &barrier,
+//        0, nullptr,
+//        0, nullptr
+//    );
 
     for (auto &pair : components) {
         auto &component = pair.second;
