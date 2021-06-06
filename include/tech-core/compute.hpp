@@ -40,11 +40,14 @@ public:
     template<typename T>
     void execute(const T &pushData, uint32_t xElements, uint32_t yElements = 1, uint32_t zElements = 1);
 
+    void doAfterExecution(std::function<void()> callback);
+
     void bindImage(uint32_t binding, const std::shared_ptr<Image> &image);
     void bindBuffer(uint32_t binding, const std::shared_ptr<Buffer> &buffer);
 
     // This is for ExecutionController use only
     void fillCommandBuffer(vk::CommandBuffer);
+    void notifyComplete();
 private:
     // Keep track of all images we use and make sure that the images are transitioned as appropriate
     // for example, if we put in image here that we're going to write to, we need to ensure that it is in the shader write layout.
@@ -68,6 +71,7 @@ private:
     uint32_t xGroupSize { 1 };
     uint32_t yGroupSize { 1 };
     uint32_t zGroupSize { 1 };
+    std::function<void()> callback;
 
     // Bound Items
     std::map<uint32_t, std::shared_ptr<Image>> boundImages;

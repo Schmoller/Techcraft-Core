@@ -129,18 +129,10 @@ void ExecutionController::endRender() {
     device.device.resetFences(1, &device.computeReady);
     device.computeQueue.queue.submit(1, &computeSubmitInfo, device.computeReady);
 
-
-    // Wait for the command buffers to be ready to accept the new commands
-//    device.device.waitForFences(1, &device.renderReady, VK_TRUE, std::numeric_limits<uint64_t>::max());
-
-//
-//    if (hasComputeThisFrame) {
-//        computeCommandBuffers.end();
-//        hasComputeThisFrame = false;
-//
-//
-//    }
-
+    for (auto task : queuedComputeTasks) {
+        task->notifyComplete();
+    }
+    queuedComputeTasks.clear();
 }
 
 void
@@ -183,7 +175,6 @@ void ExecutionController::fillComputeBuffers() {
     for (auto task : queuedComputeTasks) {
         task->fillCommandBuffer(currentComputeBuffer);
     }
-    queuedComputeTasks.clear();
 }
 
 void ExecutionController::addBarriers(Subsystem::Subsystem &subsystem) {

@@ -189,6 +189,18 @@ void ComputeTask::fillCommandBuffer(vk::CommandBuffer buffer) {
     isQueuedForExecution = false;
 }
 
+void ComputeTask::doAfterExecution(std::function<void()> newCallback) {
+    callback = std::move(newCallback);
+}
+
+void ComputeTask::notifyComplete() {
+    if (callback) {
+        callback();
+    }
+
+    callback = {};
+}
+
 
 ComputeTaskBuilder &ComputeTaskBuilder::fromFile(const char *filename, const char *symbol) {
     shaderBytes = readFile(filename);
