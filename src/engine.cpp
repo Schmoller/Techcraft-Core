@@ -28,6 +28,7 @@
 #include "tech-core/pipeline.hpp"
 #include "tech-core/font.hpp"
 #include "tech-core/compute.hpp"
+#include "tech-core/post_processing.hpp"
 
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
@@ -124,11 +125,13 @@ void RenderEngine::initVulkan() {
     taskManager = std::make_unique<TaskManager>(*device);
     executionController = std::make_unique<ExecutionController>(*device, swapChain->size());
 
+    createAttachments();
     createMainRenderPass();
     createOverlayRenderPass();
     createDescriptorSetLayout();
     createDepthResources();
     createFramebuffers();
+    updateEffectPipelines();
 
     createUniformBuffers();
     textureManager.initialize(
@@ -153,7 +156,7 @@ void RenderEngine::initVulkan() {
             *bufferManager,
             *taskManager,
             *fontManager,
-            createPipeline(),
+            createPipeline(Subsystem::SubsystemLayer::Overlay),
             swapChain->extent
         ));
 
@@ -191,25 +194,15 @@ void RenderEngine::recreateSwapChain() {
 
     swapChain->rebuild(windowExtent);
 
-    intermediateAttachments.resize(swapChain->size());
-    auto attachmentBuilder = createImage(width, height)
-        .withMipLevels(1)
-        .withFormat(swapChain->imageFormat)
-        .withMemoryUsage(vk::MemoryUsage::eGPUOnly)
-        .withUsage(vk::ImageUsageFlagBits::eColorAttachment)
-        .withImageTiling(vk::ImageTiling::eOptimal)
-        .withSampleCount(vk::SampleCountFlagBits::e1);
-
-    for (uint32_t i = 0; i < swapChain->size(); ++i) {
-        intermediateAttachments[i] = attachmentBuilder.build();
-    }
-
+    createAttachments();
     createMainRenderPass();
+    createOverlayRenderPass();
     guiManager->recreatePipeline(createPipeline(), swapChain->extent);
     createDepthResources();
     createFramebuffers();
     createUniformBuffers();
     createCommandBuffers();
+    updateEffectPipelines();
 
     for (auto &subsystem : orderedSubsystems) {
         subsystem->initialiseSwapChainResources(device->device, *this, swapChain->images.size());
@@ -261,8 +254,25 @@ void RenderEngine::createInstance() {
     printExtensions();
 }
 
+void RenderEngine::createAttachments() {
+    intermediateAttachments.resize(2);
+    auto attachmentBuilder = createImage(swapChain->extent.width, swapChain->extent.height)
+        .withMipLevels(1)
+        .withFormat(swapChain->imageFormat)
+        .withMemoryUsage(vk::MemoryUsage::eGPUOnly)
+        .withUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment)
+        .withImageTiling(vk::ImageTiling::eOptimal)
+        .withSampleCount(vk::SampleCountFlagBits::e1);
+
+    for (uint32_t i = 0; i < 2; ++i) {
+        intermediateAttachments[i] = attachmentBuilder.build();
+    }
+}
+
 void RenderEngine::createMainRenderPass() {
-    vk::AttachmentDescription colorAttachment(
+    std::array<vk::AttachmentDescription, 4> attachments;
+
+    attachments[0] = {
         {},
         swapChain->imageFormat,
         vk::SampleCountFlagBits::e1,
@@ -272,51 +282,169 @@ void RenderEngine::createMainRenderPass() {
         vk::AttachmentStoreOp::eDontCare,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eColorAttachmentOptimal
-    );
-
-    vk::AttachmentReference colorAttachmentRef(0, vk::ImageLayout::eColorAttachmentOptimal);
-
-    vk::AttachmentDescription depthAttachment(
+    };
+    attachments[1] = {
+        {},
+        swapChain->imageFormat,
+        vk::SampleCountFlagBits::e1,
+        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentLoadOp::eDontCare,
+        vk::AttachmentStoreOp::eDontCare,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eColorAttachmentOptimal
+    };
+    attachments[2] = {
+        {},
+        swapChain->imageFormat,
+        vk::SampleCountFlagBits::e1,
+        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentLoadOp::eDontCare,
+        vk::AttachmentStoreOp::eDontCare,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eColorAttachmentOptimal
+    };
+    attachments[3] = {
         {},
         findDepthFormat(),
         vk::SampleCountFlagBits::e1,
         vk::AttachmentLoadOp::eClear,
-        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentStoreOp::eDontCare,
         vk::AttachmentLoadOp::eClear,
-        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentStoreOp::eDontCare,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eDepthStencilAttachmentOptimal
-    );
-
-    vk::AttachmentReference depthAttachmentRef(1, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-
-    vk::SubpassDescription subpass(
-        {},
-        vk::PipelineBindPoint::eGraphics,
-        0, nullptr,
-        1, &colorAttachmentRef,
-        nullptr,
-        &depthAttachmentRef
-    );
-
-    vk::SubpassDependency depColourWrite(
-        VK_SUBPASS_EXTERNAL,
-        0,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        vk::PipelineStageFlagBits::eColorAttachmentOutput,
-        {},
-        vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite
-    );
-
-    std::array<vk::AttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
-    std::array<vk::SubpassDependency, 1> dependencies = {
-        depColourWrite
     };
+
+    vk::AttachmentReference colorAttachmentFramebufferRef(0, vk::ImageLayout::eColorAttachmentOptimal);
+    vk::AttachmentReference colorAttachmentInt1Ref(1, vk::ImageLayout::eColorAttachmentOptimal);
+    vk::AttachmentReference colorAttachmentInt2Ref(2, vk::ImageLayout::eColorAttachmentOptimal);
+    vk::AttachmentReference depthAttachmentRef(3, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+
+    std::array<vk::AttachmentReference, 2> inputAttachmentRef {
+        vk::AttachmentReference { 1, vk::ImageLayout::eShaderReadOnlyOptimal },
+        vk::AttachmentReference { 3, vk::ImageLayout::eShaderReadOnlyOptimal },
+    };
+
+    std::array<vk::AttachmentReference, 2> inputAttachmentRefAlt {
+        vk::AttachmentReference { 2, vk::ImageLayout::eShaderReadOnlyOptimal },
+        vk::AttachmentReference { 3, vk::ImageLayout::eShaderReadOnlyOptimal },
+    };
+
+    std::vector<vk::SubpassDescription> subpasses(effects.size() + 1);
+    std::vector<vk::SubpassDependency> dependencies;
+    for (uint32_t pass = 0; pass < effects.size() + 1; ++pass) {
+        if (pass == 0) {
+            subpasses[pass] = {
+                {},
+                vk::PipelineBindPoint::eGraphics,
+                0, nullptr,
+                1, nullptr,
+                nullptr,
+                &depthAttachmentRef
+            };
+
+            dependencies.emplace_back(
+                vk::SubpassDependency {
+                    VK_SUBPASS_EXTERNAL,
+                    pass,
+                    vk::PipelineStageFlagBits::eBottomOfPipe,
+                    vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                    vk::AccessFlagBits::eMemoryRead,
+                    vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite,
+                    vk::DependencyFlagBits::eByRegion
+                }
+            );
+//            dependencies.emplace_back(
+//                vk::SubpassDependency {
+//                    pass,
+//                    VK_SUBPASS_EXTERNAL,
+//                    vk::PipelineStageFlagBits::eColorAttachmentOutput,
+//                    vk::PipelineStageFlagBits::eBottomOfPipe,
+//                    vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite,
+//                    vk::AccessFlagBits::eMemoryRead,
+//                    vk::DependencyFlagBits::eByRegion
+//                }
+//            );
+        } else {
+            subpasses[pass] = {
+                {},
+                vk::PipelineBindPoint::eGraphics,
+                2, nullptr,
+                1, nullptr,
+                nullptr,
+                nullptr
+            };
+
+            if (pass > 1) {
+                // Allow rewriting a previously used attachment
+                dependencies.emplace_back(
+                    vk::SubpassDependency {
+                        pass - 1,
+                        pass,
+                        vk::PipelineStageFlagBits::eFragmentShader,
+                        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                        vk::AccessFlagBits::eShaderRead,
+                        vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eColorAttachmentRead,
+                        vk::DependencyFlagBits::eByRegion
+                    }
+                );
+            }
+
+            // Allow reading the previous stages color attachment
+            if (pass == 1) {
+                dependencies.emplace_back(
+                    vk::SubpassDependency {
+                        pass - 1,
+                        pass,
+                        vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                            vk::PipelineStageFlagBits::eEarlyFragmentTests |
+                            vk::PipelineStageFlagBits::eLateFragmentTests,
+                        vk::PipelineStageFlagBits::eFragmentShader,
+                        vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite,
+                        vk::AccessFlagBits::eInputAttachmentRead,
+                        vk::DependencyFlagBits::eByRegion
+                    }
+                );
+            } else {
+                dependencies.emplace_back(
+                    vk::SubpassDependency {
+                        pass - 1,
+                        pass,
+                        vk::PipelineStageFlagBits::eColorAttachmentOutput,
+                        vk::PipelineStageFlagBits::eFragmentShader,
+                        vk::AccessFlagBits::eColorAttachmentWrite,
+                        vk::AccessFlagBits::eShaderRead,
+                        vk::DependencyFlagBits::eByRegion
+                    }
+                );
+            }
+
+            if (pass % 2 == 0) {
+                subpasses[pass].setPInputAttachments(inputAttachmentRefAlt.data());
+            } else {
+                subpasses[pass].setPInputAttachments(inputAttachmentRef.data());
+            }
+        }
+
+        if (pass == effects.size()) {
+            // final pass output to frame buffer
+            subpasses[pass].setPColorAttachments(&colorAttachmentFramebufferRef);
+        } else {
+            // Alternate between the two intermediate attachments
+            if (pass % 2 == 0) {
+                subpasses[pass].setPColorAttachments(&colorAttachmentInt1Ref);
+            } else {
+                subpasses[pass].setPColorAttachments(&colorAttachmentInt2Ref);
+            }
+        }
+    }
 
     vk::RenderPassCreateInfo renderPassInfo(
         {},
         vkUseArray(attachments),
-        1, &subpass,
+        vkUseArray(subpasses),
         vkUseArray(dependencies)
     );
 
@@ -342,7 +470,7 @@ void RenderEngine::createOverlayRenderPass() {
         {},
         findDepthFormat(),
         vk::SampleCountFlagBits::e1,
-        vk::AttachmentLoadOp::eLoad,
+        vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
@@ -358,7 +486,7 @@ void RenderEngine::createOverlayRenderPass() {
         0, nullptr,
         1, &colorAttachmentRef,
         nullptr,
-        &depthAttachmentRef
+        nullptr
     );
 
     vk::SubpassDependency depColourWrite(
@@ -383,6 +511,20 @@ void RenderEngine::createOverlayRenderPass() {
     );
 
     layerOverlay.renderPass = device->device.createRenderPass(renderPassInfo);
+}
+
+void RenderEngine::updateEffectPipelines() {
+    uint32_t subpass = 1;
+    for (auto &effect : effects) {
+        effect->onSwapChainRecreate(layerMain.renderPass, swapChain->extent, subpass);
+        if (subpass % 2 == 0) {
+            effect->bindImage(0, 0, intermediateAttachments[1]);
+        } else {
+            effect->bindImage(0, 0, intermediateAttachments[0]);
+        }
+        effect->bindImage(0, 1, finalDepthAttachment);
+        ++subpass;
+    }
 }
 
 void RenderEngine::createDescriptorSetLayout() {
@@ -414,24 +556,39 @@ void RenderEngine::createFramebuffers() {
     layerOverlay.framebuffers.resize(swapChain->size());
 
     for (size_t i = 0; i < layerMain.framebuffers.size(); ++i) {
-        std::array<vk::ImageView, 2> attachments = {
+        std::array<vk::ImageView, 4> mainAttachments = {
             swapChain->imageViews[i],
-            static_cast<vk::ImageView>(finalDepthAttachment->imageView())
+            intermediateAttachments[0]->imageView(),
+            intermediateAttachments[1]->imageView(),
+            finalDepthAttachment->imageView()
         };
 
-        vk::FramebufferCreateInfo framebufferInfo(
+        vk::FramebufferCreateInfo mainFramebufferInfo(
             {},
             layerMain.renderPass,
-            2, attachments.data(),
+            vkUseArray(mainAttachments),
             swapChain->extent.width,
             swapChain->extent.height,
             1
         );
 
-        layerMain.framebuffers[i] = device->device.createFramebuffer(framebufferInfo);
+        layerMain.framebuffers[i] = device->device.createFramebuffer(mainFramebufferInfo);
 
-        framebufferInfo.renderPass = layerOverlay.renderPass;
-        layerOverlay.framebuffers[i] = device->device.createFramebuffer(framebufferInfo);
+        std::array<vk::ImageView, 2> overlayAttachments = {
+            swapChain->imageViews[i],
+            finalDepthAttachment->imageView()
+        };
+
+        vk::FramebufferCreateInfo overlayFramebufferInfo(
+            {},
+            layerOverlay.renderPass,
+            vkUseArray(overlayAttachments),
+            swapChain->extent.width,
+            swapChain->extent.height,
+            1
+        );
+
+        layerOverlay.framebuffers[i] = device->device.createFramebuffer(overlayFramebufferInfo);
     }
 }
 
@@ -516,17 +673,15 @@ void RenderEngine::createDepthResources() {
     auto builder = createImage(swapChain->extent.width, swapChain->extent.height)
         .withFormat(depthFormat)
         .withImageTiling(vk::ImageTiling::eOptimal)
-        .withUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment)
+        .withUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eInputAttachment)
         .withMemoryUsage(vk::MemoryUsage::eGPUOnly)
         .withSampleCount(vk::SampleCountFlagBits::e1)
         .withMipLevels(1);
 
     finalDepthAttachment = builder.build();
-    intermediateDepthAttachment = builder.build();
 
     vk::CommandBuffer commandBuffer = beginSingleTimeCommands();
     finalDepthAttachment->transition(commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal);
-    intermediateDepthAttachment->transition(commandBuffer, vk::ImageLayout::eDepthStencilAttachmentOptimal);
     endSingleTimeCommands(commandBuffer);
 }
 
@@ -595,7 +750,7 @@ void RenderEngine::drawFrame() {
 
     // Main layer
     executionController->beginRenderPass(
-        layerMain.renderPass, layerMain.framebuffers[imageIndex], swapChain->extent, { 0, 0, 0, 1 }
+        layerMain.renderPass, layerMain.framebuffers[imageIndex], swapChain->extent, { 0, 0, 0, 1 }, 2
     );
 
     vk::CommandBufferInheritanceInfo mainCbInheritance(
@@ -614,6 +769,29 @@ void RenderEngine::drawFrame() {
 
     layerMain.commandBuffer.end();
     executionController->addToRender(layerMain.commandBuffer);
+
+    // Do post processing effects
+    uint32_t pass = 1;
+    for (auto &effect : effects) {
+        vk::CommandBufferInheritanceInfo cbInheritance(
+            layerMain.renderPass,
+            pass,
+            layerMain.framebuffers[imageIndex]
+        );
+
+        vk::CommandBufferBeginInfo effectBeginInfo(
+            vk::CommandBufferUsageFlagBits::eRenderPassContinue,
+            &cbInheritance
+        );
+
+        effect->getCommandBuffer().begin(effectBeginInfo);
+        executionController->nextSubpass();
+        effect->fillFrameCommands();
+        effect->getCommandBuffer().end();
+        executionController->addToRender(effect->getCommandBuffer());
+        ++pass;
+    }
+
     executionController->endRenderPass();
 
     // Overlay layer
@@ -697,7 +875,6 @@ void RenderEngine::cleanupSwapChain() {
     }
 
     finalDepthAttachment.reset();
-    intermediateDepthAttachment.reset();
 
     for (auto &framebuffer : layerMain.framebuffers) {
         device->device.destroyFramebuffer(framebuffer);
@@ -724,6 +901,8 @@ void RenderEngine::cleanup() {
         subsystem->cleanupResources(device->device, *this);
     }
 
+    effects.clear();
+
     meshes.clear();
     guiManager.reset();
     materialManager.destroy();
@@ -735,6 +914,7 @@ void RenderEngine::cleanup() {
     device->device.destroyDescriptorSetLayout(textureDescriptorLayout);
     executionController.reset();
 
+    intermediateAttachments.clear();
     swapChain->cleanup();
     swapChain.reset();
     device.reset();
@@ -856,11 +1036,17 @@ void RenderEngine::destroyMaterial(const char *name) {
     destroyMaterial(std::string(name));
 }
 
-PipelineBuilder RenderEngine::createPipeline() {
+PipelineBuilder RenderEngine::createPipeline(Subsystem::SubsystemLayer layer) {
+    vk::RenderPass renderPass;
+    if (layer == Subsystem::SubsystemLayer::Main) {
+        renderPass = layerMain.renderPass;
+    } else {
+        renderPass = layerOverlay.renderPass;
+    }
     return PipelineBuilder(
         *this,
         device->device,
-        layerMain.renderPass,
+        renderPass,
         swapChain->extent,
         layerMain.framebuffers.size()
     );
@@ -889,5 +1075,43 @@ Gui::Rect RenderEngine::getScreenBounds() {
         { swapChain->extent.width, swapChain->extent.height }
     };
 }
+
+EffectBuilder RenderEngine::createEffect(const std::string &name) {
+    PipelineBuilder builder(
+        *this, device->device, layerMain.renderPass, swapChain->extent, layerMain.framebuffers.size());
+    builder
+        .withInputAttachment(0, 0)
+        .withInputAttachment(0, 1);
+
+    return EffectBuilder(
+        name,
+        *this,
+        builder
+    );
+}
+
+void RenderEngine::addEffect(const std::shared_ptr<Effect> &effect) {
+    effects.push_back(effect);
+    effectsByName[effect->getName()] = effect;
+    auto buffer = executionController->acquireSecondaryGraphicsCommandBuffer();
+    effect->applyCommandBuffer(buffer);
+
+    if (layerMain.renderPass) {
+        recreateSwapChain();
+    }
+}
+
+std::shared_ptr<Effect> RenderEngine::getEffect(const std::string &name) {
+    auto it = effectsByName.find(name);
+    if (it == effectsByName.end()) {
+        return {};
+    }
+    return it->second;
+}
+
+void RenderEngine::removeEffect(const std::string &name) {
+    // TODO: remove
+}
+
 
 }

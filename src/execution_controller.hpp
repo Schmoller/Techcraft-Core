@@ -40,7 +40,10 @@ public:
     void endRender();
 
     // Render pipeline
-    void beginRenderPass(vk::RenderPass, vk::Framebuffer, vk::Extent2D, const glm::vec4 &clear);
+    void beginRenderPass(
+        vk::RenderPass, vk::Framebuffer, vk::Extent2D, const glm::vec4 &clear, uint32_t intermediateAttachments = 0
+    );
+    void nextSubpass();
     void addToRender(vk::CommandBuffer);
     void endRenderPass();
 

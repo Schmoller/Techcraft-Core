@@ -113,6 +113,11 @@ PipelineBuilder &PipelineBuilder::withDynamicState(vk::DynamicState state) {
     return *this;
 }
 
+PipelineBuilder &PipelineBuilder::withSubpass(uint32_t subpassIndex) {
+    subpass = subpassIndex;
+    return *this;
+}
+
 PipelineBuilder &PipelineBuilder::bindCamera(uint32_t set, uint32_t binding) {
     bindings.emplace_back(
         PipelineBinding {
@@ -494,6 +499,57 @@ PipelineBuilder &PipelineBuilder::bindSampledImagePoolImmutable(
     return *this;
 }
 
+PipelineBuilder &PipelineBuilder::withInputAttachment(
+    uint32_t set, uint32_t binding, const vk::ShaderStageFlags &stages
+) {
+    bindings.emplace_back(
+        PipelineBinding {
+            set,
+            binding,
+            BindingCount::Single,
+            {
+                binding,
+                vk::DescriptorType::eInputAttachment,
+                1,
+                stages
+            },
+            SpecialBinding::None,
+            {},
+            {},
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+        }
+    );
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::withInputAttachment(
+    uint32_t set, uint32_t binding, std::shared_ptr<Image> image, const vk::ShaderStageFlags &stages
+) {
+    bindings.emplace_back(
+        PipelineBinding {
+            set,
+            binding,
+            BindingCount::Single,
+            {
+                binding,
+                vk::DescriptorType::eInputAttachment,
+                1,
+                stages
+            },
+            SpecialBinding::None,
+            {},
+            std::move(image),
+            vk::ImageLayout::eShaderReadOnlyOptimal,
+        }
+    );
+    return *this;
+}
+
+void PipelineBuilder::reconfigure(vk::RenderPass renderPass, vk::Extent2D windowSize) {
+    this->renderPass = renderPass;
+    this->windowSize = windowSize;
+}
+
 void PipelineBuilder::processBindings(
     std::vector<vk::DescriptorSetLayout> &layouts, std::vector<uint32_t> &setCounts,
     std::vector<vk::DescriptorPoolSize> &poolSizes, uint32_t &totalSets
@@ -796,7 +852,7 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
         &dynamicStateInfo,
         pipelineLayout,
         renderPass,
-        0,
+        subpass,
         vk::Pipeline(),
         -1
     );
@@ -830,10 +886,12 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
 
     // Bind any resources already provided
     for (auto &binding : bindings) {
-        if (binding.image) {
-            pipeline->bindImage(binding.set, binding.binding, binding.image, binding.sampler);
-        } else if (binding.buffer) {
-            pipeline->bindBuffer(binding.set, binding.binding, binding.buffer);
+        auto image = binding.image.lock();
+        auto buffer = binding.buffer.lock();
+        if (image) {
+            pipeline->bindImage(binding.set, binding.binding, image, binding.sampler);
+        } else if (buffer) {
+            pipeline->bindBuffer(binding.set, binding.binding, buffer);
         } else if (binding.type == SpecialBinding::Camera) {
             pipeline->bindCamera(binding.set, binding.binding, engine);
         } else if (binding.type == SpecialBinding::Textures) {

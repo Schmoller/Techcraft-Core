@@ -57,6 +57,9 @@ class ComputeTaskBuilder;
 class ComputeTask;
 class ComputeManager;
 
+class EffectBuilder;
+class Effect;
+
 // Gui
 namespace Gui {
 class Drawer;

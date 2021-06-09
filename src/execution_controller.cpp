@@ -52,16 +52,16 @@ void ExecutionController::startRender(uint32_t imageIndex) {
 }
 
 void ExecutionController::beginRenderPass(
-    vk::RenderPass pass, vk::Framebuffer framebuffer, vk::Extent2D screenExtent, const glm::vec4 &clear
+    vk::RenderPass pass, vk::Framebuffer framebuffer, vk::Extent2D screenExtent, const glm::vec4 &clear,
+    uint32_t intermediateAttachments
 ) {
-    // Prepare the command buffers
-//    vk::CommandBufferInheritanceInfo cbInheritance(pass, 0, framebuffer);
-
     // Begin the render pass itself
-    std::array<vk::ClearValue, 2> clearValues {
-        vk::ClearColorValue(std::array<float, 4> { clear.r, clear.g, clear.b, clear.a }),
-        vk::ClearDepthStencilValue(1.0f, 0.0f)
-    };
+    std::vector<vk::ClearValue> clearValues(2 + intermediateAttachments);
+    clearValues[0] = vk::ClearColorValue(std::array<float, 4> { clear.r, clear.g, clear.b, clear.a });
+    for (auto i = 0; i < intermediateAttachments; ++i) {
+        clearValues[i + 1] = vk::ClearColorValue(std::array<float, 4> { clear.r, clear.g, clear.b, clear.a });
+    }
+    clearValues[1 + intermediateAttachments] = vk::ClearDepthStencilValue(1.0f, 0.0f);
 
     vk::RenderPassBeginInfo renderPassInfo(
         pass,
@@ -179,6 +179,10 @@ void ExecutionController::fillComputeBuffers() {
 
 void ExecutionController::addBarriers(Subsystem::Subsystem &subsystem) {
     subsystem.writeBarriers(currentGraphicsBuffer);
+}
+
+void ExecutionController::nextSubpass() {
+    currentGraphicsBuffer.nextSubpass(vk::SubpassContents::eSecondaryCommandBuffers);
 }
 
 

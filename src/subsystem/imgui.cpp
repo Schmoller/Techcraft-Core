@@ -44,7 +44,7 @@ void ImGuiSubsystem::initialiseResources(
 void ImGuiSubsystem::initialiseSwapChainResources(
     vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages
 ) {
-    auto builder = engine.createPipeline()
+    auto builder = engine.createPipeline(SubsystemLayer::Overlay)
         .withVertexBindingDescription(
             {
                 0, sizeof(ImDrawVert), vk::VertexInputRate::eVertex

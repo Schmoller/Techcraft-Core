@@ -53,15 +53,16 @@ struct PipelineBinding {
     SpecialBinding type { SpecialBinding::None };
 
     vk::Sampler sampler;
-    std::shared_ptr<Image> image;
+    std::weak_ptr<Image> image;
     vk::ImageLayout targetLayout { vk::ImageLayout::eShaderReadOnlyOptimal };
-    std::shared_ptr<Buffer> buffer;
+    std::weak_ptr<Buffer> buffer;
     bool isSamplerImmutable { false };
     uint32_t poolSize { 0 };
 };
 
 class PipelineBuilder {
     friend class RenderEngine;
+    friend class Effect;
 
 public:
     PipelineBuilder &withVertexShader(const std::string &path);
@@ -81,6 +82,7 @@ public:
     PipelineBuilder &withAlpha();
     PipelineBuilder &withFillMode(FillMode);
     PipelineBuilder &withDynamicState(vk::DynamicState);
+    PipelineBuilder &withSubpass(uint32_t);
 
     PipelineBuilder &bindCamera(uint32_t set, uint32_t binding);
     PipelineBuilder &bindTextures(uint32_t set, uint32_t binding);
@@ -142,6 +144,13 @@ public:
         uint32_t set, uint32_t binding, uint32_t size, vk::Sampler sampler, const vk::ShaderStageFlags &stages,
         vk::ImageLayout imageLayout
     );
+    PipelineBuilder &withInputAttachment(
+        uint32_t set, uint32_t binding, const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment
+    );
+    PipelineBuilder &withInputAttachment(
+        uint32_t set, uint32_t binding, std::shared_ptr<Image> image,
+        const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment
+    );
 
     std::unique_ptr<Pipeline> build();
 
@@ -165,6 +174,7 @@ private:
     bool alpha;
     FillMode fillMode { FillMode::Solid };
     size_t pushOffset { 0 };
+    uint32_t subpass { 0 };
 
     // Shader bindings
     std::vector<PipelineBinding> bindings;
@@ -180,6 +190,8 @@ private:
         std::vector<vk::DescriptorSetLayout> &layouts, std::vector<uint32_t> &setCounts,
         std::vector<vk::DescriptorPoolSize> &poolSizes, uint32_t &totalSets
     );
+
+    void reconfigure(vk::RenderPass, vk::Extent2D windowSize);
 };
 
 class Pipeline {

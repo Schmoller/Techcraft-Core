@@ -17,6 +17,8 @@ struct SwapChainSupportDetails;
 #include "inputmanager.hpp"
 #include "tech-core/gui/manager.hpp"
 #include "tech-core/subsystem/base.hpp"
+#include "post_processing.hpp"
+
 
 #include <optional>
 #include <unordered_map>
@@ -97,7 +99,7 @@ public:
     // ==============================================
     //  Builders
     // ==============================================
-    PipelineBuilder createPipeline();
+    PipelineBuilder createPipeline(Subsystem::SubsystemLayer layer = Subsystem::SubsystemLayer::Main);
     ComputeTaskBuilder createComputeTask();
 
     // ==============================================
@@ -168,6 +170,16 @@ public:
     }
 
     // ==============================================
+    //  Post processing effects
+    // ==============================================
+    EffectBuilder createEffect(const std::string &name);
+    void addEffect(const std::shared_ptr<Effect> &effect);
+
+    std::shared_ptr<Effect> getEffect(const std::string &name);
+
+    void removeEffect(const std::string &name);
+
+    // ==============================================
     //  Utilities
     // ==============================================
 
@@ -187,7 +199,6 @@ private:
     std::vector<std::shared_ptr<Image>> intermediateAttachments;
 
     // Depth resources
-    std::shared_ptr<Image> intermediateDepthAttachment;
     std::shared_ptr<Image> finalDepthAttachment;
 
     struct {
@@ -216,6 +227,8 @@ private:
 
     InputManager inputManager;
 
+    std::vector<std::shared_ptr<Effect>> effects;
+    std::unordered_map<std::string, std::shared_ptr<Effect>> effectsByName;
 
     // Camera
     Camera *camera = nullptr;
@@ -245,9 +258,10 @@ private:
 
     void createInstance();
 
+    void createAttachments();
     void createMainRenderPass();
     void createOverlayRenderPass();
-
+    void updateEffectPipelines();
     void createDescriptorSetLayout();
 
     vk::ShaderModule createShaderModule(const std::vector<char> &code);
