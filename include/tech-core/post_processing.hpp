@@ -11,6 +11,17 @@ class EffectBuilder {
     friend class RenderEngine;
 public:
     EffectBuilder &withShader(const std::string &path);
+
+//    EffectBuilder &withShaderConstantBool(uint32_t constant, bool);
+//    EffectBuilder &withShaderConstantInt(uint32_t constant, int32_t);
+//    EffectBuilder &withShaderConstantUint(uint32_t constant, uint32_t);
+//    EffectBuilder &withShaderConstantFloat(uint32_t constant, float);
+//    EffectBuilder &withShaderConstantDouble(uint32_t constant, double);
+
+    EffectBuilder &withShaderConstant(uint32_t constant, bool);
+    template<typename T>
+    EffectBuilder &withShaderConstant(uint32_t constant, T);
+
     template<typename T>
     EffectBuilder &withPushConstants();
 
@@ -45,6 +56,9 @@ private:
     std::string name;
     RenderEngine &engine;
     PipelineBuilder pipelineBuilder;
+
+    std::vector<uint32_t> specializationData;
+    std::vector<vk::SpecializationMapEntry> specializationEntries;
 
     EffectBuilder(std::string name, RenderEngine &, PipelineBuilder);
 };
@@ -85,8 +99,16 @@ private:
 
 template<typename T>
 EffectBuilder &Engine::EffectBuilder::withPushConstants() {
+    // FIXME: We didnt end up adding this...
     return *this;
 }
+
+template<typename T>
+EffectBuilder &EffectBuilder::withShaderConstant(uint32_t constant, T value) {
+    pipelineBuilder.withShaderConstant(constant, vk::ShaderStageFlagBits::eFragment, value);
+    return *this;
+}
+
 
 template<typename T>
 void Effect::push(vk::CommandBuffer commandBuffer, const T &constantData, uint32_t offset) {

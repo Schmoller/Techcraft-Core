@@ -22,6 +22,13 @@ EffectBuilder &EffectBuilder::withShader(const std::string &path) {
     return *this;
 }
 
+
+EffectBuilder &EffectBuilder::withShaderConstant(uint32_t constant, bool value) {
+    pipelineBuilder.withShaderConstant(constant, vk::ShaderStageFlagBits::eFragment, value);
+
+    return *this;
+}
+
 EffectBuilder &EffectBuilder::bindCamera(uint32_t set, uint32_t binding) {
     pipelineBuilder.bindCamera(set, binding);
     return *this;

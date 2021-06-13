@@ -67,6 +67,10 @@ class PipelineBuilder {
 public:
     PipelineBuilder &withVertexShader(const std::string &path);
     PipelineBuilder &withFragmentShader(const std::string &path);
+    PipelineBuilder &withShaderConstant(uint32_t constantId, vk::ShaderStageFlagBits stage, bool);
+    template<typename T>
+    PipelineBuilder &withShaderConstant(uint32_t constantId, vk::ShaderStageFlagBits stage, T);
+
     PipelineBuilder &withGeometryType(PipelineGeometryType type);
     template<typename T>
     PipelineBuilder &withPushConstants(const vk::ShaderStageFlags &where);
@@ -179,6 +183,12 @@ private:
     // Shader bindings
     std::vector<PipelineBinding> bindings;
 
+    // FIXME: We should break shaders out into own class
+    std::vector<uint32_t> fragmentSpecializationData;
+    std::vector<vk::SpecializationMapEntry> fragmentSpecializationEntries;
+    std::vector<uint32_t> vertexSpecializationData;
+    std::vector<vk::SpecializationMapEntry> vertexSpecializationEntries;
+
     // Non-configurable
     RenderEngine &engine;
     vk::Device device;
@@ -269,6 +279,41 @@ PipelineBuilder &PipelineBuilder::withPushConstants(const vk::ShaderStageFlags &
     pushOffset += sizeof(T);
 
     pushConstants.push_back(range);
+
+    return *this;
+}
+
+
+template<typename T>
+PipelineBuilder &PipelineBuilder::withShaderConstant(uint32_t constantId, vk::ShaderStageFlagBits stage, T value) {
+    static_assert(sizeof(T) % sizeof(uint32_t) == 0, "Can only use types that are a multiple of 4 bytes");
+
+    constexpr uint32_t numSlots = sizeof(T) / sizeof(uint32_t);
+
+    std::vector<uint32_t> *specializationData;
+    std::vector<vk::SpecializationMapEntry> *specializationEntries;
+
+    if (stage == vk::ShaderStageFlagBits::eVertex) {
+        specializationData = &vertexSpecializationData;
+        specializationEntries = &vertexSpecializationEntries;
+    } else if (stage == vk::ShaderStageFlagBits::eFragment) {
+        specializationData = &fragmentSpecializationData;
+        specializationEntries = &fragmentSpecializationEntries;
+    } else {
+        throw std::runtime_error("Invalid stage");
+    }
+
+    uint32_t offset = sizeof(uint32_t) * specializationData->size();
+    auto *interpreted = reinterpret_cast<uint32_t *>(&value);
+
+    if constexpr (numSlots == 1) {
+        specializationData->push_back(*interpreted);
+    } else {
+        for (uint32_t slot = 0; slot < numSlots; ++slot) {
+            specializationData->push_back(interpreted[slot]);
+        }
+    }
+    specializationEntries->emplace_back(constantId, offset, sizeof(T));
 
     return *this;
 }

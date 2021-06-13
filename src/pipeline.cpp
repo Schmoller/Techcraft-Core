@@ -37,6 +37,22 @@ PipelineBuilder &PipelineBuilder::withFragmentShader(const std::string &path) {
     return *this;
 }
 
+PipelineBuilder &PipelineBuilder::withShaderConstant(uint32_t constantId, vk::ShaderStageFlagBits stage, bool value) {
+    if (stage == vk::ShaderStageFlagBits::eVertex) {
+        uint32_t offset = sizeof(uint32_t) * vertexSpecializationData.size();
+        vertexSpecializationData.push_back(static_cast<VkBool32>(value));
+        vertexSpecializationEntries.emplace_back(constantId, offset, sizeof(VkBool32));
+    } else if (stage == vk::ShaderStageFlagBits::eFragment) {
+        uint32_t offset = sizeof(uint32_t) * fragmentSpecializationData.size();
+        fragmentSpecializationData.push_back(static_cast<VkBool32>(value));
+        fragmentSpecializationEntries.emplace_back(constantId, offset, sizeof(VkBool32));
+    } else {
+        throw std::runtime_error("Invalid stage");
+    }
+
+    return *this;
+}
+
 PipelineBuilder &PipelineBuilder::withGeometryType(PipelineGeometryType type) {
     geomType = type;
     return *this;
@@ -644,12 +660,22 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     vk::ShaderModule vertShaderModule = createShaderModule(device, vertShaderCode);
     vk::ShaderModule fragShaderModule = createShaderModule(device, fragShaderCode);
 
+    vk::SpecializationInfo vertShaderSpecialization(
+        vkUseArray(vertexSpecializationEntries), sizeof(uint32_t) * vertexSpecializationData.size(),
+        vertexSpecializationData.data()
+    );
+
+    vk::SpecializationInfo fragShaderSpecialization(
+        vkUseArray(fragmentSpecializationEntries), sizeof(uint32_t) * fragmentSpecializationData.size(),
+        fragmentSpecializationData.data()
+    );
+
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo(
-        {}, vk::ShaderStageFlagBits::eVertex, vertShaderModule, "main"
+        {}, vk::ShaderStageFlagBits::eVertex, vertShaderModule, "main", &vertShaderSpecialization
     );
 
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo(
-        {}, vk::ShaderStageFlagBits::eFragment, fragShaderModule, "main"
+        {}, vk::ShaderStageFlagBits::eFragment, fragShaderModule, "main", &fragShaderSpecialization
     );
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = { vertShaderStageInfo, fragShaderStageInfo };
@@ -901,7 +927,6 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
 
     return pipeline;
 }
-
 
 Pipeline::Pipeline(vk::Device device, PipelineResources resources, std::map<uint32_t, PipelineBindingDetails> bindings)
     : device(device), resources(std::move(resources)), bindings(std::move(bindings)) {}
