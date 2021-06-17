@@ -134,6 +134,10 @@ void Image::transition(
                         srcAccessMask = vk::AccessFlagBits::eTransferWrite;
                         sourceStages |= vk::PipelineStageFlagBits::eTransfer;
                         break;
+                    case vk::ImageLayout::eTransferSrcOptimal:
+                        srcAccessMask = vk::AccessFlagBits::eTransferRead;
+                        sourceStages |= vk::PipelineStageFlagBits::eTransfer;
+                        break;
                     case vk::ImageLayout::eUndefined:
                         sourceStages |= vk::PipelineStageFlagBits::eTopOfPipe;
                         break;
@@ -303,6 +307,12 @@ void Image::transitionManual(
         0, nullptr,
         1, &barrier
     );
+}
+
+void Image::transitionOverride(
+    vk::ImageLayout layout, bool didWrite, const vk::PipelineStageFlags &previousStage, uint32_t layer
+) {
+    layerStates[layer] = { layout, didWrite, previousStage };
 }
 
 Image::operator ImTextureID() const {

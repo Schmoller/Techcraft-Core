@@ -82,6 +82,10 @@ public:
         const vk::PipelineStageFlags &srcStages, const vk::PipelineStageFlags &destStages
     );
 
+    // Overrides the state. Useful after manual transitions
+    void transitionOverride(
+        vk::ImageLayout layout, bool didWrite, const vk::PipelineStageFlags &previousStage, uint32_t layer = 0
+    );
 
     const vk::Image image() const {
         return internalImage;

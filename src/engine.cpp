@@ -125,7 +125,7 @@ void RenderEngine::initVulkan() {
     // Other resources
     bufferManager = std::make_unique<BufferManager>(*device);
     taskManager = std::make_unique<TaskManager>(*device);
-    textureManager = std::make_unique<TextureManager>(*this, *device);
+    textureManager = std::make_unique<TextureManager>(*this, *device, physicalDevice);
     executionController = std::make_unique<ExecutionController>(*device, swapChain->size());
 
     createAttachments();

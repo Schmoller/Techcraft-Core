@@ -19,8 +19,15 @@ const uint32_t MAX_ARRAY_SIZE = 16;
 
 namespace Engine {
 
-TextureManager::TextureManager(RenderEngine &engine, VulkanDevice &device)
+TextureManager::TextureManager(RenderEngine &engine, VulkanDevice &device, vk::PhysicalDevice physicalDevice)
     : engine(engine), device(device) {
+
+    // See if we can blit textures
+    auto properties = physicalDevice.getFormatProperties(vk::Format::eR8G8B8A8Unorm);
+    if (properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitSrc &&
+        properties.optimalTilingFeatures & vk::FormatFeatureFlagBits::eBlitDst) {
+        canBlitTextures = true;
+    }
 
     vk::DescriptorSetLayoutBinding samplerBinding(
         TEXTURE_BINDING, vk::DescriptorType::eCombinedImageSampler,
@@ -62,6 +69,8 @@ const Texture *TextureManager::getTexture(const std::string &name) const {
 }
 
 bool TextureManager::removeTexture(const std::string &name) {
+    // FIXME: This needs to be implemented
+    assert(false);
     return false;
 }
 
@@ -82,10 +91,15 @@ Internal::TextureArray &TextureManager::allocateArray(uint32_t width, uint32_t h
     VkDeviceSize imageUsage = width * height * 4;
     uint32_t arraySize = std::min(static_cast<uint32_t>(MAX_MEMORY_USAGE / imageUsage), MAX_ARRAY_SIZE);
 
+    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+    if (canBlitTextures && mipLevels > 1) {
+        usage |= vk::ImageUsageFlagBits::eTransferSrc;
+    }
+
     auto image = engine.createImageArray(width, height, arraySize)
         .withFormat(vk::Format::eR8G8B8A8Unorm)
         .withMipLevels(mipLevels)
-        .withUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
+        .withUsage(usage)
         .withMemoryUsage(vk::MemoryUsage::eGPUOnly)
         .withImageTiling(vk::ImageTiling::eOptimal)
         .build();
@@ -110,6 +124,8 @@ Internal::TextureArray &TextureManager::allocateArray(uint32_t width, uint32_t h
 const Texture *TextureManager::addTexture(
     const std::string &name, uint32_t width, uint32_t height, void *pixelData, MipType mipType
 ) {
+    bool useFallbackMipmapGen = !canBlitTextures;
+
     uint32_t srcWidth = width;
     if (mipType == MipType::StoredStandard) {
         // Standard mipmaps are stored on the right of the main texture using 50% more width
@@ -131,8 +147,8 @@ const Texture *TextureManager::addTexture(
     vk::DeviceSize imageSize = srcWidth * height * 4;
 
     unsigned char *combinedPixels = nullptr;
-    if (mipType == MipType::Generate) {
-        combinedPixels = generateMipMaps(srcWidth, height, array.getMipLevels(), pixelData, &imageSize);
+    if (mipType == MipType::Generate && useFallbackMipmapGen) {
+        combinedPixels = generateMipMapsFallback(srcWidth, height, array.getMipLevels(), pixelData, &imageSize);
         pixelData = combinedPixels;
     }
 
@@ -142,7 +158,7 @@ const Texture *TextureManager::addTexture(
     auto task = engine.getTaskManager().createTask();
 
     task->execute(
-        [&stagingBuffer, array, slot, mipType](vk::CommandBuffer buffer) {
+        [&stagingBuffer, array, slot, mipType, useFallbackMipmapGen](vk::CommandBuffer buffer) {
             auto image = array.getImage();
             image->transition(
                 buffer, slot, 1, vk::ImageLayout::eTransferDstOptimal, false, vk::PipelineStageFlagBits::eTransfer
@@ -151,7 +167,7 @@ const Texture *TextureManager::addTexture(
             uint32_t width = image->getWidth();
             uint32_t height = image->getHeight();
 
-            if (mipType == MipType::NoMipmap) {
+            if (mipType == MipType::NoMipmap || (mipType == MipType::Generate && !useFallbackMipmapGen)) {
                 image->transferIn(buffer, *stagingBuffer, slot);
             } else if (mipType == MipType::StoredStandard) {
                 // Standard storage:
@@ -189,7 +205,7 @@ const Texture *TextureManager::addTexture(
                         offsetY += mipHeight;
                     }
                 }
-            } else {
+            } else if (mipType == MipType::Generate && useFallbackMipmapGen) {
                 size_t offset = width * height * 4;
 
                 for (uint32_t level = 0; level < array.getMipLevels(); ++level) {
@@ -207,6 +223,11 @@ const Texture *TextureManager::addTexture(
                         offset += size;
                     }
                 }
+            }
+
+            if (mipType == MipType::Generate && !useFallbackMipmapGen) {
+                // Blit the mipmaps
+                generateMipmaps(buffer, array, slot);
             }
 
             image->transition(
@@ -229,8 +250,8 @@ const Texture *TextureManager::addTexture(
     return &texturesByName[name];
 }
 
-unsigned char *TextureManager::generateMipMaps(
-    uint32_t width, uint32_t height, uint32_t mipLevels, void *source, vk::DeviceSize *outSize
+unsigned char *TextureManager::generateMipMapsFallback(
+    uint32_t width, uint32_t height, uint32_t mipLevels, void *source, vk::DeviceSize *outputSize
 ) {
     vk::DeviceSize imageSize = width * height * 4;
 
@@ -268,7 +289,7 @@ unsigned char *TextureManager::generateMipMaps(
         offset += mipWidth * mipHeight * 4;
     }
 
-    *outSize = imageSize;
+    *outputSize = imageSize;
     return combinedPixels;
 }
 
@@ -313,6 +334,60 @@ void TextureManager::generatePlaceholders() {
 
     delete[] pixels;
 
+}
+
+void TextureManager::generateMipmaps(vk::CommandBuffer buffer, const Internal::TextureArray &array, uint32_t slot) {
+    // NOTE: It is expected that the array layer is currently in the TransferDstOptimal layout
+    auto image = array.getImage();
+
+    for (uint32_t level = 1; level < image->getMipLevels(); ++level) {
+        // Prepare the previous level to transfer to this level
+        image->transitionManual(
+            buffer,
+            slot, 1,
+            level - 1, 1,
+            vk::ImageLayout::eTransferDstOptimal, true,
+            vk::ImageLayout::eTransferSrcOptimal, false,
+            vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer
+        );
+
+        int32_t srcWidth = static_cast<int32_t>(image->getWidth()) >> (level - 1);
+        int32_t srcHeight = static_cast<int32_t>(image->getHeight()) >> (level - 1);
+
+        std::array<vk::Offset3D, 2> sourceCoords {{
+            {},
+            { srcWidth, srcHeight, 1 }
+        }};
+        std::array<vk::Offset3D, 2> destCoords {{
+            {},
+            { srcWidth >> 1, srcHeight >> 1, 1 }
+        }};
+
+        vk::ImageBlit blit(
+            { vk::ImageAspectFlagBits::eColor, level - 1, slot, 1 },
+            sourceCoords,
+            { vk::ImageAspectFlagBits::eColor, level, slot, 1 },
+            destCoords
+        );
+
+        buffer.blitImage(
+            image->image(), vk::ImageLayout::eTransferSrcOptimal,
+            image->image(), vk::ImageLayout::eTransferDstOptimal,
+            1, &blit,
+            vk::Filter::eLinear
+        );
+    }
+
+    image->transitionManual(
+        buffer,
+        slot, 1,
+        image->getMipLevels() - 1, 1,
+        vk::ImageLayout::eTransferDstOptimal, true,
+        vk::ImageLayout::eTransferSrcOptimal, false,
+        vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer
+    );
+
+    image->transitionOverride(vk::ImageLayout::eTransferSrcOptimal, true, vk::PipelineStageFlagBits::eTransfer, slot);
 }
 
 }

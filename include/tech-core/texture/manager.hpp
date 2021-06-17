@@ -11,7 +11,7 @@ namespace Engine {
 class TextureManager {
     friend class TextureBuilder;
 public:
-    TextureManager(RenderEngine &engine, VulkanDevice &device);
+    TextureManager(RenderEngine &engine, VulkanDevice &device, vk::PhysicalDevice);
     ~TextureManager();
 
     TextureBuilder createTexture(const std::string &name);
@@ -37,6 +37,8 @@ private: // For TextureBuilder
 private:
     RenderEngine &engine;
     VulkanDevice &device;
+    bool canBlitTextures { false };
+
 
     // FIXME: I dont think this is safe with us passing texture pointers around
     std::unordered_map<std::string, Texture> texturesByName;
@@ -50,11 +52,12 @@ private:
     const Texture *errorTexture { nullptr };
 
     Internal::TextureArray &allocateArray(uint32_t width, uint32_t height);
-    static unsigned char *generateMipMaps(
+    void generatePlaceholders();
+
+    static void generateMipmaps(vk::CommandBuffer buffer, const Internal::TextureArray &array, uint32_t slot);
+    static unsigned char *generateMipMapsFallback(
         uint32_t width, uint32_t height, uint32_t mipLevels, void *source, vk::DeviceSize *outputSize
     );
-
-    void generatePlaceholders();
 };
 
 }
