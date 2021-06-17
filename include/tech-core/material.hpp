@@ -43,8 +43,8 @@ struct MaterialCreateInfo {
 
 struct Material {
     uint32_t samplerId;
-    Texture *diffuseTexture;
-    Texture *normalTexture;
+    const Texture *diffuseTexture;
+    const Texture *normalTexture;
 };
 
 struct SamplerDefinition {

@@ -1,5 +1,5 @@
 #include "tech-core/material.hpp"
-#include "tech-core/texturemanager.hpp"
+#include "tech-core/texture/manager.hpp"
 
 namespace Engine {
 
@@ -34,7 +34,7 @@ Material *MaterialManager::addMaterial(const MaterialCreateInfo &materialInfo) {
         samplerId = createSampler(samplerDefinition);
     }
 
-    Texture *diffuse = nullptr, *normal = nullptr;
+    const Texture *diffuse = nullptr, *normal = nullptr;
     if (materialInfo.diffuseTexture.size()) {
         diffuse = textureManager->getTexture(materialInfo.diffuseTexture);
     }

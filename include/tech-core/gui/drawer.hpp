@@ -39,9 +39,9 @@ class Drawer {
         std::vector<Vertex> vertices;
         std::vector<GuiBufferInt> indices;
     };
-    
-    public:
-    Drawer(FontManager &fontManager, Texture &whiteTexture, const std::string &defaultFontName);
+
+public:
+    Drawer(FontManager &fontManager, const Texture &whiteTexture, const std::string &defaultFontName);
 
     void drawRect(const Rect &rect, const Texture &texture);
     void drawRect(const Rect &rect, const Texture &texture, const Rect &sourceRect, uint32_t color = 0xFFFFFFFF);
@@ -50,9 +50,15 @@ class Drawer {
     void drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePosition strokePos, uint32_t strokeColour);
 
     void drawLine(const glm::vec2 &from, const glm::vec2 &to, uint32_t colour, uint32_t strokeSize = 1);
-    
-    void drawText(const std::string &text, float x, float y, Font *font, Alignment hAlign = Alignment::Begining, Alignment vAlign = Alignment::Begining, uint32_t colour = DEFAULT_GUI_TEXT_COLOR);
-    void drawText(const std::wstring &text, float x, float y, Font *font, Alignment hAlign = Alignment::Begining, Alignment vAlign = Alignment::Begining, uint32_t colour = DEFAULT_GUI_TEXT_COLOR);
+
+    void drawText(
+        const std::string &text, float x, float y, Font *font, Alignment hAlign = Alignment::Begining,
+        Alignment vAlign = Alignment::Begining, uint32_t colour = DEFAULT_GUI_TEXT_COLOR
+    );
+    void drawText(
+        const std::wstring &text, float x, float y, Font *font, Alignment hAlign = Alignment::Begining,
+        Alignment vAlign = Alignment::Begining, uint32_t colour = DEFAULT_GUI_TEXT_COLOR
+    );
 
     void drawTextWithFormatting(const std::string &text, float x, float y, uint32_t color = DEFAULT_GUI_TEXT_COLOR);
     void drawTextWithFormatting(const std::wstring &text, float x, float y, uint32_t color = DEFAULT_GUI_TEXT_COLOR);
@@ -72,16 +78,16 @@ class Drawer {
     FontManager &getFontManager() const { return fontManager; }
 
 
-    protected:
+protected:
     void reset();
 
-    private:
+private:
     Vertex transformVertex(const Vertex &vertex);
 
     const std::string defaultFontName;
 
     FontManager &fontManager;
-    Texture &whiteTexture;
+    const Texture &whiteTexture;
     Region *currentRegion = nullptr;
     std::vector<Region> regions;
 

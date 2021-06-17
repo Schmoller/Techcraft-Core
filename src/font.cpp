@@ -1,8 +1,11 @@
 #include "tech-core/font.hpp"
 #include "tech-core/gui/drawer.hpp"
+#include "tech-core/texture/manager.hpp"
+#include "tech-core/texture/builder.hpp"
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STB_RECT_PACK_IMPLEMENTATION
+
 #include <stb_rect_pack.h>
 #include <stb_truetype.h>
 
@@ -18,7 +21,7 @@ std::string toString(FontStyle style);
 Font::Font(
     FontStyle style,
     int oversampling,
-    Texture *texture,
+    const Texture *texture,
     float fontSize,
     float ascent,
     float descent,
@@ -29,8 +32,7 @@ Font::Font(
     fontSize(fontSize),
     ascent(ascent),
     descent(descent),
-    lineGap(lineGap)
-{}
+    lineGap(lineGap) {}
 
 void Font::computeSize(const std::wstring &text, float &outWidth, float &outHeight) {
     float x = 0;
@@ -154,11 +156,12 @@ void Font::draw(
             // Output quad
             // TODO: Allow rendering from baseline (just remove the + ascent parts)
             drawer.drawRect(
-                Gui::Rect{{quad.x0 + offset.x, quad.y0 + offset.y + ascent}, {quad.x1 + offset.x, quad.y1 + offset.y + ascent}},
+                Gui::Rect {{ quad.x0 + offset.x, quad.y0 + offset.y + ascent },
+                    { quad.x1 + offset.x, quad.y1 + offset.y + ascent }},
                 *texture,
-                Gui::Rect{
-                    {quad.s0, quad.t0},
-                    {quad.s1, quad.t1}
+                Gui::Rect {
+                    { quad.s0, quad.t0 },
+                    { quad.s1, quad.t1 }
                 },
                 color
             );
@@ -168,15 +171,13 @@ void Font::draw(
     }
 
     if (outCoords) {
-        *outCoords = {maxX, y};
+        *outCoords = { maxX, y };
     }
 }
 
 
-
 FontManager::FontManager(TextureManager &textureManager)
-    : textureManager(textureManager)
-{}
+    : textureManager(textureManager) {}
 
 Font *FontManager::addFont(const std::string &filename, const std::string &name, FontStyle style, float fontSize) {
     std::ifstream input(filename);
@@ -193,7 +194,7 @@ Font *FontManager::addFont(const std::string &filename, const std::string &name,
 
     input.read(reinterpret_cast<char *>(buffer), length);
     if (input.fail()) {
-        delete [] buffer;
+        delete[] buffer;
         throw std::runtime_error("Failed to read font");
     }
 
@@ -204,7 +205,7 @@ Font *FontManager::addFont(const std::string &filename, const std::string &name,
         // Not supporing multiple fonts per file
         stbtt_fontinfo info;
         if (!stbtt_InitFont(&info, buffer, 0)) {
-            delete [] buffer;
+            delete[] buffer;
             throw std::runtime_error("Font file is invalid");
         }
 
@@ -229,7 +230,7 @@ Font *FontManager::addFont(const std::string &filename, const std::string &name,
 
         for (size_t i = 0; i < CODE_POINT_RANGES.size(); ++i) {
             auto range = CODE_POINT_RANGES[i];
-            
+
             int count = range[1] - range[0] + 1;
 
             outputs[i].resize(count);
@@ -259,7 +260,7 @@ Font *FontManager::addFont(const std::string &filename, const std::string &name,
         std::stringstream textureName;
         textureName << "font." << name << "." << toString(style);
 
-        Texture *texture = textureManager.createTexture(textureName.str())
+        auto *texture = textureManager.createTexture(textureName.str())
             .fromRaw(FONT_ATLAS_SIZE, FONT_ATLAS_SIZE, convertedPixelData)
             .build();
 
@@ -276,11 +277,11 @@ Font *FontManager::addFont(const std::string &filename, const std::string &name,
 
         supportedFonts.insert(std::pair(name, fontDefinition));
 
-        delete [] buffer;
-        delete [] pixelData;
-        delete [] convertedPixelData;
+        delete[] buffer;
+        delete[] pixelData;
+        delete[] convertedPixelData;
     } else {
-        delete [] buffer;
+        delete[] buffer;
         throw std::runtime_error("Font file contains multiple fonts. This is unsuported");
     }
 
@@ -306,7 +307,7 @@ Font *FontManager::getFont(const std::string &fontName, FontStyle style) {
     return best;
 }
 
-Texture *FontManager::getFontTexture(const std::string name, FontStyle style) {
+const Texture *FontManager::getFontTexture(const std::string &name, FontStyle style) {
     std::stringstream textureName;
     textureName << name << "." << toString(style);
 
@@ -315,10 +316,14 @@ Texture *FontManager::getFontTexture(const std::string name, FontStyle style) {
 
 std::string toString(FontStyle style) {
     switch (style) {
-        case FontStyle::Bold: return "bold";
-        case FontStyle::Regular: return "regular";
-        case FontStyle::Italic: return "italic";
-        case FontStyle::BoldItalic: return "bolditalic";
+        case FontStyle::Bold:
+            return "bold";
+        case FontStyle::Regular:
+            return "regular";
+        case FontStyle::Italic:
+            return "italic";
+        case FontStyle::BoldItalic:
+            return "bolditalic";
     };
     return "Unknown";
 }

@@ -25,7 +25,7 @@ enum class MemoryUsage {
 namespace Engine {
 
 struct BufferFence {
-    std::unique_ptr<Buffer> buffer;
+    std::shared_ptr<Buffer> buffer;
     vk::Fence fence;
     vk::UniqueFence uniqueFence;
 };
@@ -85,6 +85,15 @@ public:
      * - Can be used as a transfer source
      */
     std::unique_ptr<Buffer> aquireStaging(vk::DeviceSize size);
+
+    /**
+     * Aquire a staging buffer of the required size.
+     * A staging buffer has the following characteristics:
+     * - It is CPU local
+     * - Can be used as a transfer source
+     */
+    std::shared_ptr<Buffer> aquireStagingShared(vk::DeviceSize size);
+
     /**
      * Releases a buffer
      * If a fence is provided, the buffer will only be released when that fence is complete.

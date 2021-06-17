@@ -1,5 +1,7 @@
 #include "tech-core/subsystem/objects.hpp"
 #include "tech-core/engine.hpp"
+#include "tech-core/texture/common.hpp"
+#include "tech-core/texture/manager.hpp"
 #include "vulkanutils.hpp"
 
 #include <functional>

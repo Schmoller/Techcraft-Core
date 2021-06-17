@@ -1,6 +1,7 @@
 #include "tech-core/gui/manager.hpp"
 #include "tech-core/gui/drawer.hpp"
 #include "tech-core/pipeline.hpp"
+#include "tech-core/texture/manager.hpp"
 #include <iostream>
 
 namespace Engine::Gui {

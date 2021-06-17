@@ -64,4 +64,9 @@ class Effect;
 namespace Gui {
 class Drawer;
 }
+
+namespace Internal {
+class TextureArray;
+}
+
 }

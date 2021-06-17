@@ -1,7 +1,6 @@
 #pragma once
 
 #include "forward.hpp"
-#include "texturemanager.hpp"
 #include <stb_truetype.h>
 #include "tech-core/gui/common.hpp"
 
@@ -64,7 +63,7 @@ private:
     Font(
         FontStyle style,
         int oversampling,
-        Texture *texture,
+        const Texture *texture,
         float fontSize,
         float ascent,
         float descent,
@@ -74,7 +73,7 @@ private:
     FontStyle style;
     int oversampling;
     float fontSize;
-    Texture *texture;
+    const Texture *texture;
     std::unordered_map<wchar_t, stbtt_packedchar> codePoints;
 
     // Positional information
@@ -87,12 +86,12 @@ class FontManager {
     typedef std::unordered_multimap<std::string, Font> FontMap;
 
 public:
-    FontManager(TextureManager &textureManager);
+    explicit FontManager(TextureManager &textureManager);
 
     Font *addFont(const std::string &filename, const std::string &name, FontStyle style, float fontSize = 20);
     Font *getFont(const std::string &name, FontStyle style);
 
-    Texture *getFontTexture(const std::string name, FontStyle style);
+    const Texture *getFontTexture(const std::string &name, FontStyle style);
 
 private:
     TextureManager &textureManager;

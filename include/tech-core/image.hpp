@@ -11,19 +11,6 @@ typedef void *ImTextureID;
 
 namespace Engine {
 
-enum ImageLoadState {
-    Unallocated = 0,
-    Allocated,
-    PreTransfer,
-    Ready
-};
-
-enum MipType {
-    NoMipmap = 0,
-    StoredStandard,
-    Generate
-};
-
 class ImageBuilder {
     friend class RenderEngine;
 
@@ -31,7 +18,7 @@ public:
     ImageBuilder &withUsage(const vk::ImageUsageFlags &);
     ImageBuilder &withImageTiling(vk::ImageTiling);
     ImageBuilder &withFormat(vk::Format);
-    ImageBuilder &withSampleCount(const vk::SampleCountFlags &);
+    ImageBuilder &withSampleCount(const vk::SampleCountFlagBits &);
     ImageBuilder &withMemoryUsage(vk::MemoryUsage);
     ImageBuilder &withMipLevels(uint32_t);
     ImageBuilder &withDestinationStage(const vk::PipelineStageFlags &);
@@ -39,6 +26,7 @@ public:
 
 private:
     explicit ImageBuilder(VulkanDevice &, uint32_t width, uint32_t height);
+    explicit ImageBuilder(VulkanDevice &, uint32_t width, uint32_t height, uint32_t count);
 
     // Non-configurable
     VulkanDevice &device;
@@ -47,64 +35,53 @@ private:
     vk::Format imageFormat { vk::Format::eR8G8B8A8Unorm };
     vk::ImageUsageFlags usageFlags { vk::ImageUsageFlagBits::eSampled };
     vk::ImageTiling imageTiling { vk::ImageTiling::eOptimal };
-    vk::SampleCountFlags sampleCount { vk::SampleCountFlagBits::e1 };
+    vk::SampleCountFlagBits sampleCount { vk::SampleCountFlagBits::e1 };
     vk::MemoryUsage memoryUsage { vk::MemoryUsage::eGPUOnly };
     vk::PipelineStageFlags destinationStage { vk::PipelineStageFlagBits::eFragmentShader };
 
     uint32_t mipLevels { 1 };
     uint32_t width { 0 };
     uint32_t height { 0 };
+    uint32_t arrayLayers { 1 };
 };
 
-// TODO: Allow this class to track its usages in the pipeline:
-/*
- * This means we should be able to check that it's been written to in a compute shader
- * and been read from in a fragment shader.
- * We can then use this to automatically transition the image
- *
- * Need a transitionForPipeline() function which takes the pipeline and command buffer.
- * Needs to only transition if it needs to. Eg. If it is used in a compute shader
- * and vertex shader, but the compute shader is not used often then it should
- * only transition when it is used.
- *
- * It also needs to handle queue transfer. This means, if the compute shader is run in a compute dedicated queue,
- * it would need to do a release in the graphics queue, then an aquire in the compute queue, and vice versa.
- *
- * To do this we need to know that it will be needed in the other state. ie. if the compute shader is going to be run,
- * then we must do a release at the end of the graphics pipeline. If the graphics one will be run, then it needs to
- * do a release at the end of the compute pipeline.
- * It might be possible to prepare the release ahead of time because it should respect the srcAccessMask and srcStage.
- *
- * As an interim step, we could just make sure we use shared mode instead of exclusive mode.
- *
- */
 class Image {
+    friend class ImageBuilder;
 public:
-    Image();
-
     ~Image();
 
-    // TODO: remove this and make it part of the construction
-    void allocate(
-        VmaAllocator allocator, vk::Device device, uint32_t width, uint32_t height, vk::Format format,
-        vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaMemoryUsage memUsage, vk::SampleCountFlags samples,
-        uint32_t mipLevels, vk::PipelineStageFlags destinationStage = vk::PipelineStageFlagBits::eFragmentShader
+    void transferIn(vk::CommandBuffer commandBuffer, const Buffer &source, uint32_t layer = 0, uint32_t mipLevel = 0);
+    void transferIn(
+        vk::CommandBuffer commandBuffer, const Buffer &source, vk::Offset2D offset, vk::Extent2D extent,
+        uint32_t layer = 0,
+        uint32_t mipLevel = 0
+    );
+    void transferInOffset(
+        vk::CommandBuffer commandBuffer, const Buffer &source, vk::DeviceSize bufferOffset, uint32_t layer = 0,
+        uint32_t mipLevel = 0
+    );
+    void transferInOffset(
+        vk::CommandBuffer commandBuffer, const Buffer &source, vk::DeviceSize bufferOffset, vk::Offset2D offset,
+        vk::Extent2D extent, uint32_t layer = 0, uint32_t mipLevel = 0
     );
 
-    void destroy();
-
-    void
-    transfer(vk::CommandBuffer commandBuffer, void *pixelData, VkDeviceSize size, MipType mipType = MipType::NoMipmap);
-
-    void
-    transferOut(vk::CommandBuffer commandBuffer, Buffer *buffer, MipType mipType = MipType::NoMipmap);
+    void transferOut(vk::CommandBuffer commandBuffer, Buffer *buffer, uint32_t layer = 0);
 
     void transition(
         vk::CommandBuffer commandBuffer, vk::ImageLayout layout, bool read = true,
         vk::PipelineStageFlagBits destStage = vk::PipelineStageFlagBits::eFragmentShader
     );
+    void transition(
+        vk::CommandBuffer commandBuffer, uint32_t layer, uint32_t layerCount, vk::ImageLayout layout,
+        bool read = true, vk::PipelineStageFlagBits destStage = vk::PipelineStageFlagBits::eFragmentShader
+    );
 
-    void completeTransfer();
+    void transitionManual(
+        vk::CommandBuffer commandBuffer, uint32_t layer, uint32_t layerCount, uint32_t mipLevel, uint32_t levelCount,
+        vk::ImageLayout oldLayout, bool wasWritten, vk::ImageLayout newLayout, bool willWrite,
+        const vk::PipelineStageFlags &srcStages, const vk::PipelineStageFlags &destStages
+    );
+
 
     const vk::Image image() const {
         return internalImage;
@@ -114,39 +91,50 @@ public:
         return internalImageView;
     }
 
-    vk::ImageLayout getCurrentLayout() const { return currentLayout; }
+    vk::ImageLayout getCurrentLayout(uint32_t layer = 0) const { return layerStates[layer].currentLayout; }
 
     uint32_t getWidth() const { return width; }
 
     uint32_t getHeight() const { return height; }
 
-    bool isReadyForSampling() const {
-        return currentLayout == vk::ImageLayout::eShaderReadOnlyOptimal || currentLayout == vk::ImageLayout::eGeneral;
-    }
+    uint32_t getLayers() const { return layers; }
+
+    uint32_t getMipLevels() const { return mipLevels; }
+
+    bool isReadyForSampling() const;
 
     explicit operator ImTextureID() const;
 
     static bool isImage(ImTextureID id, vk::Device device);
 
 private:
-    ImageLoadState state;
-    VmaAllocator allocator;
-    vk::Device device;
+    // This exists just to check if a ImGui texture is an image
+    vk::Device rawDevice;
+    VulkanDevice &device;
 
     uint32_t width;
     uint32_t height;
+    uint32_t layers;
+    uint32_t mipLevels;
     vk::Format format;
     vk::Image internalImage;
     VmaAllocation imageMemory;
     vk::ImageView internalImageView;
     vk::PipelineStageFlags destinationStage { vk::PipelineStageFlagBits::eFragmentShader };
 
-    Buffer stagingBuffer;
-
     // Tracked for transitions
-    vk::ImageLayout currentLayout { vk::ImageLayout::eUndefined };
-    bool previousWasWriting { false };
-    vk::PipelineStageFlags previousStages;
+    struct LayoutState {
+        vk::ImageLayout currentLayout { vk::ImageLayout::eUndefined };
+        bool previousWasWriting { false };
+        vk::PipelineStageFlags previousStages {};
+    };
+
+    std::vector<LayoutState> layerStates;
+
+    Image(
+        VulkanDevice &, vk::Image, VmaAllocation memory, vk::ImageView, uint32_t width, uint32_t height,
+        uint32_t layers, uint32_t mipLevels, vk::Format, const vk::PipelineStageFlags &destination
+    );
 };
 
 }

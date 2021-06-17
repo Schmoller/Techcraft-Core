@@ -55,6 +55,15 @@ std::unique_ptr<Buffer> BufferManager::aquireStaging(vk::DeviceSize size) {
     );
 }
 
+std::shared_ptr<Buffer> BufferManager::aquireStagingShared(vk::DeviceSize size) {
+    return std::make_shared<Buffer>(
+        device.allocator,
+        size,
+        vk::BufferUsageFlagBits::eTransferSrc,
+        vk::MemoryUsage::eCPUOnly
+    );
+}
+
 void BufferManager::release(std::unique_ptr<Buffer> &buffer, vk::Fence onlyAfter) {
     if (onlyAfter) {
 #ifdef DEBUG_BUFFER

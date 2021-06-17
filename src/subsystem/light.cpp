@@ -1,5 +1,6 @@
 #include "tech-core/subsystem/light.hpp"
 #include "tech-core/engine.hpp"
+#include "tech-core/buffer.hpp"
 #include "vulkanutils.hpp"
 
 #define DAY_SKY_BRIGHTNESS glm::vec3{0.8, 0.8, 0.8}

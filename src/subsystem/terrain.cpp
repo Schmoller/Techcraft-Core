@@ -2,6 +2,8 @@
 #include "tech-core/engine.hpp"
 #include "tech-core/camera.hpp"
 #include "tech-core/task.hpp"
+#include "tech-core/buffer.hpp"
+#include "tech-core/texture/manager.hpp"
 #include "vulkanutils.hpp"
 
 #include "tech-core/utilities/profiler.hpp"

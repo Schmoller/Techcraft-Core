@@ -29,6 +29,8 @@
 #include "tech-core/font.hpp"
 #include "tech-core/compute.hpp"
 #include "tech-core/post_processing.hpp"
+#include "tech-core/texture/manager.hpp"
+#include "tech-core/texture/builder.hpp"
 
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
@@ -123,36 +125,28 @@ void RenderEngine::initVulkan() {
     // Other resources
     bufferManager = std::make_unique<BufferManager>(*device);
     taskManager = std::make_unique<TaskManager>(*device);
+    textureManager = std::make_unique<TextureManager>(*this, *device);
     executionController = std::make_unique<ExecutionController>(*device, swapChain->size());
 
     createAttachments();
     createMainRenderPass();
     createOverlayRenderPass();
-    createDescriptorSetLayout();
     createDepthResources();
     createFramebuffers();
     updateEffectPipelines();
 
     createUniformBuffers();
-    textureManager.initialize(
-        device->device,
-        device->allocator,
-        device->graphicsPool,
-        device->graphicsQueue.queue,
-        textureDescriptorLayout
-    );
-    loadPlaceholders();
     materialManager.initialize(
         device->device,
-        &textureManager
+        textureManager.get()
     );
     fontManager = std::make_unique<FontManager>(
-        textureManager
+        *textureManager
     );
     guiManager = std::unique_ptr<Gui::GuiManager>(
         new Gui::GuiManager(
             device->device,
-            textureManager,
+            *textureManager,
             *bufferManager,
             *taskManager,
             *fontManager,
@@ -185,7 +179,6 @@ void RenderEngine::recreateSwapChain() {
     device->waitIdle();
 
     cleanupSwapChain();
-    textureManager.onSwapChainRecreate();
 
     vk::Extent2D windowExtent = {
         static_cast<uint32_t>(width),
@@ -525,22 +518,6 @@ void RenderEngine::updateEffectPipelines() {
         effect->bindImage(0, 1, finalDepthAttachment);
         ++subpass;
     }
-}
-
-void RenderEngine::createDescriptorSetLayout() {
-    // Create the texture descriptor layout
-
-    vk::DescriptorSetLayoutBinding samplerBinding(
-        2, vk::DescriptorType::eCombinedImageSampler, 1, vk::ShaderStageFlagBits::eFragment
-    );
-
-    std::array<vk::DescriptorSetLayoutBinding, 1> textureBinding = { samplerBinding };
-
-    vk::DescriptorSetLayoutCreateInfo textureLayoutInfo(
-        {}, 1, textureBinding.data()
-    );
-
-    textureDescriptorLayout = device->device.createDescriptorSetLayout(textureLayoutInfo);
 }
 
 vk::ShaderModule RenderEngine::createShaderModule(const std::vector<char> &code) {
@@ -906,12 +883,11 @@ void RenderEngine::cleanup() {
     meshes.clear();
     guiManager.reset();
     materialManager.destroy();
-    textureManager.destroy();
+    textureManager.reset();
 
     // Release all remaining buffers
     bufferManager->processActions();
     taskManager.reset();
-    device->device.destroyDescriptorSetLayout(textureDescriptorLayout);
     executionController.reset();
 
     intermediateAttachments.clear();
@@ -965,19 +941,19 @@ Mesh *RenderEngine::getMesh(const std::string &name) {
 //  Texture Methods
 // ==============================================
 TextureBuilder RenderEngine::createTexture(const std::string &name) {
-    return textureManager.createTexture(name);
+    return textureManager->createTexture(name);
 }
 
-Texture *RenderEngine::getTexture(const std::string &name) {
-    return textureManager.getTexture(name);
+const Texture *RenderEngine::getTexture(const std::string &name) {
+    return textureManager->getTexture(name);
 }
 
-Texture *RenderEngine::getTexture(const char *name) {
+const Texture *RenderEngine::getTexture(const char *name) {
     return getTexture(std::string(name));
 }
 
 void RenderEngine::destroyTexture(const std::string &name) {
-    textureManager.destroyTexture(name);
+    textureManager->removeTexture(name);
 }
 
 void RenderEngine::destroyTexture(const char *name) {
@@ -988,29 +964,8 @@ ImageBuilder RenderEngine::createImage(uint32_t width, uint32_t height) {
     return ImageBuilder(*device, width, height);
 }
 
-void RenderEngine::loadPlaceholders() {
-    VkDeviceSize imageSize = PLACEHOLDER_TEXTURE_SIZE * PLACEHOLDER_TEXTURE_SIZE;
-
-    uint32_t *pixels = new uint32_t[imageSize];
-    generateErrorPixels(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels);
-
-    textureManager.createTexture("internal.error")
-        .fromRaw(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels)
-        .build();
-
-    generateSolidPixels(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels, 0x00000000);
-
-    textureManager.createTexture("internal.loading")
-        .fromRaw(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels)
-        .build();
-
-    generateSolidPixels(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels, 0xFFFFFFFF);
-
-    textureManager.createTexture("internal.white")
-        .fromRaw(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels)
-        .build();
-
-    delete[] pixels;
+ImageBuilder RenderEngine::createImageArray(uint32_t width, uint32_t height, uint32_t count) {
+    return ImageBuilder(*device, width, height, count);
 }
 
 // ==============================================

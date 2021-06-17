@@ -13,7 +13,6 @@ struct SwapChainSupportDetails;
 
 #include "material.hpp"
 #include "task.hpp"
-#include "texturemanager.hpp"
 #include "inputmanager.hpp"
 #include "tech-core/gui/manager.hpp"
 #include "tech-core/subsystem/base.hpp"
@@ -73,15 +72,16 @@ public:
     // ==============================================
     TextureBuilder createTexture(const std::string &name);
 
-    Texture *getTexture(const std::string &name);
+    const Texture *getTexture(const std::string &name);
 
-    Texture *getTexture(const char *name);
+    const Texture *getTexture(const char *name);
 
     void destroyTexture(const std::string &name);
 
     void destroyTexture(const char *name);
 
     ImageBuilder createImage(uint32_t width, uint32_t height);
+    ImageBuilder createImageArray(uint32_t width, uint32_t height, uint32_t count);
 
     // ==============================================
     //  Material Methods
@@ -107,7 +107,7 @@ public:
     // ==============================================
 
     TextureManager &getTextureManager() {
-        return textureManager;
+        return *textureManager;
     }
 
     BufferManager &getBufferManager() {
@@ -217,8 +217,7 @@ private:
     std::vector<Buffer> uniformBuffers;
     std::unique_ptr<ExecutionController> executionController;
 
-    vk::DescriptorSetLayout textureDescriptorLayout;
-    TextureManager textureManager;
+    std::unique_ptr<TextureManager> textureManager;
     MaterialManager materialManager;
     std::unique_ptr<BufferManager> bufferManager;
     std::unique_ptr<TaskManager> taskManager;
@@ -235,7 +234,6 @@ private:
 
     // Resources
     std::unordered_map<std::string, std::unique_ptr<Mesh>> meshes;
-    std::unordered_map<std::string, Image> textures;
     std::unordered_map<const void *, std::unique_ptr<Subsystem::Subsystem>> subsystems;
     std::vector<Subsystem::Subsystem *> orderedSubsystems;
 
@@ -262,7 +260,6 @@ private:
     void createMainRenderPass();
     void createOverlayRenderPass();
     void updateEffectPipelines();
-    void createDescriptorSetLayout();
 
     vk::ShaderModule createShaderModule(const std::vector<char> &code);
 
@@ -300,7 +297,6 @@ private:
 
     void cleanup();
 
-    void loadPlaceholders();
 };
 
 template<typename VertexType>

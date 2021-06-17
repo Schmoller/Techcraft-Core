@@ -2,6 +2,9 @@
 #include "tech-core/engine.hpp"
 #include "tech-core/task.hpp"
 #include "tech-core/pipeline.hpp"
+#include "tech-core/image.hpp"
+#include "tech-core/texture/common.hpp"
+#include "tech-core/texture/manager.hpp"
 #include "vulkanutils.hpp"
 
 #include <imgui.h>
@@ -391,20 +394,18 @@ void ImGuiSubsystem::setupFont(vk::Device device) {
 
     // Upload font pixels
     auto task = engine->getTaskManager().createTask();
+    auto stagingBuffer = engine->getBufferManager().aquireStaging(pixelsSize);
+    stagingBuffer->copyIn(pixels);
 
     task->execute(
-        [this, pixels, pixelsSize](vk::CommandBuffer commandBuffer) {
+        [this, &stagingBuffer](vk::CommandBuffer commandBuffer) {
             fontImage->transition(commandBuffer, vk::ImageLayout::eTransferDstOptimal);
-            fontImage->transfer(commandBuffer, pixels, pixelsSize);
+            fontImage->transferIn(commandBuffer, *stagingBuffer);
             fontImage->transition(commandBuffer, vk::ImageLayout::eShaderReadOnlyOptimal);
         }
     );
 
-    task->executeWhenComplete(
-        [this]() {
-            fontImage->completeTransfer();
-        }
-    );
+    task->freeWhenDone(std::move(stagingBuffer));
 
     engine->getTaskManager().submitTask(std::move(task));
 

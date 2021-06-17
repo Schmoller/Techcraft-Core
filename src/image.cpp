@@ -1,5 +1,3 @@
-#include <tech-core/texturemanager.hpp>
-#include <stb_image.h>
 #include "tech-core/image.hpp"
 #include "tech-core/buffer.hpp"
 #include "tech-core/engine.hpp"
@@ -9,145 +7,99 @@
 
 namespace Engine {
 
-Image::Image()
-    : state(ImageLoadState::Unallocated) {}
+Image::Image(
+    VulkanDevice &device, vk::Image image, VmaAllocation memory, vk::ImageView imageView, uint32_t width,
+    uint32_t height, uint32_t layers, uint32_t mipLevels, vk::Format format, const vk::PipelineStageFlags &destination
+) : device(device),
+    internalImage(image),
+    imageMemory(memory),
+    internalImageView(imageView),
+    width(width),
+    height(height),
+    layers(layers),
+    mipLevels(mipLevels),
+    format(format),
+    destinationStage(destination),
+    rawDevice(device.device) {
+
+    assert(width > 0);
+    assert(height > 0);
+    assert(layers > 0);
+    assert(mipLevels > 0);
+    layerStates.resize(layers);
+}
 
 Image::~Image() {
-    destroy();
+    device.device.destroyImageView(internalImageView);
+    vmaDestroyImage(device.allocator, internalImage, imageMemory);
 }
 
-void Image::allocate(
-    VmaAllocator allocator, vk::Device device, uint32_t width, uint32_t height, vk::Format format,
-    vk::ImageTiling tiling, vk::ImageUsageFlags usage, VmaMemoryUsage memUsage, vk::SampleCountFlags samples,
-    uint32_t mipLevels, vk::PipelineStageFlags destinationStage
+void Image::transferIn(vk::CommandBuffer commandBuffer, const Buffer &source, uint32_t layer, uint32_t mipLevel) {
+    transferInOffset(commandBuffer, source, 0, {}, { width, height }, layer, mipLevel);
+}
+
+void Image::transferIn(
+    vk::CommandBuffer commandBuffer, const Buffer &source, vk::Offset2D offset, vk::Extent2D extent, uint32_t layer,
+    uint32_t mipLevel
 ) {
-    VkImageCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    createInfo.imageType = VK_IMAGE_TYPE_2D;
-    createInfo.extent.width = width;
-    createInfo.extent.height = height;
-    createInfo.extent.depth = 1;
-    createInfo.mipLevels = mipLevels;
-    createInfo.arrayLayers = 1;
-    createInfo.format = static_cast<VkFormat>(format);
-    createInfo.tiling = static_cast<VkImageTiling>(tiling);
-    createInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    createInfo.usage = static_cast<VkImageUsageFlags>(usage);
-    createInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    createInfo.samples = static_cast<VkSampleCountFlagBits>(static_cast<VkSampleCountFlags>(samples));
-    createInfo.flags = 0;
-
-    VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = memUsage;
-    VkImage tempImage;
-
-    auto result = vmaCreateImage(allocator, &createInfo, &allocInfo, &tempImage, &imageMemory, nullptr);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create texture image");
-    }
-    internalImage = vk::Image(tempImage);
-
-    vk::ImageAspectFlags aspectMask;
-
-    if ((usage & vk::ImageUsageFlagBits::eDepthStencilAttachment) ==
-        static_cast<vk::ImageUsageFlags>(vk::ImageUsageFlagBits::eDepthStencilAttachment)) {
-        aspectMask = vk::ImageAspectFlagBits::eDepth;
-    } else {
-        aspectMask = vk::ImageAspectFlagBits::eColor;
-    }
-
-    vk::ImageViewCreateInfo viewInfo(
-        {},
-        internalImage,
-        vk::ImageViewType::e2D,
-        format,
-        {},
-        { aspectMask, 0, mipLevels, 0, 1 }
-    );
-
-    internalImageView = device.createImageView(viewInfo);
-
-    state = ImageLoadState::Allocated;
-    this->width = width;
-    this->height = height;
-    this->allocator = allocator;
-    this->device = device;
-    this->format = format;
-    this->currentLayout = vk::ImageLayout::eUndefined;
-    this->destinationStage = destinationStage;
+    transferInOffset(commandBuffer, source, 0, offset, extent, layer, mipLevel);
 }
 
-void Image::destroy() {
-    if (allocator != VK_NULL_HANDLE && imageMemory != VK_NULL_HANDLE) {
-        device.destroyImageView(internalImageView);
-
-        vmaDestroyImage(allocator, internalImage, imageMemory);
-        allocator = VK_NULL_HANDLE;
-        imageMemory = VK_NULL_HANDLE;
-    }
+void Image::transferInOffset(
+    vk::CommandBuffer commandBuffer, const Buffer &source, vk::DeviceSize bufferOffset, uint32_t layer,
+    uint32_t mipLevel
+) {
+    transferInOffset(commandBuffer, source, bufferOffset, {}, { width, height }, layer, mipLevel);
 }
 
-void Image::transfer(vk::CommandBuffer commandBuffer, void *pixelData, VkDeviceSize size, MipType mipType) {
-    // Stage data for transfer
-    stagingBuffer.allocate(allocator, size, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryUsage::eCPUOnly);
-    stagingBuffer.copyIn(pixelData, size);
-
-    // TODO: Handle mipmaps later
-    if (mipType != MipType::NoMipmap) {
-        throw std::runtime_error("TODO: Handle mipmaps");
-    }
-
+void Image::transferInOffset(
+    vk::CommandBuffer commandBuffer, const Buffer &source, vk::DeviceSize bufferOffset, vk::Offset2D offset,
+    vk::Extent2D extent, uint32_t layer, uint32_t mipLevel
+) {
     vk::BufferImageCopy region(
+        bufferOffset,
         0,
         0,
-        0,
-        { vk::ImageAspectFlagBits::eColor, 0, 0, 1 },
-        {},
-        { width, height, 1 }
+        { vk::ImageAspectFlagBits::eColor, mipLevel, layer, 1 },
+        { offset.x, offset.y, 0 },
+        { extent.width, extent.height, 1 }
     );
 
     commandBuffer.copyBufferToImage(
-        stagingBuffer.buffer(), internalImage, vk::ImageLayout::eTransferDstOptimal, 1, &region
+        source.buffer(), internalImage, vk::ImageLayout::eTransferDstOptimal, 1, &region
     );
-
-    state = ImageLoadState::PreTransfer;
 }
 
-void Image::transferOut(vk::CommandBuffer commandBuffer, Buffer *buffer, MipType mipType) {
+void Image::transferOut(vk::CommandBuffer commandBuffer, Buffer *buffer, uint32_t layer) {
     vk::BufferImageCopy region(
         0,
         0,
         0,
-        { vk::ImageAspectFlagBits::eColor, 0, 0, 1 },
+        { vk::ImageAspectFlagBits::eColor, 0, layer, 1 },
         {},
         { width, height, 1 }
     );
 
     commandBuffer.copyImageToBuffer(
-        internalImage, currentLayout, buffer->buffer(), 1, &region
+        internalImage, layerStates[layer].currentLayout, buffer->buffer(), 1, &region
     );
-}
-
-void Image::completeTransfer() {
-    if (state == ImageLoadState::PreTransfer) {
-        stagingBuffer.destroy();
-        state = ImageLoadState::Ready;
-    }
 }
 
 void
 Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout, bool read, vk::PipelineStageFlagBits stage) {
+    transition(commandBuffer, 0, layers, layout, read, stage);
+}
+
+void Image::transition(
+    vk::CommandBuffer commandBuffer, uint32_t startLayer, uint32_t layerCount, vk::ImageLayout layout, bool read,
+    vk::PipelineStageFlagBits destStage
+) {
+    vk::PipelineStageFlags sourceStages;
+    vk::PipelineStageFlags destStages;
+
+    std::vector<vk::ImageMemoryBarrier> barriers(layerCount);
+
     vk::ImageAspectFlags aspectMask;
-    vk::AccessFlags srcAccessMask;
-    vk::AccessFlags dstAccessMask;
-    vk::PipelineStageFlags sourceStage;
-    vk::PipelineStageFlags destStage;
-
-    if (layout == currentLayout && read == !previousWasWriting) {
-        // no-op
-        return;
-    }
-
     if (layout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
         aspectMask = vk::ImageAspectFlagBits::eDepth;
 
@@ -158,91 +110,199 @@ Image::transition(vk::CommandBuffer commandBuffer, vk::ImageLayout layout, bool 
         aspectMask = vk::ImageAspectFlagBits::eColor;
     }
 
-    switch (layout) {
-        case vk::ImageLayout::eTransferDstOptimal:
-            // Original layout is ignored
-            dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+    for (uint32_t layer = startLayer; layer < startLayer + layerCount; ++layer) {
+        vk::AccessFlags srcAccessMask;
+        vk::AccessFlags dstAccessMask;
+        vk::PipelineStageFlags layerDestStage;
 
-            sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-            destStage = vk::PipelineStageFlagBits::eTransfer;
-            break;
-        case vk::ImageLayout::eShaderReadOnlyOptimal: {
-            dstAccessMask = vk::AccessFlagBits::eShaderRead;
-            destStage = destinationStage;
+        auto &state = layerStates[layer];
 
-            switch (currentLayout) {
-                case vk::ImageLayout::eTransferDstOptimal:
+        switch (layout) {
+            case vk::ImageLayout::eTransferDstOptimal:
+                // Original layout is ignored
+                dstAccessMask = vk::AccessFlagBits::eTransferWrite;
+
+                sourceStages |= vk::PipelineStageFlagBits::eTopOfPipe;
+                layerDestStage = vk::PipelineStageFlagBits::eTransfer;
+                break;
+            case vk::ImageLayout::eShaderReadOnlyOptimal: {
+                dstAccessMask = vk::AccessFlagBits::eShaderRead;
+                layerDestStage = destinationStage;
+
+                switch (state.currentLayout) {
+                    case vk::ImageLayout::eTransferDstOptimal:
+                        srcAccessMask = vk::AccessFlagBits::eTransferWrite;
+                        sourceStages |= vk::PipelineStageFlagBits::eTransfer;
+                        break;
+                    case vk::ImageLayout::eUndefined:
+                        sourceStages |= vk::PipelineStageFlagBits::eTopOfPipe;
+                        break;
+                    default:
+                        if (state.previousWasWriting) {
+                            srcAccessMask = vk::AccessFlagBits::eShaderWrite;
+                        } else {
+                            srcAccessMask = vk::AccessFlagBits::eShaderRead;
+                        }
+                        sourceStages |= state.previousStages;
+                        break;
+                }
+                break;
+            }
+            case vk::ImageLayout::eDepthStencilAttachmentOptimal:
+                dstAccessMask = (
+                    vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite
+                );
+
+                sourceStages |= vk::PipelineStageFlagBits::eTopOfPipe;
+                layerDestStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
+                break;
+            case vk::ImageLayout::eGeneral:
+                if (state.currentLayout == vk::ImageLayout::eUndefined) {
+                    srcAccessMask = {};
+                    sourceStages |= vk::PipelineStageFlagBits::eTopOfPipe;
+                } else if (state.currentLayout == vk::ImageLayout::eTransferDstOptimal) {
                     srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-                    sourceStage = vk::PipelineStageFlagBits::eTransfer;
-                    break;
-                default:
-                    if (previousWasWriting) {
+                    sourceStages |= vk::PipelineStageFlagBits::eTransfer;
+                } else {
+                    if (state.previousWasWriting) {
                         srcAccessMask = vk::AccessFlagBits::eShaderWrite;
                     } else {
                         srcAccessMask = vk::AccessFlagBits::eShaderRead;
                     }
-                    sourceStage = previousStages;
-                    break;
-            }
-            break;
-        }
-        case vk::ImageLayout::eDepthStencilAttachmentOptimal:
-            dstAccessMask = (
-                vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite
-            );
-
-            sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-            destStage = vk::PipelineStageFlagBits::eEarlyFragmentTests;
-            break;
-        case vk::ImageLayout::eGeneral:
-            if (currentLayout == vk::ImageLayout::eUndefined) {
-                srcAccessMask = {};
-                sourceStage = vk::PipelineStageFlagBits::eTopOfPipe;
-            } else if (currentLayout == vk::ImageLayout::eTransferDstOptimal) {
-                srcAccessMask = vk::AccessFlagBits::eTransferWrite;
-                sourceStage = vk::PipelineStageFlagBits::eTransfer;
-            } else {
-                if (previousWasWriting) {
-                    srcAccessMask = vk::AccessFlagBits::eShaderWrite;
-                } else {
-                    srcAccessMask = vk::AccessFlagBits::eShaderRead;
+                    sourceStages |= state.previousStages;
                 }
-                sourceStage = previousStages;
-            }
 
-            if (read) {
-                dstAccessMask = vk::AccessFlagBits::eShaderRead;
-            } else {
-                dstAccessMask = vk::AccessFlagBits::eShaderWrite;
-            }
+                if (read) {
+                    dstAccessMask = vk::AccessFlagBits::eShaderRead;
+                } else {
+                    dstAccessMask = vk::AccessFlagBits::eShaderWrite;
+                }
+                layerDestStage = destStage;
+                break;
+            default:
+                throw std::runtime_error("unsupported layout transition");
+        }
 
-            destStage = stage;
-            break;
+        barriers[layer - startLayer] = vk::ImageMemoryBarrier(
+            srcAccessMask, dstAccessMask,
+            state.currentLayout, layout,
+            VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+            internalImage,
+            { aspectMask, 0, mipLevels, layer, 1 }
+        );
+
+        state.currentLayout = layout;
+        state.previousStages = layerDestStage;
+        state.previousWasWriting = !read;
+
+        destStages |= layerDestStage;
+    }
+
+    assert(sourceStages);
+    assert(destStages);
+    commandBuffer.pipelineBarrier(
+        sourceStages, destStages,
+        {},
+        0, nullptr,
+        0, nullptr,
+        vkUseArray(barriers)
+    );
+}
+
+vk::AccessFlags getAccessFrom(vk::ImageLayout layout, bool read) {
+    switch (layout) {
         default:
-            throw std::runtime_error("unsupported layout transition");
+        case vk::ImageLayout::eUndefined:
+            return {};
+        case vk::ImageLayout::eTransferDstOptimal:
+            if (read) {
+                return {};
+            } else {
+                return vk::AccessFlagBits::eTransferWrite;
+            }
+        case vk::ImageLayout::eGeneral:
+        case vk::ImageLayout::eDepthReadOnlyOptimal:
+        case vk::ImageLayout::eStencilReadOnlyOptimal:
+            if (read) {
+                return vk::AccessFlagBits::eShaderRead;
+            } else {
+                return vk::AccessFlagBits::eShaderWrite;
+            }
+        case vk::ImageLayout::eColorAttachmentOptimal:
+            if (read) {
+                return vk::AccessFlagBits::eColorAttachmentRead;
+            } else {
+                return vk::AccessFlagBits::eColorAttachmentWrite;
+            }
+        case vk::ImageLayout::eDepthAttachmentOptimal:
+        case vk::ImageLayout::eStencilAttachmentOptimal:
+        case vk::ImageLayout::eDepthStencilAttachmentOptimal:
+            if (read) {
+                return vk::AccessFlagBits::eDepthStencilAttachmentRead;
+            } else {
+                return vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+            }
+        case vk::ImageLayout::eDepthStencilReadOnlyOptimal:
+        case vk::ImageLayout::eShaderReadOnlyOptimal:
+            return vk::AccessFlagBits::eShaderRead;
+        case vk::ImageLayout::eTransferSrcOptimal:
+            return vk::AccessFlagBits::eTransferRead;
+        case vk::ImageLayout::eDepthReadOnlyStencilAttachmentOptimal:
+        case vk::ImageLayout::eDepthAttachmentStencilReadOnlyOptimal:
+            return vk::AccessFlagBits::eDepthStencilAttachmentRead;
+
+        case vk::ImageLayout::ePresentSrcKHR:
+        case vk::ImageLayout::eSharedPresentKHR:
+            return vk::AccessFlagBits::eColorAttachmentWrite;
+    }
+}
+
+void Image::transitionManual(
+    vk::CommandBuffer commandBuffer, uint32_t layer, uint32_t layerCount, uint32_t mipLevel, uint32_t levelCount,
+    vk::ImageLayout oldLayout, bool wasWritten, vk::ImageLayout newLayout, bool willWrite,
+    const vk::PipelineStageFlags &sourceStages, const vk::PipelineStageFlags &destStages
+) {
+    vk::AccessFlags sourceAccess;
+    vk::AccessFlags destAccess;
+
+    vk::ImageAspectFlags aspectMask;
+    if (newLayout == vk::ImageLayout::eDepthStencilAttachmentOptimal) {
+        aspectMask = vk::ImageAspectFlagBits::eDepth;
+
+        if (hasStencilComponent(format)) {
+            aspectMask |= vk::ImageAspectFlagBits::eStencil;
+        }
+    } else {
+        aspectMask = vk::ImageAspectFlagBits::eColor;
+    }
+
+    if (newLayout == vk::ImageLayout::eTransferDstOptimal) {
+        destAccess = vk::AccessFlagBits::eTransferWrite;
+        // Ignore the previous layout since it will be overridden
+        sourceAccess = {};
+        oldLayout = vk::ImageLayout::eUndefined;
+    } else {
+        sourceAccess = getAccessFrom(oldLayout, wasWritten);
+        destAccess = getAccessFrom(newLayout, willWrite);
     }
 
     vk::ImageMemoryBarrier barrier(
-        srcAccessMask, dstAccessMask,
-        currentLayout, layout,
+        sourceAccess, destAccess,
+        oldLayout, newLayout,
         VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
         internalImage,
-        { aspectMask, 0, 1, 0, 1 }
+        { aspectMask, mipLevel, levelCount, layer, layerCount }
     );
 
-    commandBuffer.
-        pipelineBarrier(
-        sourceStage, destStage,
-        {
-        },
+    assert(sourceStages);
+    assert(destStages);
+    commandBuffer.pipelineBarrier(
+        sourceStages, destStages,
+        {},
         0, nullptr,
         0, nullptr,
         1, &barrier
     );
-
-    currentLayout = layout;
-    previousStages = destStage;
-    previousWasWriting = !read;
 }
 
 Image::operator ImTextureID() const {
@@ -251,8 +311,19 @@ Image::operator ImTextureID() const {
 
 bool Image::isImage(ImTextureID id, vk::Device device) {
     auto image = reinterpret_cast<Image *>(id);
-    if (image->device != device) {
+    if (image->rawDevice != device) {
         return false;
+    }
+
+    return true;
+}
+
+bool Image::isReadyForSampling() const {
+    for (uint32_t layer = 0; layer < layers; ++layer) {
+        auto layout = layerStates[layer].currentLayout;
+        if (layout != vk::ImageLayout::eShaderReadOnlyOptimal && layout != vk::ImageLayout::eGeneral) {
+            return false;
+        }
     }
 
     return true;
@@ -260,6 +331,13 @@ bool Image::isImage(ImTextureID id, vk::Device device) {
 
 ImageBuilder::ImageBuilder(VulkanDevice &device, uint32_t width, uint32_t height) : device(device), width(width),
     height(height) {
+
+}
+
+
+ImageBuilder::ImageBuilder(VulkanDevice &device, uint32_t width, uint32_t height, uint32_t count) : device(device),
+    width(width),
+    height(height), arrayLayers(count) {
 
 }
 
@@ -278,7 +356,7 @@ ImageBuilder &ImageBuilder::withFormat(vk::Format format) {
     return *this;
 }
 
-ImageBuilder &ImageBuilder::withSampleCount(const vk::SampleCountFlags &flags) {
+ImageBuilder &ImageBuilder::withSampleCount(const vk::SampleCountFlagBits &flags) {
     sampleCount = flags;
     return *this;
 }
@@ -301,11 +379,55 @@ ImageBuilder &ImageBuilder::withDestinationStage(const vk::PipelineStageFlags &f
 }
 
 std::shared_ptr<Image> ImageBuilder::build() {
-    auto image = std::make_shared<Image>();
-    image->allocate(
-        device.allocator, device.device, width, height, imageFormat, imageTiling,
-        usageFlags, static_cast<VmaMemoryUsage>(memoryUsage),
-        sampleCount, mipLevels
+    vk::ImageCreateInfo createInfo(
+        {},
+        vk::ImageType::e2D,
+        imageFormat,
+        { width, height, 1 },
+        mipLevels,
+        arrayLayers,
+        sampleCount,
+        imageTiling,
+        usageFlags
+    );
+
+    auto createInfoC = static_cast<VkImageCreateInfo>(createInfo);
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = static_cast<VmaMemoryUsage>(memoryUsage);
+    VkImage tempImage;
+    VmaAllocation imageMemory;
+    vk::ImageView internalImageView;
+
+    auto result = vmaCreateImage(device.allocator, &createInfoC, &allocInfo, &tempImage, &imageMemory, nullptr);
+    if (result != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create texture image");
+    }
+
+    vk::ImageAspectFlags aspectMask;
+
+    if ((usageFlags & vk::ImageUsageFlagBits::eDepthStencilAttachment) ==
+        static_cast<vk::ImageUsageFlags>(vk::ImageUsageFlagBits::eDepthStencilAttachment)) {
+        aspectMask = vk::ImageAspectFlagBits::eDepth;
+    } else {
+        aspectMask = vk::ImageAspectFlagBits::eColor;
+    }
+
+    vk::ImageViewCreateInfo viewInfo(
+        {},
+        tempImage,
+        arrayLayers == 1 ? vk::ImageViewType::e2D : vk::ImageViewType::e2DArray,
+        imageFormat,
+        {},
+        { aspectMask, 0, mipLevels, 0, arrayLayers }
+    );
+
+    internalImageView = device.device.createImageView(viewInfo);
+
+    auto image = std::shared_ptr<Image>(
+        new Image(
+            device, tempImage, imageMemory, internalImageView, width, height, arrayLayers, mipLevels, imageFormat,
+            destinationStage
+        )
     );
 
     return image;

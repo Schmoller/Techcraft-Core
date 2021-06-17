@@ -1,8 +1,10 @@
 #include "tech-core/gui/drawer.hpp"
+#include "tech-core/texture/common.hpp"
 
 #include <locale>
 #include <codecvt>
 #include <sstream>
+#include <glm/gtc/matrix_transform.hpp>
 
 std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> narrowToWideCharConverter;
 
@@ -18,9 +20,8 @@ std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> narrowToWideCharConverter
 
 namespace Engine::Gui {
 
-Drawer::Drawer(FontManager &fontManager, Texture &whiteTexture, const std::string &defaultFontName)
-    : fontManager(fontManager), whiteTexture(whiteTexture), defaultFontName(defaultFontName)
-{
+Drawer::Drawer(FontManager &fontManager, const Texture &whiteTexture, const std::string &defaultFontName)
+    : fontManager(fontManager), whiteTexture(whiteTexture), defaultFontName(defaultFontName) {
     resetTransform();
 }
 
@@ -29,7 +30,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture) {
     // Create a new one every time the texture array switches to maintain vertex ordering
     Region *region;
     if (!currentRegion || currentRegion->textureArrayId != texture.arrayId) {
-        region = &regions.emplace_back(Region{texture.arrayId});
+        region = &regions.emplace_back(Region { texture.arrayId });
         currentRegion = region;
     } else {
         region = currentRegion;
@@ -38,26 +39,38 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture) {
     // Draw a rectangle
     GuiBufferInt startVertex = region->vertices.size();
 
-    region->vertices.push_back(transformVertex({
-        glm::vec3(rect.topLeft.x, rect.topLeft.y, 0),
-        glm::vec3(0, 0, texture.arraySlot),
-        glm::vec4(1, 1, 1, 1),
-    }));
-    region->vertices.push_back(transformVertex({
-        glm::vec3(rect.bottomRight.x, rect.topLeft.y, 0),
-        glm::vec3(1, 0, texture.arraySlot),
-        glm::vec4(1, 1, 1, 1),
-    }));
-    region->vertices.push_back(transformVertex({
-        glm::vec3(rect.bottomRight.x, rect.bottomRight.y, 0),
-        glm::vec3(1, 1, texture.arraySlot),
-        glm::vec4(1, 1, 1, 1),
-    }));
-    region->vertices.push_back(transformVertex({
-        glm::vec3(rect.topLeft.x, rect.bottomRight.y, 0),
-        glm::vec3(0, 1, texture.arraySlot),
-        glm::vec4(1, 1, 1, 1),
-    }));
+    region->vertices.push_back(
+        transformVertex(
+            {
+                glm::vec3(rect.topLeft.x, rect.topLeft.y, 0),
+                glm::vec3(0, 0, texture.arraySlot),
+                glm::vec4(1, 1, 1, 1),
+            }
+        ));
+    region->vertices.push_back(
+        transformVertex(
+            {
+                glm::vec3(rect.bottomRight.x, rect.topLeft.y, 0),
+                glm::vec3(1, 0, texture.arraySlot),
+                glm::vec4(1, 1, 1, 1),
+            }
+        ));
+    region->vertices.push_back(
+        transformVertex(
+            {
+                glm::vec3(rect.bottomRight.x, rect.bottomRight.y, 0),
+                glm::vec3(1, 1, texture.arraySlot),
+                glm::vec4(1, 1, 1, 1),
+            }
+        ));
+    region->vertices.push_back(
+        transformVertex(
+            {
+                glm::vec3(rect.topLeft.x, rect.bottomRight.y, 0),
+                glm::vec3(0, 1, texture.arraySlot),
+                glm::vec4(1, 1, 1, 1),
+            }
+        ));
 
     region->indices.push_back(startVertex + 0);
     region->indices.push_back(startVertex + 1);
@@ -73,7 +86,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture, const Re
     // Create a new one every time the texture array switches to maintain vertex ordering
     Region *region;
     if (!currentRegion || currentRegion->textureArrayId != texture.arrayId) {
-        region = &regions.emplace_back(Region{texture.arrayId});
+        region = &regions.emplace_back(Region { texture.arrayId });
         currentRegion = region;
     } else {
         region = currentRegion;
@@ -82,33 +95,54 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture, const Re
     glm::vec4 colorVec = {
         static_cast<float>((color & 0xFF000000) >> 24) / 255.0f,
         static_cast<float>((color & 0x00FF0000) >> 16) / 255.0f,
-        static_cast<float>((color & 0x0000FF00) >> 8)  / 255.0f,
-        static_cast<float>((color & 0x000000FF) >> 0)  / 255.0f
+        static_cast<float>((color & 0x0000FF00) >> 8) / 255.0f,
+        static_cast<float>((color & 0x000000FF) >> 0) / 255.0f
     };
 
     // Draw a rectangle
     GuiBufferInt startVertex = region->vertices.size();
 
-    region->vertices.push_back(transformVertex({
-        glm::vec3(rect.topLeft.x, rect.topLeft.y, 0),
-        glm::vec3(sourceRect.topLeft.x / texture.width, sourceRect.topLeft.y / texture.height, texture.arraySlot),
-        colorVec
-    }));
-    region->vertices.push_back(transformVertex({
-        glm::vec3(rect.bottomRight.x, rect.topLeft.y, 0),
-        glm::vec3(sourceRect.bottomRight.x / texture.width, sourceRect.topLeft.y / texture.height, texture.arraySlot),
-        colorVec
-    }));
-    region->vertices.push_back(transformVertex({
-        glm::vec3(rect.bottomRight.x, rect.bottomRight.y, 0),
-        glm::vec3(sourceRect.bottomRight.x / texture.width, sourceRect.bottomRight.y / texture.height, texture.arraySlot),
-        colorVec
-    }));
-    region->vertices.push_back(transformVertex({
-        glm::vec3(rect.topLeft.x, rect.bottomRight.y, 0),
-        glm::vec3(sourceRect.topLeft.x / texture.width, sourceRect.bottomRight.y / texture.height, texture.arraySlot),
-        colorVec
-    }));
+    region->vertices.push_back(
+        transformVertex(
+            {
+                glm::vec3(rect.topLeft.x, rect.topLeft.y, 0),
+                glm::vec3(
+                    sourceRect.topLeft.x / texture.width, sourceRect.topLeft.y / texture.height, texture.arraySlot
+                ),
+                colorVec
+            }
+        ));
+    region->vertices.push_back(
+        transformVertex(
+            {
+                glm::vec3(rect.bottomRight.x, rect.topLeft.y, 0),
+                glm::vec3(
+                    sourceRect.bottomRight.x / texture.width, sourceRect.topLeft.y / texture.height, texture.arraySlot
+                ),
+                colorVec
+            }
+        ));
+    region->vertices.push_back(
+        transformVertex(
+            {
+                glm::vec3(rect.bottomRight.x, rect.bottomRight.y, 0),
+                glm::vec3(
+                    sourceRect.bottomRight.x / texture.width, sourceRect.bottomRight.y / texture.height,
+                    texture.arraySlot
+                ),
+                colorVec
+            }
+        ));
+    region->vertices.push_back(
+        transformVertex(
+            {
+                glm::vec3(rect.topLeft.x, rect.bottomRight.y, 0),
+                glm::vec3(
+                    sourceRect.topLeft.x / texture.width, sourceRect.bottomRight.y / texture.height, texture.arraySlot
+                ),
+                colorVec
+            }
+        ));
 
     region->indices.push_back(startVertex + 0);
     region->indices.push_back(startVertex + 1);
@@ -120,7 +154,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture, const Re
 }
 
 void Drawer::drawRect(const Rect &rect, uint32_t colour) {
-    drawRect(rect, whiteTexture, {{0,0}, {1,1}}, colour);
+    drawRect(rect, whiteTexture, {{ 0, 0 }, { 1, 1 }}, colour);
 }
 
 void Drawer::drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePosition strokePos, uint32_t strokeColour) {
@@ -133,45 +167,45 @@ void Drawer::drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePositi
         case StrokePosition::Center: {
             auto halfStroke = strokeSize / 2.0f;
 
-            tlOuter = rect.topLeft - glm::vec2{halfStroke, halfStroke};
-            tlInner = rect.topLeft + glm::vec2{halfStroke, halfStroke};
+            tlOuter = rect.topLeft - glm::vec2 { halfStroke, halfStroke };
+            tlInner = rect.topLeft + glm::vec2 { halfStroke, halfStroke };
 
-            trOuter = glm::vec2{rect.bottomRight.x + halfStroke, rect.topLeft.y - halfStroke};
-            trInner = glm::vec2{rect.bottomRight.x - halfStroke, rect.topLeft.y + halfStroke};
+            trOuter = glm::vec2 { rect.bottomRight.x + halfStroke, rect.topLeft.y - halfStroke };
+            trInner = glm::vec2 { rect.bottomRight.x - halfStroke, rect.topLeft.y + halfStroke };
 
-            blOuter = glm::vec2{rect.topLeft.x - halfStroke, rect.bottomRight.y + halfStroke};
-            blInner = glm::vec2{rect.topLeft.x + halfStroke, rect.bottomRight.y - halfStroke};
+            blOuter = glm::vec2 { rect.topLeft.x - halfStroke, rect.bottomRight.y + halfStroke };
+            blInner = glm::vec2 { rect.topLeft.x + halfStroke, rect.bottomRight.y - halfStroke };
 
-            brOuter = rect.bottomRight + glm::vec2{halfStroke, halfStroke};
-            brInner = rect.bottomRight - glm::vec2{halfStroke, halfStroke};
+            brOuter = rect.bottomRight + glm::vec2 { halfStroke, halfStroke };
+            brInner = rect.bottomRight - glm::vec2 { halfStroke, halfStroke };
             break;
         }
         case StrokePosition::Inside: {
             tlOuter = rect.topLeft;
-            tlInner = rect.topLeft + glm::vec2{strokeSize, strokeSize};
-            
-            trOuter = {rect.bottomRight.x, rect.topLeft.y};
-            trInner = {rect.bottomRight.x - strokeSize, rect.topLeft.y + strokeSize};
-            
-            blOuter = {rect.topLeft.x, rect.bottomRight.y};
-            blInner = {rect.topLeft.x + strokeSize, rect.bottomRight.y - strokeSize};
-            
+            tlInner = rect.topLeft + glm::vec2 { strokeSize, strokeSize };
+
+            trOuter = { rect.bottomRight.x, rect.topLeft.y };
+            trInner = { rect.bottomRight.x - strokeSize, rect.topLeft.y + strokeSize };
+
+            blOuter = { rect.topLeft.x, rect.bottomRight.y };
+            blInner = { rect.topLeft.x + strokeSize, rect.bottomRight.y - strokeSize };
+
             brOuter = rect.bottomRight;
-            brInner = rect.bottomRight - glm::vec2{strokeSize, strokeSize};
+            brInner = rect.bottomRight - glm::vec2 { strokeSize, strokeSize };
             break;
         }
         case StrokePosition::Outside: {
             tlInner = rect.topLeft;
-            tlOuter = rect.topLeft - glm::vec2{strokeSize, strokeSize};
-            
-            trInner = {rect.bottomRight.x, rect.topLeft.y};
-            trOuter = {rect.bottomRight.x + strokeSize, rect.topLeft.y - strokeSize};
-            
-            blInner = {rect.topLeft.x, rect.bottomRight.y};
-            blOuter = {rect.topLeft.x - strokeSize, rect.bottomRight.y + strokeSize};
-            
+            tlOuter = rect.topLeft - glm::vec2 { strokeSize, strokeSize };
+
+            trInner = { rect.bottomRight.x, rect.topLeft.y };
+            trOuter = { rect.bottomRight.x + strokeSize, rect.topLeft.y - strokeSize };
+
+            blInner = { rect.topLeft.x, rect.bottomRight.y };
+            blOuter = { rect.topLeft.x - strokeSize, rect.bottomRight.y + strokeSize };
+
             brInner = rect.bottomRight;
-            brOuter = rect.bottomRight + glm::vec2{strokeSize, strokeSize};
+            brOuter = rect.bottomRight + glm::vec2 { strokeSize, strokeSize };
             break;
         }
     }
@@ -179,51 +213,51 @@ void Drawer::drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePositi
     glm::vec4 colourVec = {
         static_cast<float>((strokeColour & 0xFF000000) >> 24) / 255.0f,
         static_cast<float>((strokeColour & 0x00FF0000) >> 16) / 255.0f,
-        static_cast<float>((strokeColour & 0x0000FF00) >> 8)  / 255.0f,
-        static_cast<float>((strokeColour & 0x000000FF) >> 0)  / 255.0f
+        static_cast<float>((strokeColour & 0x0000FF00) >> 8) / 255.0f,
+        static_cast<float>((strokeColour & 0x000000FF) >> 0) / 255.0f
     };
-    
-    std::vector<Vertex> vertices (8);
-    std::vector<GuiBufferInt> indices (24);
+
+    std::vector<Vertex> vertices(8);
+    std::vector<GuiBufferInt> indices(24);
 
     vertices[0] = {
-        {tlOuter, 0},
-        {0,0, whiteTexture.arraySlot},
+        { tlOuter, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[1] = {
-        {trOuter, 0},
-        {0,0, whiteTexture.arraySlot},
+        { trOuter, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[2] = {
-        {tlInner, 0},
-        {0,0, whiteTexture.arraySlot},
+        { tlInner, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[3] = {
-        {trInner, 0},
-        {0,0, whiteTexture.arraySlot},
+        { trInner, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[4] = {
-        {blInner, 0},
-        {0,0, whiteTexture.arraySlot},
+        { blInner, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[5] = {
-        {brInner, 0},
-        {0,0, whiteTexture.arraySlot},
+        { brInner, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[6] = {
-        {blOuter, 0},
-        {0,0, whiteTexture.arraySlot},
+        { blOuter, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[7] = {
-        {brOuter, 0},
-        {0,0, whiteTexture.arraySlot},
+        { brOuter, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
 
@@ -265,7 +299,7 @@ void Drawer::drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePositi
 void Drawer::drawLine(const glm::vec2 &from, const glm::vec2 &to, uint32_t colour, uint32_t strokeSize) {
     glm::vec2 line = to - from;
     glm::vec2 lineDir = glm::normalize(line);
-    glm::vec2 lineDirAdj = {lineDir.y, -lineDir.x};
+    glm::vec2 lineDirAdj = { lineDir.y, -lineDir.x };
 
     // Start and end vertices of polygon
     glm::vec2 startL = from - lineDirAdj * (strokeSize * 0.5f);
@@ -276,31 +310,31 @@ void Drawer::drawLine(const glm::vec2 &from, const glm::vec2 &to, uint32_t colou
     glm::vec4 colourVec = {
         static_cast<float>((colour & 0xFF000000) >> 24) / 255.0f,
         static_cast<float>((colour & 0x00FF0000) >> 16) / 255.0f,
-        static_cast<float>((colour & 0x0000FF00) >> 8)  / 255.0f,
-        static_cast<float>((colour & 0x000000FF) >> 0)  / 255.0f
+        static_cast<float>((colour & 0x0000FF00) >> 8) / 255.0f,
+        static_cast<float>((colour & 0x000000FF) >> 0) / 255.0f
     };
 
-    std::vector<Vertex> vertices (4);
-    std::vector<GuiBufferInt> indices (6);
+    std::vector<Vertex> vertices(4);
+    std::vector<GuiBufferInt> indices(6);
 
     vertices[0] = {
-        {startL, 0},
-        {0,0, whiteTexture.arraySlot},
+        { startL, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[1] = {
-        {endL, 0},
-        {0,0, whiteTexture.arraySlot},
+        { endL, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[2] = {
-        {endR, 0},
-        {0,0, whiteTexture.arraySlot},
+        { endR, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
     vertices[3] = {
-        {startR, 0},
-        {0,0, whiteTexture.arraySlot},
+        { startR, 0 },
+        { 0, 0, whiteTexture.arraySlot },
         colourVec
     };
 
@@ -314,12 +348,16 @@ void Drawer::drawLine(const glm::vec2 &from, const glm::vec2 &to, uint32_t colou
     draw(vertices, indices, whiteTexture);
 }
 
-void Drawer::drawText(const std::string &text, float x, float y, Font *font, Alignment hAlign, Alignment vAlign, uint32_t colour) {
+void Drawer::drawText(
+    const std::string &text, float x, float y, Font *font, Alignment hAlign, Alignment vAlign, uint32_t colour
+) {
     drawText(narrowToWideCharConverter.from_bytes(text), x, y, font, hAlign, vAlign, colour);
 }
 
-void Drawer::drawText(const std::wstring &text, float x, float y, Font *font, Alignment hAlign, Alignment vAlign, uint32_t colour) {
-    font->draw(text, *this, {x, y}, hAlign, vAlign, colour);
+void Drawer::drawText(
+    const std::wstring &text, float x, float y, Font *font, Alignment hAlign, Alignment vAlign, uint32_t colour
+) {
+    font->draw(text, *this, { x, y }, hAlign, vAlign, colour);
 }
 
 void Drawer::drawTextWithFormatting(const std::string &text, float x, float y, uint32_t color) {
@@ -351,7 +389,7 @@ void Drawer::drawTextWithFormatting(const std::wstring &text, float x, float y, 
         currentFont->draw(
             text,
             *this,
-            {currentX, currentY},
+            { currentX, currentY },
             Alignment::Begining,
             Alignment::Begining,
             currentColor,
@@ -398,19 +436,19 @@ void Drawer::drawTextWithFormatting(const std::wstring &text, float x, float y, 
                 switch (ch) {
                     case TEXT_ESCAPE_CHAR:
                         outputText(buffer.str());
-                        buffer = std::wstringbuf{};
+                        buffer = std::wstringbuf {};
                         SWITCH_STATE(EscapeStart);
                         break;
                     case L'\n':
                         outputText(buffer.str());
-                        buffer = std::wstringbuf{};
+                        buffer = std::wstringbuf {};
                         // TODO: Next line
                         currentX = x;
                         currentY += currentFont->getFontSize();
                         break;
                     case 0: // EOF
                         outputText(buffer.str());
-                        buffer = std::wstringbuf{};
+                        buffer = std::wstringbuf {};
                         break;
                     default:
                         buffer.sputc(ch);
@@ -481,7 +519,7 @@ void Drawer::drawTextWithFormatting(const std::wstring &text, float x, float y, 
             STATE(EscapeArg) {
                 switch (ch) {
                     case L';': // End of arg
-                        SWITCH_STATE(EscapeArgEnd);
+                    SWITCH_STATE(EscapeArgEnd);
                         break;
                     default:
                         buffer.sputc(ch);
@@ -510,19 +548,19 @@ void Drawer::drawTextWithFormatting(const std::wstring &text, float x, float y, 
 
                                     currentColor = (
                                         red << 28 |
-                                        red << 24 |
-                                        green << 20 |
-                                        green << 16 |
-                                        blue << 12 |
-                                        blue << 8 |
-                                        0xFF
+                                            red << 24 |
+                                            green << 20 |
+                                            green << 16 |
+                                            blue << 12 |
+                                            blue << 8 |
+                                            0xFF
                                     );
 
                                     break;
                                 }
                                 case 6: // RRGGBB
                                     temp = std::stoul(colorCode, 0, 16);
-                                    
+
                                     currentColor = temp << 8 | 0xFF;
                                     break;
                                 case 8: // RRGGBBAA
@@ -548,11 +586,13 @@ void Drawer::drawTextWithFormatting(const std::wstring &text, float x, float y, 
     }
 }
 
-void Drawer::draw(const std::vector<Vertex> &vertices, const std::vector<GuiBufferInt> &indices, const Texture &texture) {
+void Drawer::draw(
+    const std::vector<Vertex> &vertices, const std::vector<GuiBufferInt> &indices, const Texture &texture
+) {
     // Create a new one every time the texture array switches to maintain vertex ordering
     Region *region;
     if (!currentRegion || currentRegion->textureArrayId != texture.arrayId) {
-        region = &regions.emplace_back(Region{texture.arrayId});
+        region = &regions.emplace_back(Region { texture.arrayId });
         currentRegion = region;
     } else {
         region = currentRegion;
@@ -578,23 +618,23 @@ void Drawer::reset() {
 
 void Drawer::translate(float x, float y) {
     // transform = glm::translate(transform, {x, y, 0});
-    transform = glm::translate(transform, {x, y, 0});
+    transform = glm::translate(transform, { x, y, 0 });
 }
 
 void Drawer::rotate(float angle) {
-    transform = glm::rotate(transform, angle, {0, 0, 1});
+    transform = glm::rotate(transform, angle, { 0, 0, 1 });
 }
 
 void Drawer::scale(float x, float y) {
-    transform = glm::scale(transform, {x, y, 1});
+    transform = glm::scale(transform, { x, y, 1 });
 }
 
 void Drawer::scale(float all) {
-    transform = glm::scale(transform, {all, all, 1});
+    transform = glm::scale(transform, { all, all, 1 });
 }
 
 void Drawer::resetTransform() {
-    transform = glm::mat4{ 1.0f };
+    transform = glm::mat4 { 1.0f };
 }
 
 void Drawer::pushTransform(bool reset) {
