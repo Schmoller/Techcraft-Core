@@ -27,7 +27,6 @@ public:
     vk::Fence submitTask(std::unique_ptr<Task> task);
 
 private:
-
     void processActions();
 
     // Provided fields
@@ -45,22 +44,23 @@ class Task {
     friend class TaskManager;
 
 public:
-    ~Task();
-
     /**
      * Executes some function in the context of the command buffer
      */
-    void execute(std::function<void(vk::CommandBuffer)>);
+    void execute(const std::function<void(vk::CommandBuffer)> &);
     void addMemoryBarrier(
-        vk::PipelineStageFlags fromStage, vk::AccessFlags fromAccess, vk::PipelineStageFlags toStage,
-        vk::AccessFlags toAccess
+        const vk::PipelineStageFlags &fromStage, const vk::AccessFlags &fromAccess,
+        const vk::PipelineStageFlags &toStage,
+        const vk::AccessFlags &toAccess
     );
 
     /**
      * Adds some function to be executed after the task has successfully been run
      */
-    void executeWhenComplete(std::function<void()>);
+    void executeWhenComplete(const std::function<void()> &);
 
+    void freeWhenDone(const std::shared_ptr<Buffer> &buffer);
+    void freeWhenDone(std::unique_ptr<Buffer> &&buffer);
 private:
     Task(vk::UniqueCommandBuffer, vk::UniqueFence, TaskManager &);
 
@@ -73,5 +73,6 @@ private:
 
     // State
     std::vector<std::function<void()>> finishCallbacks;
+    std::vector<std::shared_ptr<Buffer>> buffersToFree; // This will just be freed when the task is destroyed, which on be until submission is complete
 };
 }

@@ -1,5 +1,6 @@
 #include "tech-core/task.hpp"
 #include "tech-core/device.hpp"
+#include "tech-core/buffer.hpp"
 
 namespace Engine {
 
@@ -25,7 +26,8 @@ std::unique_ptr<Task> TaskManager::createTask() {
             std::move(commandBuffer),
             std::move(submitFence),
             *this
-        ));
+        )
+    );
 }
 
 vk::Fence TaskManager::submitTask(std::unique_ptr<Task> task) {
@@ -68,18 +70,15 @@ Task::Task(
     submitFence(std::move(submitFence)),
     taskManager(taskManager) {}
 
-Task::~Task() {
-}
-
-void Task::execute(std::function<void(vk::CommandBuffer)> func) {
+void Task::execute(const std::function<void(vk::CommandBuffer)> &func) {
     func(*commandBuffer);
 }
 
 void Task::addMemoryBarrier(
-    vk::PipelineStageFlags fromStage,
-    vk::AccessFlags fromAccess,
-    vk::PipelineStageFlags toStage,
-    vk::AccessFlags toAccess
+    const vk::PipelineStageFlags &fromStage,
+    const vk::AccessFlags &fromAccess,
+    const vk::PipelineStageFlags &toStage,
+    const vk::AccessFlags &toAccess
 ) {
     vk::MemoryBarrier barrier(fromAccess, toAccess);
 
@@ -92,14 +91,22 @@ void Task::addMemoryBarrier(
     );
 }
 
-void Task::executeWhenComplete(std::function<void()> callback) {
+void Task::executeWhenComplete(const std::function<void()> &callback) {
     finishCallbacks.push_back(callback);
 }
 
 void Task::executeFinishCallbacks() {
-    for (auto callback : finishCallbacks) {
+    for (const auto &callback : finishCallbacks) {
         callback();
     }
+}
+
+void Task::freeWhenDone(const std::shared_ptr<Buffer> &buffer) {
+    buffersToFree.push_back(buffer);
+}
+
+void Task::freeWhenDone(std::unique_ptr<Buffer> &&buffer) {
+    buffersToFree.emplace_back(std::move(buffer));
 }
 
 }
