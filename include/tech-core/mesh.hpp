@@ -142,7 +142,7 @@ private:
     vk::DeviceSize reclaimSize;
 };
 
-typedef uint16_t DynMeshSize;
+typedef uint32_t DynMeshSize;
 
 template<typename VertexType>
 class DynamicMesh : public Mesh {
@@ -176,7 +176,7 @@ public:
     }
 
     virtual vk::IndexType getIndexType() const {
-        return vk::IndexType::eUint16;
+        return vk::IndexType::eUint32;
     }
 
     virtual void bind(vk::CommandBuffer commandBuffer) const override;
@@ -629,7 +629,7 @@ template<typename VertexType>
 void DynamicMesh<VertexType>::bind(vk::CommandBuffer commandBuffer) const {
     vk::DeviceSize vertexOffset = 0;
     commandBuffer.bindVertexBuffers(0, 1, combinedBuffer->bufferArray(), &vertexOffset);
-    commandBuffer.bindIndexBuffer(combinedBuffer->buffer(), indexOffset, vk::IndexType::eUint16);
+    commandBuffer.bindIndexBuffer(combinedBuffer->buffer(), indexOffset, getIndexType());
 }
 
 template<typename VertexType>
