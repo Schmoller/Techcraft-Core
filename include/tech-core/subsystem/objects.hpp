@@ -30,7 +30,7 @@ class ObjectBuilder {
     typedef std::function<std::shared_ptr<Object>()> ObjectAllocator;
 
     friend class ObjectSubsystem;
-    public:
+public:
     ObjectBuilder &withMesh(const _E::Mesh &mesh);
     ObjectBuilder &withMaterial(const _E::Material &material);
     ObjectBuilder &withMesh(const _E::Mesh *mesh);
@@ -45,22 +45,22 @@ class ObjectBuilder {
     ObjectBuilder &withOcclusion(const LightCube &occlusion);
 
     std::shared_ptr<Object> build();
-    
-    private:
+
+private:
     ObjectBuilder(ObjectAllocator allocator);
 
     // Provided
     ObjectAllocator allocator;
 
     // Configuration
-    glm::vec3 position {0,0,0};
+    glm::vec3 position { 0, 0, 0 };
     glm::quat rotation {};
-    glm::vec3 scale {1,1,1};
+    glm::vec3 scale { 1, 1, 1 };
 
-    const _E::Mesh *mesh {nullptr};
-    const _E::Material *material {nullptr};
+    const _E::Mesh *mesh { nullptr };
+    const _E::Material *material { nullptr };
 
-    glm::vec3 size {1,1,1};
+    glm::vec3 size { 1, 1, 1 };
     LightCube tileLight;
     LightCube skyTint;
     LightCube occlusion;
@@ -73,7 +73,7 @@ class ObjectSubsystem : public Subsystem {
         vk::DescriptorSet set;
     };
 
-    public:
+public:
     static const SubsystemID<ObjectSubsystem> ID;
 
     // Public API
@@ -81,6 +81,10 @@ class ObjectSubsystem : public Subsystem {
     std::shared_ptr<Object> getObject(uint32_t objectId);
     void removeObject(uint32_t objectId);
     void removeObject(const std::shared_ptr<Object> &object);
+
+    bool getWireframe() const { return renderWireframe; }
+
+    void setWireframe(bool);
 
     // For engine use
     void initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, _E::RenderEngine &engine);
@@ -90,7 +94,7 @@ class ObjectSubsystem : public Subsystem {
     void writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t activeImage);
     void prepareFrame(uint32_t activeImage);
 
-    private:
+private:
     std::shared_ptr<Object> allocate();
 
     void initObjectBufferDSs();
@@ -102,7 +106,7 @@ class ObjectSubsystem : public Subsystem {
     _E::MaterialManager *materialManager;
     vk::Device device;
 
-    LightSubsystem *globalLight {nullptr};
+    LightSubsystem *globalLight { nullptr };
 
     // Object state
     std::unordered_map<uint32_t, std::shared_ptr<Object>> objects;
@@ -113,7 +117,9 @@ class ObjectSubsystem : public Subsystem {
     std::mutex objectLock;
 
     // Render state
-    std::unique_ptr<_E::Pipeline> pipeline;
+    bool renderWireframe { false };
+    std::unique_ptr<_E::Pipeline> pipelineNormal;
+    std::unique_ptr<_E::Pipeline> pipelineWireframe;
     vk::DescriptorSetLayout cameraAndModelDSL;
     vk::DescriptorPool descriptorPool;
     std::vector<vk::DescriptorSet> cameraAndModelDS;

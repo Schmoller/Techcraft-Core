@@ -389,7 +389,7 @@ ObjectSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngin
 
     initObjectBufferDSs();
 
-    pipeline = engine.createPipeline()
+    auto builder = engine.createPipeline()
         .withVertexShader("assets/shaders/vert.spv")
         .withFragmentShader("assets/shaders/frag.spv")
         .withDescriptorSet(cameraAndModelDSL)
@@ -397,8 +397,10 @@ ObjectSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngin
         .withDescriptorSet(objectDSL)
         .withDescriptorSet(engine.getTextureManager().getLayout())
         .withVertexBindingDescription(Vertex::getBindingDescription())
-        .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions())
-        .build();
+        .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions());
+
+    pipelineNormal = builder.build();
+    pipelineWireframe = builder.withFillMode(FillMode::Wireframe).build();
 
     // TODO: Not sure why we need this
     updateObjectBuffers(true);
@@ -473,7 +475,8 @@ void ObjectSubsystem::cleanupResources(vk::Device device, _E::RenderEngine &engi
 }
 
 void ObjectSubsystem::cleanupSwapChainResources(vk::Device device, _E::RenderEngine &engine) {
-    pipeline.reset();
+    pipelineNormal.reset();
+    pipelineWireframe.reset();
     device.destroyDescriptorPool(descriptorPool);
     device.destroyDescriptorPool(objectDSPool);
 }
@@ -481,6 +484,13 @@ void ObjectSubsystem::cleanupSwapChainResources(vk::Device device, _E::RenderEng
 void ObjectSubsystem::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t activeImage) {
     const Mesh *lastMesh = nullptr;
     std::unique_lock lock(objectLock);
+
+    Pipeline *pipeline;
+    if (renderWireframe) {
+        pipeline = pipelineWireframe.get();
+    } else {
+        pipeline = pipelineNormal.get();
+    }
 
     pipeline->bind(commandBuffer);
 
@@ -520,6 +530,10 @@ void ObjectSubsystem::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32
 
 void ObjectSubsystem::prepareFrame(uint32_t activeImage) {
     updateObjectBuffers();
+}
+
+void ObjectSubsystem::setWireframe(bool wireframe) {
+    renderWireframe = wireframe;
 }
 
 
