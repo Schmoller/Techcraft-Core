@@ -321,8 +321,8 @@ StaticMesh *StaticMeshBuilder<VertexType>::build() {
         }
     );
 
-    auto fence = taskManager.submitTask(std::move(task));
-    bufferManager.release(staging, fence);
+    task->freeWhenDone(std::move(staging));
+    taskManager.submitTask(std::move(task));
 
     std::unique_ptr<StaticMesh> mesh(
         new StaticMesh(
