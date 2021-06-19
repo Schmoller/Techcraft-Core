@@ -119,6 +119,17 @@ BoundingBox BoundingBox::include(const glm::vec3 &position) const {
     };
 }
 
+BoundingBox BoundingBox::include(const BoundingBox &box) const {
+    return {
+        std::min(xMin, std::min(box.xMin, box.xMax)),
+        std::min(yMin, std::min(box.yMin, box.yMax)),
+        std::min(zMin, std::min(box.zMin, box.zMax)),
+        std::max(xMax, std::max(box.xMin, box.xMax)),
+        std::max(yMax, std::max(box.yMin, box.yMax)),
+        std::max(zMax, std::max(box.zMin, box.zMax)),
+    };
+}
+
 BoundingBox &BoundingBox::includeSelf(const glm::vec3 &position) {
     xMin = std::min(xMin, static_cast<float>(position.x));
     yMin = std::min(yMin, static_cast<float>(position.y));
@@ -128,6 +139,17 @@ BoundingBox &BoundingBox::includeSelf(const glm::vec3 &position) {
     zMax = std::max(zMax, static_cast<float>(position.z));
     return *this;
 }
+
+BoundingBox &BoundingBox::includeSelf(const BoundingBox &box) {
+    xMin = std::min(xMin, std::min(box.xMin, box.xMax));
+    yMin = std::min(yMin, std::min(box.yMin, box.yMax));
+    zMin = std::min(zMin, std::min(box.zMin, box.zMax));
+    xMax = std::max(xMax, std::max(box.xMin, box.xMax));
+    yMax = std::max(yMax, std::max(box.yMin, box.yMax));
+    zMax = std::max(zMax, std::max(box.zMin, box.zMax));
+    return *this;
+}
+
 
 BoundingBox BoundingBox::expand(float x, float y, float z) const {
     return {

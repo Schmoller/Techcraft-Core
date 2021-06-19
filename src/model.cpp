@@ -1,7 +1,9 @@
 #include "tech-core/model.hpp"
 #include "tech-core/mesh.hpp"
+#include "tech-core/shapes/bounding_box.hpp"
 
 #define TINYOBJLOADER_IMPLEMENTATION
+
 #include "tiny_obj_loader.h"
 #include <stdexcept>
 #include <unordered_map>
@@ -17,7 +19,7 @@ struct exindex_t : tinyobj::index_t {
         normal_index = rhs.normal_index;
     }
 
-    bool operator==(const tinyobj::index_t& rhs) const {
+    bool operator==(const tinyobj::index_t &rhs) const {
         return vertex_index == rhs.vertex_index &&
             texcoord_index == rhs.texcoord_index &&
             normal_index == rhs.normal_index;
@@ -27,13 +29,14 @@ struct exindex_t : tinyobj::index_t {
 }
 
 namespace std {
-    template<> struct hash<Engine::exindex_t> {
-        size_t operator()(Engine::exindex_t const &index) const {
-            return ((hash<int>()(index.vertex_index) ^
-                (hash<int>()(index.texcoord_index) << 1)) >> 1) ^
-                (hash<int>()(index.normal_index) << 1);
-        }
-    };
+template<>
+struct hash<Engine::exindex_t> {
+    size_t operator()(Engine::exindex_t const &index) const {
+        return ((hash<int>()(index.vertex_index) ^
+            (hash<int>()(index.texcoord_index) << 1)) >> 1) ^
+            (hash<int>()(index.normal_index) << 1);
+    }
+};
 }
 
 namespace Engine {
@@ -69,7 +72,10 @@ bool Model::load(const std::string &path) {
         throw std::runtime_error(warn + err);
     }
 
+    overallBounds = {};
+
     for (const auto &shape : shapes) {
+        BoundingBox bounds {};
         std::unordered_map<exindex_t, uint32_t> uniqueVertices = {};
         std::vector<Vertex> vertices;
         std::vector<uint32_t> indices;
@@ -89,12 +95,14 @@ bool Model::load(const std::string &path) {
                     attrib.texcoords[2 * index.texcoord_index + 0],
                     1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
                 };
-                vertex.color = {1.0f, 1.0f, 1.0f, 1.0f};
+                vertex.color = { 1.0f, 1.0f, 1.0f, 1.0f };
                 vertex.normal = {
                     attrib.normals[3 * index.normal_index + 0],
                     attrib.normals[3 * index.normal_index + 1],
                     attrib.normals[3 * index.normal_index + 2],
                 };
+
+                bounds.includeSelf(vertex.pos);
 
                 uniqueVertices[exindex] = static_cast<uint32_t>(vertices.size());
                 vertices.push_back(vertex);
@@ -106,8 +114,11 @@ bool Model::load(const std::string &path) {
 
         subModels[shape.name] = {
             vertices,
-            indices
+            indices,
+            bounds
         };
+
+        overallBounds.includeSelf(bounds);
     }
 
     return true;
@@ -155,6 +166,31 @@ void Model::applySubModel(StaticMeshBuilder<Vertex> &meshBuilder, const std::str
 
     meshBuilder.withVertices(subModel.vertices);
     meshBuilder.withIndices(subModel.indices);
+}
+
+void Model::getMeshData(
+    const std::string &name, std::vector<Vertex> &outVertices, std::vector<uint32_t> &outIndices
+) const {
+    auto it = subModels.find(name);
+    if (it == subModels.end()) {
+        throw std::runtime_error("Unknown submodel");
+    }
+
+    auto &subModel = it->second;
+
+    outVertices = subModel.vertices;
+    outIndices = subModel.indices;
+}
+
+std::vector<std::string> Model::getSubModelNames() const {
+    std::vector<std::string> names;
+    names.reserve(subModels.size());
+
+    for (auto &pair : subModels) {
+        names.emplace_back(pair.first);
+    }
+
+    return names;
 }
 
 }

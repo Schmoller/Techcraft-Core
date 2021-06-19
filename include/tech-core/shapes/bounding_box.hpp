@@ -37,7 +37,9 @@ public:
     BoundingBox &operator-=(const glm::vec3 &position);
 
     BoundingBox include(const glm::vec3 &position) const;
+    BoundingBox include(const BoundingBox &) const;
     BoundingBox &includeSelf(const glm::vec3 &position);
+    BoundingBox &includeSelf(const BoundingBox &);
 
     BoundingBox &offsetX(float x);
     BoundingBox &offsetY(float y);
