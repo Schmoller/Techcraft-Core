@@ -60,6 +60,11 @@ class ComputeManager;
 class EffectBuilder;
 class Effect;
 
+// Scene
+class Scene;
+class Entity;
+class Component;
+
 // Gui
 namespace Gui {
 class Drawer;
