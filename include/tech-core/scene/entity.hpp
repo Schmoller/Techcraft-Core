@@ -6,15 +6,24 @@
 #include "scene.hpp"
 #include "components/transform.hpp"
 
+#include <memory>
 #include <vector>
 #include <memory>
 #include <unordered_map>
 #include <cassert>
+#include <functional>
 
 namespace Engine {
 
+enum class EntityInvalidateType {
+    Transform,
+    Render
+};
+
 class Entity final {
 public:
+    explicit Entity(EntityId);
+
     template<IsComponent ...Types>
     static std::shared_ptr<Entity> createEntity(EntityId);
 
@@ -51,12 +60,13 @@ public:
 
     std::shared_ptr<Entity> getChildById(EntityId) const;
     std::shared_ptr<Entity> getChildByIndex(uint32_t) const;
+    void forEachChild(bool allDescendants, const std::function<void(Entity *)> &callback) const;
 
     void addChild(const std::shared_ptr<Entity> &entity);
     void removeChildById(EntityId);
     void removeChildByIndex(uint32_t);
 
-    void invalidate();
+    void invalidate(EntityInvalidateType);
 private:
     const EntityId id;
     Entity *parent { nullptr };
@@ -64,23 +74,24 @@ private:
     std::vector<std::shared_ptr<Entity>> children;
 
     Transform transform;
-    std::unordered_map<size_t, Component *> components;
+    std::unordered_map<size_t, Component> components;
 
-    Entity(EntityId, std::unordered_map<size_t, Component *> components);
+    void invalidateComponentAdd();
+    void invalidateComponentRemove();
 };
 
 template<IsComponent T>
 T &Entity::get() {
     auto it = components.find(typeid(T).hash_code());
     assert(it != components.end());
-    return *reinterpret_cast<T *>(it->second);
+    return static_cast<T &>(it->second);
 }
 
 template<IsComponent T>
 const T &Entity::get() const {
     auto it = components.find(typeid(T).hash_code());
     assert(it != components.end());
-    return *reinterpret_cast<T *>(it->second);
+    return static_cast<T &>(it->second);
 }
 
 template<IsComponent T>
@@ -91,16 +102,17 @@ bool Entity::has() {
 
 template<IsComponent T, typename... Args>
 T &Entity::add(Args... args) {
-    auto it = components.emplace(typeid(T).hash_code(), { args... });
+    auto it = components.emplace(typeid(T).hash_code(), T { *this, args... });
     assert(it.second);
-    invalidate();
-    return it.first.second;
+    invalidateComponentAdd();
+    return static_cast<T &>(it.first->second);
 }
 
 template<IsComponent T>
 void Entity::remove() {
     auto it = components.find(typeid(T).hash_code());
     assert(it != components.end());
+    invalidateComponentRemove();
     components.erase(it);
 }
 
@@ -110,11 +122,11 @@ namespace Internal {
  * Allocates memory for each of the provided components.
  */
 template<IsComponent First, IsComponent... Rest>
-void entityInitComponents(std::unordered_map<size_t, unsigned char *> &memory) {
-    memory[typeid(First).hash_code()] = new First();
+void entityInitComponents(std::shared_ptr<Entity> &entity) {
+    entity->add<First>();
 
     if constexpr(sizeof...(Rest) > 0) {
-        entityInitComponents<Rest...>(memory);
+        entityInitComponents<Rest...>(entity);
     }
 }
 
@@ -122,11 +134,10 @@ void entityInitComponents(std::unordered_map<size_t, unsigned char *> &memory) {
 
 template<IsComponent... Types>
 std::shared_ptr<Entity> Entity::createEntity(EntityId id) {
-    std::unordered_map<size_t, unsigned char *> memory;
-    memory.reserve(sizeof...(Types));
-    Internal::entityInitComponents<Types...>(memory);
+    auto entity = std::make_shared<Entity>(id);
+    Internal::entityInitComponents<Types...>(entity);
 
-    return std::make_shared<Entity>(id, memory);
+    return entity;
 }
 
 }

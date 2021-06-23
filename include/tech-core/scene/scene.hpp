@@ -21,9 +21,14 @@ public:
 
     void onAdd(Badge<Entity>, const std::shared_ptr<Entity> &);
     void onRemove(Badge<Entity>, const std::shared_ptr<Entity> &);
-    void onInvalidate(Badge<Entity>, Entity *);
+    void onInvalidate(Badge<Entity>, Entity *, int type);
+
+    void onSetActive(Badge<RenderEngine>, Internal::RenderPlanner *);
+    void onSetInactive(Badge<RenderEngine>);
 
 private:
+    Internal::RenderPlanner *renderPlanner { nullptr };
+
     std::vector<std::shared_ptr<Entity>> children;
     std::unordered_map<EntityId, std::shared_ptr<Entity>> childrenById;
 };

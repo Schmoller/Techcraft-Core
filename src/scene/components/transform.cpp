@@ -31,7 +31,7 @@ void Transform::setScale(float newScale) {
 
 void Transform::setTransform(const glm::mat4 &newTransform) {
     transform = newTransform;
-    owner.invalidate();
+    owner.invalidate(EntityInvalidateType::Transform);
 }
 
 void Transform::updateTransform() {
@@ -39,6 +39,6 @@ void Transform::updateTransform() {
     transform = glm::translate(transform, position);
     transform *= glm::mat4_cast(rotation);
     transform = glm::scale(transform, scale);
-    owner.invalidate();
+    owner.invalidate(EntityInvalidateType::Transform);
 }
 }

@@ -45,6 +45,10 @@ public:
 
     Gui::Rect getScreenBounds();
 
+    void setScene(const std::shared_ptr<Scene> &);
+
+    const std::shared_ptr<Scene> &getScene() const { return currentScene; }
+
     // void reinitializeSwapChain();
     // void renderFrame();
     // ==============================================
@@ -223,6 +227,7 @@ private:
     std::unique_ptr<TaskManager> taskManager;
     std::unique_ptr<Gui::GuiManager> guiManager;
     std::unique_ptr<FontManager> fontManager;
+    std::shared_ptr<Scene> currentScene;
 
     InputManager inputManager;
 

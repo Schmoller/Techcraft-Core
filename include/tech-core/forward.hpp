@@ -72,6 +72,7 @@ class Drawer;
 
 namespace Internal {
 class TextureArray;
+class RenderPlanner;
 }
 
 }

@@ -1,18 +1,16 @@
 #include "tech-core/scene/entity.hpp"
+#include "render_planner.hpp"
 
 namespace Engine {
 
-Entity::Entity(EntityId id, std::unordered_map<size_t, Component *> components)
+Entity::Entity(EntityId id)
     : id(id),
-    components(std::move(components)),
     transform(*this) {
 
 }
 
 Entity::~Entity() {
-    for (auto &pair : components) {
-        delete pair.second;
-    }
+
 }
 
 void Entity::setScene(Badge<Scene>, Scene *newScene) {
@@ -34,13 +32,21 @@ std::shared_ptr<Entity> Entity::getChildByIndex(uint32_t index) const {
     return children[index];
 }
 
+void Entity::forEachChild(bool allDescendants, const std::function<void(Entity *)> &callback) const {
+    for (auto &child : children) {
+        callback(child.get());
+        if (allDescendants) {
+            child->forEachChild(allDescendants, callback);
+        }
+    }
+}
+
 void Entity::addChild(const std::shared_ptr<Entity> &entity) {
     assert(!entity->getParent());
 
     entity->parent = this;
     children.push_back(entity);
     if (scene) {
-        entity->scene = scene;
         scene->onAdd({}, entity);
     }
 }
@@ -52,7 +58,6 @@ void Entity::removeChildById(EntityId childId) {
         if (child->id == childId) {
             children.erase(it);
             child->parent = nullptr;
-            child->scene = nullptr;
             if (scene) {
                 scene->onRemove({}, child);
             }
@@ -65,17 +70,39 @@ void Entity::removeChildByIndex(uint32_t index) {
     assert(index < children.size());
     auto entity = children[index];
     entity->parent = nullptr;
-    entity->scene = nullptr;
     children.erase(children.begin() + index);
     if (scene) {
         scene->onRemove({}, entity);
     }
 }
 
-void Entity::invalidate() {
+
+void Entity::invalidate(EntityInvalidateType type) {
     if (scene) {
-        scene->onInvalidate({}, this);
+        Internal::EntityUpdateType updateType;
+        switch (type) {
+            case EntityInvalidateType::Transform:
+                updateType = Internal::EntityUpdateType::Transform;
+                break;
+            default:
+                updateType = Internal::EntityUpdateType::Other;
+                break;
+        }
+        scene->onInvalidate({}, this, static_cast<int>(updateType));
     }
 }
+
+void Entity::invalidateComponentAdd() {
+    if (scene) {
+        scene->onInvalidate({}, this, static_cast<int>(Internal::EntityUpdateType::ComponentAdd));
+    }
+}
+
+void Entity::invalidateComponentRemove() {
+    if (scene) {
+        scene->onInvalidate({}, this, static_cast<int>(Internal::EntityUpdateType::ComponentRemove));
+    }
+}
+
 
 }

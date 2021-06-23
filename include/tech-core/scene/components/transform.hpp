@@ -27,8 +27,8 @@ public:
 private:
     Entity &owner;
 
-    glm::vec3 position;
-    glm::quat rotation;
+    glm::vec3 position {};
+    glm::quat rotation {};
     glm::vec3 scale { 1, 1, 1 };
     // Combined transformation matrix
     glm::mat4 transform { 1 };

@@ -31,10 +31,12 @@
 #include "tech-core/post_processing.hpp"
 #include "tech-core/texture/manager.hpp"
 #include "tech-core/texture/builder.hpp"
+#include "tech-core/scene/scene.hpp"
 
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
 #include "execution_controller.hpp"
+#include "scene/render_planner.hpp"
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
@@ -63,6 +65,8 @@ RenderEngine::~RenderEngine() {
 }
 
 void RenderEngine::initialize(const std::string_view &title) {
+    addSubsystem(Internal::RenderPlanner::ID);
+
     initWindow(title);
     initVulkan();
 }
@@ -1068,5 +1072,12 @@ void RenderEngine::removeEffect(const std::string &name) {
     // TODO: remove
 }
 
+void RenderEngine::setScene(const std::shared_ptr<Scene> &scene) {
+    if (currentScene) {
+        currentScene->onSetInactive({});
+    }
+    currentScene = scene;
+    currentScene->onSetActive({}, getSubsystem(Internal::RenderPlanner::ID));
+}
 
 }
