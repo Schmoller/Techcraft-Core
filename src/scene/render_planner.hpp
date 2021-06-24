@@ -31,6 +31,7 @@ public:
     void cleanupSwapChainResources(vk::Device device, RenderEngine &engine) override;
     void writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t activeImage) override;
     void prepareFrame(uint32_t activeImage) override;
+    void prepareEntity(Entity *);
 
     void addEntity(Entity *);
     void removeEntity(Entity *);
@@ -43,6 +44,7 @@ private:
 
     // TODO: Eventually replace this with a QuadTree or other spacial partitioning structure
     std::unordered_set<Entity *> renderableEntities;
+    std::unique_ptr<Pipeline> pipelineNormal;
 
     vk::DeviceSize uboBufferAlignment;
     vk::DeviceSize uboBufferMaxSize;

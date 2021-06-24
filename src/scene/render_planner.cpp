@@ -5,6 +5,8 @@
 #include "tech-core/engine.hpp"
 #include "tech-core/device.hpp"
 #include "components/planner_data.hpp"
+#include "tech-core/mesh.hpp"
+#include "tech-core/texture/manager.hpp"
 #include <iostream>
 
 namespace Engine::Internal {
@@ -229,6 +231,17 @@ void RenderPlanner::initialiseSwapChainResources(
         }
     );
 
+    auto builder = engine.createPipeline()
+        .withVertexShader("assets/shaders/engine/builtin/standard-vert.spv")
+        .withFragmentShader("assets/shaders/engine/builtin/standard-frag.spv")
+        .withDescriptorSet(cameraAndModelDSL)
+        .withDescriptorSet(objectDSL)
+        .withDescriptorSet(engine.getTextureManager().getLayout())
+        .withVertexBindingDescription(Vertex::getBindingDescription())
+        .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions());
+
+    pipelineNormal = builder.build();
+
     // Re-allocate descriptor sets
     if (entityBuffers.empty()) {
         // Nothing to allocate
@@ -269,6 +282,7 @@ void RenderPlanner::initialiseSwapChainResources(
         device.updateDescriptorSets(descriptorWrites, {});
         entityBuffers[bufferIndex].set = sets[bufferIndex];
     }
+
 }
 
 void RenderPlanner::cleanupResources(vk::Device device, RenderEngine &engine) {
@@ -280,13 +294,48 @@ void RenderPlanner::cleanupResources(vk::Device device, RenderEngine &engine) {
 
 void RenderPlanner::cleanupSwapChainResources(vk::Device device, RenderEngine &engine) {
 
-//    pipelineNormal.reset();
-//    pipelineWireframe.reset();
+    pipelineNormal.reset();
     device.destroyDescriptorPool(descriptorPool);
     device.destroyDescriptorPool(objectDSPool);
 }
 
 void RenderPlanner::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t activeImage) {
+    const Mesh *lastMesh = nullptr;
+
+    Pipeline *pipeline = pipelineNormal.get();
+
+    pipeline->bind(commandBuffer);
+
+    // Bind camera
+    std::array<vk::DescriptorSet, 1> globalDescriptors = {
+        cameraAndModelDS[activeImage],
+    };
+    pipeline->bindDescriptorSets(commandBuffer, 0, vkUseArray(globalDescriptors), 0, nullptr);
+
+    for (auto entity : renderableEntities) {
+        auto &renderData = entity->get<MeshRenderer>();
+        auto &plannerData = entity->get<PlannerData>();
+        auto mesh = renderData.getMesh();
+
+        if (!mesh) {
+            continue;
+        }
+
+        if (mesh != lastMesh) {
+            mesh->bind(commandBuffer);
+            lastMesh = mesh;
+        }
+
+        uint32_t dyanmicOffset = plannerData.render.uniformOffset;
+
+        std::array<vk::DescriptorSet, 1> boundDescriptors = {
+            plannerData.render.buffer->set,
+//            engine->getMaterialManager().getBinding(engine->getMaterialManager().),
+        };
+
+        pipeline->bindDescriptorSets(commandBuffer, 1, vkUseArray(boundDescriptors), 1, &dyanmicOffset);
+        commandBuffer.drawIndexed(mesh->getIndexCount(), 1, 0, 0, 0);
+    }
 
 }
 
@@ -308,7 +357,7 @@ void RenderPlanner::updateEntityUniform(Entity *entity) {
 }
 
 glm::mat4 RenderPlanner::getRelativeTransform(const glm::mat4 &parent, const glm::mat4 &child) {
-    return child * parent;
+    return parent * child;
 }
 
 void RenderPlanner::updateTransforms(Entity *entity, bool includeSelf) {
@@ -337,6 +386,7 @@ void RenderPlanner::updateTransforms(Entity *entity, bool includeSelf) {
         toVisit.pop_front();
         auto &plannerData = data.entity->get<PlannerData>();
 
+        // FIXME: This breaks the components...
         plannerData.absoluteTransform = getRelativeTransform(
             data.parentData.absoluteTransform,
             data.entity->getTransform().getTransform()
@@ -345,6 +395,14 @@ void RenderPlanner::updateTransforms(Entity *entity, bool includeSelf) {
         for (auto &child : data.entity->getChildren()) {
             toVisit.emplace_back(plannerData, child.get());
         }
+    }
+}
+
+void RenderPlanner::prepareEntity(Entity *entity) {
+    if (!entity->has<PlannerData>()) {
+        ignoreComponentUpdates = true;
+        entity->add<PlannerData>();
+        ignoreComponentUpdates = false;
     }
 }
 

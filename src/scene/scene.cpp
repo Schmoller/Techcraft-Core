@@ -9,9 +9,27 @@ void Scene::addChild(const std::shared_ptr<Entity> &entity) {
     children.push_back(entity);
     childrenById[entity->getId()] = entity;
     entity->setScene({}, this);
+
     if (renderPlanner) {
+        entity->forEachChild(
+            true,
+            [this](Entity *child) {
+                renderPlanner->prepareEntity(child);
+            }
+        );
+
         renderPlanner->addEntity(entity.get());
     }
+
+    entity->forEachChild(
+        true,
+        [this](Entity *child) {
+            child->setScene({}, this);
+            if (renderPlanner) {
+                renderPlanner->addEntity(child);
+            }
+        }
+    );
 }
 
 std::shared_ptr<Entity> Scene::getChildById(EntityId id) const {
@@ -66,6 +84,13 @@ void Scene::removeChildByIndex(uint32_t index) {
 void Scene::onAdd(Badge<Entity>, const std::shared_ptr<Entity> &entity) {
     entity->setScene({}, this);
     if (renderPlanner) {
+        entity->forEachChild(
+            true,
+            [this](Entity *child) {
+                renderPlanner->prepareEntity(child);
+            }
+        );
+
         renderPlanner->addEntity(entity.get());
     }
     entity->forEachChild(
@@ -104,6 +129,14 @@ void Scene::onInvalidate(Badge<Entity>, Entity *entity, int type) {
 void Scene::onSetActive(Badge<RenderEngine>, Internal::RenderPlanner *planner) {
     renderPlanner = planner;
     for (auto &child : children) {
+        // This must be done first to ensure that all entities have PlannerData
+        child->forEachChild(
+            true, [this](Entity *grandChild) {
+                renderPlanner->prepareEntity(grandChild);
+            }
+        );
+
+        // Now we can add
         renderPlanner->addEntity(child.get());
         child->forEachChild(
             true, [this](Entity *grandChild) {

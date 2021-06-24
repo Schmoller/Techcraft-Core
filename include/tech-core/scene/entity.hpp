@@ -74,7 +74,7 @@ private:
     std::vector<std::shared_ptr<Entity>> children;
 
     Transform transform;
-    std::unordered_map<size_t, Component> components;
+    std::unordered_map<size_t, std::unique_ptr<Component>> components;
 
     void invalidateComponentAdd();
     void invalidateComponentRemove();
@@ -84,14 +84,14 @@ template<IsComponent T>
 T &Entity::get() {
     auto it = components.find(typeid(T).hash_code());
     assert(it != components.end());
-    return static_cast<T &>(it->second);
+    return static_cast<T &>(*it->second);
 }
 
 template<IsComponent T>
 const T &Entity::get() const {
     auto it = components.find(typeid(T).hash_code());
     assert(it != components.end());
-    return static_cast<T &>(it->second);
+    return static_cast<T &>(*it->second);
 }
 
 template<IsComponent T>
@@ -102,10 +102,10 @@ bool Entity::has() {
 
 template<IsComponent T, typename... Args>
 T &Entity::add(Args... args) {
-    auto it = components.emplace(typeid(T).hash_code(), T { *this, args... });
+    auto it = components.emplace(typeid(T).hash_code(), std::make_unique<T>(*this, args...));
     assert(it.second);
     invalidateComponentAdd();
-    return static_cast<T &>(it.first->second);
+    return static_cast<T &>(*it.first->second);
 }
 
 template<IsComponent T>
