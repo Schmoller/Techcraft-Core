@@ -11,8 +11,8 @@ public:
     explicit PlannerData(Entity &entity) : Component(entity) {};
 
     struct {
-        EntityBuffer *buffer;
-        vk::DeviceSize uniformOffset;
+        EntityBuffer *buffer { nullptr };
+        vk::DeviceSize uniformOffset { 0 };
     } render;
 
     glm::mat4 absoluteTransform { 1 };

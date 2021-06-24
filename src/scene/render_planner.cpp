@@ -36,6 +36,13 @@ void RenderPlanner::updateEntity(Entity *entity, EntityUpdateType update) {
     if (update == EntityUpdateType::Transform) {
         updateTransforms(entity, true);
         updateEntityUniform(entity);
+        entity->forEachChild(
+            true, [this](Entity *entity) {
+                if (entity->get<PlannerData>().render.buffer) {
+                    updateEntityUniform(entity);
+                }
+            }
+        );
     } else if (update == EntityUpdateType::ComponentAdd && !ignoreComponentUpdates) {
         if (entity->has<MeshRenderer>() && !renderableEntities.contains(entity)) {
             addToRender(entity);
