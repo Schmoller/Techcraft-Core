@@ -2,6 +2,7 @@
 
 #include "../forward.hpp"
 #include "common.hpp"
+#include "texture.hpp"
 #include <string>
 #include <unordered_map>
 #include <vulkan/vulkan.hpp>

@@ -1,5 +1,5 @@
 #include "tech-core/gui/drawer.hpp"
-#include "tech-core/texture/common.hpp"
+#include "tech-core/texture/texture.hpp"
 
 #include <locale>
 #include <codecvt>
