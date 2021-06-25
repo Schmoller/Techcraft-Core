@@ -11,7 +11,6 @@ struct SwapChainSupportDetails;
 
 #include "common_includes.hpp"
 
-#include "material.hpp"
 #include "task.hpp"
 #include "inputmanager.hpp"
 #include "tech-core/gui/manager.hpp"
@@ -90,7 +89,7 @@ public:
     // ==============================================
     //  Material Methods
     // ==============================================
-    Material *createMaterial(const MaterialCreateInfo &createInfo);
+    MaterialBuilder createMaterial(const std::string &name);
 
     Material *getMaterial(const std::string &name);
 
@@ -131,7 +130,7 @@ public:
     }
 
     MaterialManager &getMaterialManager() {
-        return materialManager;
+        return *materialManager;
     }
 
     // ==============================================
@@ -222,7 +221,7 @@ private:
     std::unique_ptr<ExecutionController> executionController;
 
     std::unique_ptr<TextureManager> textureManager;
-    MaterialManager materialManager;
+    std::unique_ptr<MaterialManager> materialManager;
     std::unique_ptr<BufferManager> bufferManager;
     std::unique_ptr<TaskManager> taskManager;
     std::unique_ptr<Gui::GuiManager> guiManager;

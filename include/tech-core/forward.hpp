@@ -23,8 +23,8 @@ class TextureBuilder;
 struct Texture;
 
 class MaterialManager;
-struct Material;
-struct MaterialCreateInfo;
+class Material;
+class MaterialBuilder;
 
 class TaskManager;
 class Task;

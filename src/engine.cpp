@@ -32,6 +32,8 @@
 #include "tech-core/texture/manager.hpp"
 #include "tech-core/texture/builder.hpp"
 #include "tech-core/scene/scene.hpp"
+#include "tech-core/material/manager.hpp"
+#include "tech-core/material/builder.hpp"
 
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
@@ -140,10 +142,7 @@ void RenderEngine::initVulkan() {
     updateEffectPipelines();
 
     createUniformBuffers();
-    materialManager.initialize(
-        device->device,
-        textureManager.get()
-    );
+    materialManager = std::make_unique<MaterialManager>();
     fontManager = std::make_unique<FontManager>(
         *textureManager
     );
@@ -886,7 +885,7 @@ void RenderEngine::cleanup() {
 
     meshes.clear();
     guiManager.reset();
-    materialManager.destroy();
+    materialManager.reset();
     textureManager.reset();
 
     // Release all remaining buffers
@@ -975,12 +974,12 @@ ImageBuilder RenderEngine::createImageArray(uint32_t width, uint32_t height, uin
 // ==============================================
 //  Material Methods
 // ==============================================
-Material *RenderEngine::createMaterial(const MaterialCreateInfo &createInfo) {
-    return materialManager.addMaterial(createInfo);
+MaterialBuilder RenderEngine::createMaterial(const std::string &name) {
+    return materialManager->add(name);
 }
 
 Material *RenderEngine::getMaterial(const std::string &name) {
-    return materialManager.getMaterial(name);
+    return materialManager->get(name);
 }
 
 Material *RenderEngine::getMaterial(const char *name) {
@@ -988,7 +987,7 @@ Material *RenderEngine::getMaterial(const char *name) {
 }
 
 void RenderEngine::destroyMaterial(const std::string &name) {
-    materialManager.destroyMaterial(name);
+    materialManager->remove(name);
 }
 
 void RenderEngine::destroyMaterial(const char *name) {

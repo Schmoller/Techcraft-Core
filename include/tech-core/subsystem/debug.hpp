@@ -1,7 +1,6 @@
 #pragma once
 
 #include "tech-core/subsystem/base.hpp"
-#include "tech-core/material.hpp"
 #include "tech-core/mesh.hpp"
 #include "tech-core/object.hpp"
 #include "tech-core/pipeline.hpp"

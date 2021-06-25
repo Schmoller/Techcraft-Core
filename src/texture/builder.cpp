@@ -2,6 +2,8 @@
 #include "tech-core/texture/manager.hpp"
 #include <stb_image.h>
 #include <stdexcept>
+#include <tech-core/material/builder.hpp>
+
 
 namespace Engine {
 

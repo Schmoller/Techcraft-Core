@@ -3,7 +3,6 @@
 
 #include "common_includes.hpp"
 #include "mesh.hpp"
-#include "tech-core/material.hpp"
 
 namespace Engine {
 
@@ -13,18 +12,18 @@ struct ObjectCoord {
 };
 
 struct LightCube {
-    alignas(16) glm::vec3 westSouthDown {1,1,1};
-    alignas(16) glm::vec3 westSouthUp {1,1,1};
-    alignas(16) glm::vec3 westNorthDown {1,1,1};
-    alignas(16) glm::vec3 westNorthUp {1,1,1};
-    alignas(16) glm::vec3 eastSouthDown {1,1,1};
-    alignas(16) glm::vec3 eastSouthUp {1,1,1};
-    alignas(16) glm::vec3 eastNorthDown {1,1,1};
-    alignas(16) glm::vec3 eastNorthUp {1,1,1};
+    alignas(16) glm::vec3 westSouthDown { 1, 1, 1 };
+    alignas(16) glm::vec3 westSouthUp { 1, 1, 1 };
+    alignas(16) glm::vec3 westNorthDown { 1, 1, 1 };
+    alignas(16) glm::vec3 westNorthUp { 1, 1, 1 };
+    alignas(16) glm::vec3 eastSouthDown { 1, 1, 1 };
+    alignas(16) glm::vec3 eastSouthUp { 1, 1, 1 };
+    alignas(16) glm::vec3 eastNorthDown { 1, 1, 1 };
+    alignas(16) glm::vec3 eastNorthUp { 1, 1, 1 };
 };
 
 class Object {
-    public:
+public:
     Object(uint32_t objectId);
 
     void setPosition(const glm::vec3 &position);
@@ -68,7 +67,7 @@ class Object {
 
     bool operator==(Object const &other) const;
 
-    private:
+private:
     uint32_t objectId;
 
     ObjectCoord coord;
