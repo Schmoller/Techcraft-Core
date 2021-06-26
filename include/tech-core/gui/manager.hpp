@@ -16,7 +16,7 @@ constexpr vk::DeviceSize MAX_GUI_BUFFER_SIZE = 0xFFFFF;
 
 struct ComponentMapping {
     struct Region {
-        uint32_t textureArrayId;
+        const Texture *texture { nullptr };
         // Tracking for buffer usage
         vk::DeviceSize offset;
         vk::DeviceSize size;

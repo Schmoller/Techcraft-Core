@@ -944,11 +944,11 @@ Mesh *RenderEngine::getMesh(const std::string &name) {
 //  Texture Methods
 // ==============================================
 TextureBuilder RenderEngine::createTexture(const std::string &name) {
-    return textureManager->createTexture(name);
+    return textureManager->add(name);
 }
 
 const Texture *RenderEngine::getTexture(const std::string &name) {
-    return textureManager->getTexture(name);
+    return textureManager->get(name);
 }
 
 const Texture *RenderEngine::getTexture(const char *name) {
@@ -956,7 +956,7 @@ const Texture *RenderEngine::getTexture(const char *name) {
 }
 
 void RenderEngine::destroyTexture(const std::string &name) {
-    textureManager->removeTexture(name);
+    textureManager->remove(name);
 }
 
 void RenderEngine::destroyTexture(const char *name) {

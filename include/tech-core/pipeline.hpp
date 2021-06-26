@@ -228,6 +228,7 @@ public:
     void bindBuffer(uint32_t set, uint32_t binding, const std::shared_ptr<Buffer> &buffer);
 
     void bindCamera(uint32_t set, uint32_t binding, RenderEngine &);
+    void bindTexture(uint32_t set, uint32_t binding, const Texture *);
 
     void bind(vk::CommandBuffer, uint32_t activeImage = 0);
 

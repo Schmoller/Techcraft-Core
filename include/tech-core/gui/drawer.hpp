@@ -35,7 +35,7 @@ enum class StrokePosition {
 class Drawer {
     friend class GuiManager;
     struct Region {
-        uint32_t textureArrayId;
+        const Texture *texture;
         std::vector<Vertex> vertices;
         std::vector<GuiBufferInt> indices;
     };

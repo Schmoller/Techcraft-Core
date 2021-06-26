@@ -83,7 +83,7 @@ uint16_t GuiManager::addComponent(std::shared_ptr<BaseComponent> component) {
     renderComponent(component.get(), mapping);
     component->onRegister(
         mapping.id,
-        [=]() { markComponentDirty(mapping.id); }
+        [this, &mapping]() { markComponentDirty(mapping.id); }
     );
 
     return mapping.id;
@@ -116,7 +116,7 @@ void GuiManager::updateComponent(uint16_t id) {
 
 void GuiManager::renderComponent(BaseComponent *component, ComponentMapping &mapping) {
     // Renders the vertices and indices
-    Drawer drawer(fontManager, *textureManager.getTexture("internal.white"), "monospace");
+    Drawer drawer(fontManager, *textureManager.get("internal.white"), "monospace");
 
     component->onRender(drawer);
 
@@ -158,7 +158,7 @@ void GuiManager::renderComponent(BaseComponent *component, ComponentMapping &map
 
         mapping.regions.emplace_back(
             ComponentMapping::Region {
-                region.textureArrayId,
+                region.texture,
                 offset,
                 size,
                 region.vertices.size(),
@@ -245,14 +245,12 @@ void GuiManager::render(vk::CommandBuffer commandBuffer, vk::CommandBufferInheri
             );
 
             // texture info
-            if (region.textureArrayId != 0xFFFFFFFF) {
-                auto textureDS = textureManager.getBinding(region.textureArrayId, 0xFFFE, sampler.get());
-                pipeline->bindDescriptorSets(commandBuffer, 0, 1, &textureDS, 0, nullptr);
+            if (region.texture) {
+                pipeline->bindTexture(1, 2, region.texture);
                 hasBoundTexture = true;
             } else if (!hasBoundTexture) {
                 // It is required that all bindings have a value, even if we wont use one
-                auto textureDS = textureManager.getBinding(0, 0xFFFE, sampler.get());
-                pipeline->bindDescriptorSets(commandBuffer, 0, 1, &textureDS, 0, nullptr);
+                pipeline->bindTexture(1, 2, textureManager.get("internal.white"));
                 hasBoundTexture = true;
             }
 

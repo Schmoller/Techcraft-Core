@@ -260,9 +260,9 @@ Font *FontManager::addFont(const std::string &filename, const std::string &name,
         std::stringstream textureName;
         textureName << "font." << name << "." << toString(style);
 
-        auto *texture = textureManager.createTexture(textureName.str())
+        auto *texture = textureManager.add(textureName.str())
             .fromRaw(FONT_ATLAS_SIZE, FONT_ATLAS_SIZE, convertedPixelData)
-            .build();
+            .finish();
 
         // Prepare for use
         Font fontDefinition(style, FONT_OVERSAMPLING, texture, fontSize, ascent, descent, lineGap);
@@ -311,7 +311,7 @@ const Texture *FontManager::getFontTexture(const std::string &name, FontStyle st
     std::stringstream textureName;
     textureName << name << "." << toString(style);
 
-    return textureManager.getTexture(textureName.str());
+    return textureManager.get(textureName.str());
 }
 
 std::string toString(FontStyle style) {

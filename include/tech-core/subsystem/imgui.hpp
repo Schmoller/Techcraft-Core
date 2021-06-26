@@ -37,7 +37,6 @@ private:
     vk::Device device;
 
     std::unique_ptr<Pipeline> pipeline;
-    std::unique_ptr<Pipeline> pipelineForTextures;
     vk::Sampler fontSampler;
     std::shared_ptr<Image> fontImage;
     std::vector<VertexAndIndexBuffer> vertexBuffers;
@@ -48,7 +47,6 @@ private:
     glm::vec2 currentTranslate;
 
     std::unordered_map<Image *, uint32_t> imagePoolMapping;
-    std::unordered_map<Texture *, uint32_t> texturePoolMapping;
 
     void setupFont(vk::Device device);
     void

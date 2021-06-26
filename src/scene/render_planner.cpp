@@ -241,9 +241,9 @@ void RenderPlanner::initialiseSwapChainResources(
     auto builder = engine.createPipeline()
         .withVertexShader("assets/shaders/engine/builtin/standard-vert.spv")
         .withFragmentShader("assets/shaders/engine/builtin/standard-frag.spv")
-        .withDescriptorSet(cameraAndModelDSL)
-        .withDescriptorSet(objectDSL)
-        .withDescriptorSet(engine.getTextureManager().getLayout())
+        .bindCamera(0, 0)
+        .bindUniformBuffer(1, 1)
+        .bindTextures(2, 2)
         .withVertexBindingDescription(Vertex::getBindingDescription())
         .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions());
 

@@ -4,7 +4,7 @@
 #include "tech-core/device.hpp"
 #include "tech-core/image.hpp"
 #include "../imageutils.hpp"
-#include "internal.hpp"
+#include "sampler_cache.hpp"
 #include <iostream>
 #include <cmath>
 
@@ -12,15 +12,12 @@
 
 #include <stb_image_resize.h>
 
-// Memory for 5 4k 32bit textures
-const vk::DeviceSize MAX_MEMORY_USAGE = 335544320;
-
-const uint32_t MAX_ARRAY_SIZE = 16;
-
 namespace Engine {
 
 TextureManager::TextureManager(RenderEngine &engine, VulkanDevice &device, vk::PhysicalDevice physicalDevice)
     : engine(engine), device(device) {
+
+    samplers = std::make_shared<Internal::SamplerCache>(device);
 
     // See if we can blit textures
     auto properties = physicalDevice.getFormatProperties(vk::Format::eR8G8B8A8Unorm);
@@ -29,126 +26,54 @@ TextureManager::TextureManager(RenderEngine &engine, VulkanDevice &device, vk::P
         canBlitTextures = true;
     }
 
-    vk::DescriptorSetLayoutBinding samplerBinding(
-        TEXTURE_BINDING, vk::DescriptorType::eCombinedImageSampler,
-        1, vk::ShaderStageFlagBits::eFragment
-    );
-
-    vk::DescriptorSetLayoutCreateInfo textureLayoutInfo(
-        {}, 1, &samplerBinding
-    );
-
-    descriptorSetLayout = device.device.createDescriptorSetLayout(textureLayoutInfo);
-
-    vk::DescriptorPoolSize poolSize(
-        vk::DescriptorType::eCombinedImageSampler,
-        DESCRIPTOR_POOL_SIZE
-    );
-
-    descriptorPool = device.device.createDescriptorPool({{}, DESCRIPTOR_POOL_SIZE, 1, &poolSize });
+    auto deviceProperties = physicalDevice.getProperties();
+    maxAnisotropy = deviceProperties.limits.maxSamplerAnisotropy;
 
     generatePlaceholders();
 }
 
-TextureManager::~TextureManager() {
-    device.device.destroyDescriptorPool(descriptorPool);
-    device.device.destroyDescriptorSetLayout(descriptorSetLayout);
-}
-
-TextureBuilder TextureManager::createTexture(const std::string &name) {
+TextureBuilder TextureManager::add(const std::string &name) {
     return TextureBuilder(*this, name);
 }
 
-const Texture *TextureManager::getTexture(const std::string &name) const {
+const Texture *TextureManager::get(const std::string &name) const {
     auto it = texturesByName.find(name);
     if (it == texturesByName.end()) {
         return errorTexture;
     }
 
-    return &it->second;
+    return it->second.get();
 }
 
-bool TextureManager::removeTexture(const std::string &name) {
-    // FIXME: This needs to be implemented
-    assert(false);
-    return false;
-}
-
-Internal::TextureArray &TextureManager::allocateArray(uint32_t width, uint32_t height) {
-    for (auto &pair : textureArrays) {
-        auto &array = pair.second;
-
-        if (array->canAllocate(width, height)) {
-            return *array;
-        }
+bool TextureManager::remove(const std::string &name) {
+    auto it = texturesByName.find(name);
+    if (it == texturesByName.end()) {
+        return false;
     }
 
-    // No free slots in any texture arrays, or not matching sizes
-    std::cout << "Creating texture array for size " << width << "x" << height << std::endl;
-
-    uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
-
-    VkDeviceSize imageUsage = width * height * 4;
-    uint32_t arraySize = std::min(static_cast<uint32_t>(MAX_MEMORY_USAGE / imageUsage), MAX_ARRAY_SIZE);
-
-    vk::ImageUsageFlags usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
-    if (canBlitTextures && mipLevels > 1) {
-        usage |= vk::ImageUsageFlagBits::eTransferSrc;
-    }
-
-    auto image = engine.createImageArray(width, height, arraySize)
-        .withFormat(vk::Format::eR8G8B8A8Unorm)
-        .withMipLevels(mipLevels)
-        .withUsage(usage)
-        .withMemoryUsage(vk::MemoryUsage::eGPUOnly)
-        .withImageTiling(vk::ImageTiling::eOptimal)
-        .build();
-
-    auto array = std::make_shared<Internal::TextureArray>(nextArrayId++, image, mipLevels);
-
-    auto task = engine.getTaskManager().createTask();
-
-    // Initialize the image
-    task->execute(
-        [image](vk::CommandBuffer buffer) {
-            image->transition(buffer, vk::ImageLayout::eShaderReadOnlyOptimal);
-        }
-    );
-
-    engine.getTaskManager().submitTask(std::move(task));
-
-    textureArrays[array->getId()] = array;
-    return *array;
+    texturesByName.erase(it);
+    return true;
 }
 
-const Texture *TextureManager::addTexture(
-    const std::string &name, uint32_t width, uint32_t height, void *pixelData, MipType mipType
-) {
+const Texture *TextureManager::add(const TextureBuilder &builder) {
     bool useFallbackMipmapGen = !canBlitTextures;
 
+    uint32_t width = builder.width;
+    uint32_t height = builder.height;
     uint32_t srcWidth = width;
-    if (mipType == MipType::StoredStandard) {
+    void *pixelData = builder.pixelData;
+
+    if (builder.mipType == TextureMipType::StoredStandard) {
         // Standard mipmaps are stored on the right of the main texture using 50% more width
         width *= 2.0 / 3.0;
     }
 
-    // Find a place to store the texture
-    auto &array = allocateArray(width, height);
-    size_t slot = array.allocateSlot();
-
-    Texture texture = {
-        array.getId(),
-        slot,
-        mipType != MipType::NoMipmap,
-        width,
-        height
-    };
-
     vk::DeviceSize imageSize = srcWidth * height * 4;
+    uint32_t mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(width, height)))) + 1;
 
     unsigned char *combinedPixels = nullptr;
-    if (mipType == MipType::Generate && useFallbackMipmapGen) {
-        combinedPixels = generateMipMapsFallback(srcWidth, height, array.getMipLevels(), pixelData, &imageSize);
+    if (builder.mipType == TextureMipType::Generate && useFallbackMipmapGen) {
+        combinedPixels = generateMipMapsFallback(srcWidth, height, mipLevels, pixelData, &imageSize);
         pixelData = combinedPixels;
     }
 
@@ -156,20 +81,31 @@ const Texture *TextureManager::addTexture(
     stagingBuffer->copyIn(pixelData);
 
     auto task = engine.getTaskManager().createTask();
+    auto imageBuilder = engine.createImage(width, height)
+        .withFormat(vk::Format::eR8G8B8A8Unorm)
+        .withImageTiling(vk::ImageTiling::eOptimal)
+        .withUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
+        .withMemoryUsage(vk::MemoryUsage::eGPUOnly)
+        .withDestinationStage(vk::PipelineStageFlagBits::eFragmentShader);
+
+    if (builder.mipType != TextureMipType::None) {
+        imageBuilder.withMipLevels(mipLevels);
+    }
+
+    auto image = imageBuilder.build();
 
     task->execute(
-        [&stagingBuffer, array, slot, mipType, useFallbackMipmapGen](vk::CommandBuffer buffer) {
-            auto image = array.getImage();
+        [&stagingBuffer, image, mipLevels, builder, useFallbackMipmapGen](vk::CommandBuffer buffer) {
             image->transition(
-                buffer, slot, 1, vk::ImageLayout::eTransferDstOptimal, false, vk::PipelineStageFlagBits::eTransfer
+                buffer, vk::ImageLayout::eTransferDstOptimal, false, vk::PipelineStageFlagBits::eTransfer
             );
 
             uint32_t width = image->getWidth();
             uint32_t height = image->getHeight();
 
-            if (mipType == MipType::NoMipmap || (mipType == MipType::Generate && !useFallbackMipmapGen)) {
-                image->transferIn(buffer, *stagingBuffer, slot);
-            } else if (mipType == MipType::StoredStandard) {
+            if (builder.mipType == TextureMipType::None || (builder.mipType == TextureMipType::Generate && !useFallbackMipmapGen)) {
+                image->transferIn(buffer, *stagingBuffer);
+            } else if (builder.mipType == TextureMipType::StoredStandard) {
                 // Standard storage:
                 /*
                 +-----+---+
@@ -183,10 +119,10 @@ const Texture *TextureManager::addTexture(
 
                 uint32_t mipHeight = height;
 
-                for (uint32_t level = 0; level < array.getMipLevels(); ++level) {
+                for (uint32_t level = 0; level < mipLevels; ++level) {
                     if (level == 0) {
                         // Base Level
-                        image->transferIn(buffer, *stagingBuffer, slot, 0);
+                        image->transferIn(buffer, *stagingBuffer, 0, 0);
                     } else {
                         // Mip Levels
                         if (mipHeight > 1) {
@@ -198,40 +134,40 @@ const Texture *TextureManager::addTexture(
                             *stagingBuffer,
                             { static_cast<int32_t>(width), static_cast<int32_t>(offsetY) },
                             { std::max(width >> level, 1U), std::max(height >> level, 1U) },
-                            slot,
+                            0,
                             level
                         );
 
                         offsetY += mipHeight;
                     }
                 }
-            } else if (mipType == MipType::Generate && useFallbackMipmapGen) {
+            } else if (builder.mipType == TextureMipType::Generate && useFallbackMipmapGen) {
                 size_t offset = width * height * 4;
 
-                for (uint32_t level = 0; level < array.getMipLevels(); ++level) {
+                for (uint32_t level = 0; level < mipLevels; ++level) {
                     if (level == 0) {
                         // Base Level
-                        image->transferIn(buffer, *stagingBuffer, slot, 0);
+                        image->transferIn(buffer, *stagingBuffer, 0, 0);
                     } else {
                         uint32_t mipWidth = width >> level;
                         uint32_t mipHeight = height >> level;
                         auto size = mipWidth * mipHeight * 4;
 
                         image->transferInOffset(
-                            buffer, *stagingBuffer, offset, {}, { mipWidth, mipHeight }, slot, level
+                            buffer, *stagingBuffer, offset, {}, { mipWidth, mipHeight }, 0, level
                         );
                         offset += size;
                     }
                 }
             }
 
-            if (mipType == MipType::Generate && !useFallbackMipmapGen) {
+            if (builder.mipType == TextureMipType::Generate && !useFallbackMipmapGen) {
                 // Blit the mipmaps
-                generateMipmaps(buffer, array, slot);
+                generateMipmaps(buffer, image);
             }
 
             image->transition(
-                buffer, slot, 1, vk::ImageLayout::eShaderReadOnlyOptimal, false,
+                buffer, vk::ImageLayout::eShaderReadOnlyOptimal, false,
                 vk::PipelineStageFlagBits::eFragmentShader
             );
         }
@@ -243,11 +179,21 @@ const Texture *TextureManager::addTexture(
 
     delete[] combinedPixels;
 
-    std::cout << "Loaded texture " << name << " as " << texture.arrayId << ":" << texture.arraySlot << std::endl;
+    // Make sampler
+    auto sampler = samplers->acquire({
+        builder.filtering,
+        builder.mipType != TextureMipType::None,
+        builder.wrapU,
+        builder.wrapV,
+        builder.anisotropy
+    });
 
-    // Store texture
-    texturesByName[name] = texture;
-    return &texturesByName[name];
+    auto texture = std::make_shared<Texture>(builder.name, image, sampler);
+    texturesByName[builder.name] = texture;
+
+    std::cout << "Loaded texture " << texture->getName() << std::endl;
+
+    return texture.get();
 }
 
 unsigned char *TextureManager::generateMipMapsFallback(
@@ -293,58 +239,39 @@ unsigned char *TextureManager::generateMipMapsFallback(
     return combinedPixels;
 }
 
-vk::DescriptorSet TextureManager::getBinding(uint32_t arrayId, uint32_t samplerId, vk::Sampler sampler) {
-    auto it = textureArrays.find(arrayId);
-    assert(it != textureArrays.end());
-
-    return it->second->getDescriptor(samplerId, sampler, device.device, descriptorPool, descriptorSetLayout);
-}
-
-vk::ImageView TextureManager::getTextureView(const Texture &texture) const {
-    auto it = textureArrays.find(texture.arrayId);
-    assert(it != textureArrays.end());
-
-    return it->second->getImage()->imageView();
-}
-
 void TextureManager::generatePlaceholders() {
     VkDeviceSize imageSize = PLACEHOLDER_TEXTURE_SIZE * PLACEHOLDER_TEXTURE_SIZE;
 
     auto *pixels = new uint32_t[imageSize];
     generateErrorPixels(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels);
 
-    errorTexture = createTexture("internal.error")
+    errorTexture = add("internal.error")
         .fromRaw(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels)
-        .withMipMode(MipType::NoMipmap)
-        .build();
+        .finish();
 
     generateSolidPixels(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels, 0x00000000);
 
-    createTexture("internal.loading")
+    add("internal.loading")
         .fromRaw(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels)
-        .withMipMode(MipType::NoMipmap)
-        .build();
+        .finish();
 
     generateSolidPixels(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels, 0xFFFFFFFF);
 
-    createTexture("internal.white")
+    add("internal.white")
         .fromRaw(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels)
-        .withMipMode(MipType::NoMipmap)
-        .build();
+        .finish();
 
     delete[] pixels;
-
 }
 
-void TextureManager::generateMipmaps(vk::CommandBuffer buffer, const Internal::TextureArray &array, uint32_t slot) {
-    // NOTE: It is expected that the array layer is currently in the TransferDstOptimal layout
-    auto image = array.getImage();
+void TextureManager::generateMipmaps(vk::CommandBuffer buffer, const std::shared_ptr<Image> &image) {
+    // NOTE: It is expected that the image is currently in the TransferDstOptimal layout
 
     for (uint32_t level = 1; level < image->getMipLevels(); ++level) {
         // Prepare the previous level to transfer to this level
         image->transitionManual(
             buffer,
-            slot, 1,
+            0, 1,
             level - 1, 1,
             vk::ImageLayout::eTransferDstOptimal, true,
             vk::ImageLayout::eTransferSrcOptimal, false,
@@ -364,9 +291,9 @@ void TextureManager::generateMipmaps(vk::CommandBuffer buffer, const Internal::T
         }};
 
         vk::ImageBlit blit(
-            { vk::ImageAspectFlagBits::eColor, level - 1, slot, 1 },
+            { vk::ImageAspectFlagBits::eColor, level - 1, 0, 1 },
             sourceCoords,
-            { vk::ImageAspectFlagBits::eColor, level, slot, 1 },
+            { vk::ImageAspectFlagBits::eColor, level, 0, 1 },
             destCoords
         );
 
@@ -380,14 +307,14 @@ void TextureManager::generateMipmaps(vk::CommandBuffer buffer, const Internal::T
 
     image->transitionManual(
         buffer,
-        slot, 1,
+        0, 1,
         image->getMipLevels() - 1, 1,
         vk::ImageLayout::eTransferDstOptimal, true,
         vk::ImageLayout::eTransferSrcOptimal, false,
         vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eTransfer
     );
 
-    image->transitionOverride(vk::ImageLayout::eTransferSrcOptimal, true, vk::PipelineStageFlagBits::eTransfer, slot);
+    image->transitionOverride(vk::ImageLayout::eTransferSrcOptimal, true, vk::PipelineStageFlagBits::eTransfer);
 }
 
 }

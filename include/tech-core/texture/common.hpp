@@ -5,10 +5,23 @@
 
 namespace Engine {
 
-enum MipType {
-    NoMipmap = 0,
+enum class TextureMipType {
+    None,
     StoredStandard,
     Generate
+};
+
+enum class TextureWrapMode {
+    Repeat,
+    Mirror,
+    Clamp,
+    Border
+};
+
+enum class TextureFilterMode {
+    None,
+    Linear,
+    Cubic
 };
 
 class TextureLoadError : public std::exception {
@@ -23,5 +36,11 @@ public:
 private:
     std::string filename;
 };
+
+namespace Internal {
+class SamplerRef;
+class SamplerCache;
+struct SamplerSettings;
+}
 
 }

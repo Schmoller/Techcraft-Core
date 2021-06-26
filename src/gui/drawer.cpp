@@ -29,8 +29,8 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture) {
     // Region for this texture array
     // Create a new one every time the texture array switches to maintain vertex ordering
     Region *region;
-    if (!currentRegion || currentRegion->textureArrayId != texture.arrayId) {
-        region = &regions.emplace_back(Region { texture.arrayId });
+    if (!currentRegion || currentRegion->texture != &texture) {
+        region = &regions.emplace_back(Region { &texture });
         currentRegion = region;
     } else {
         region = currentRegion;
@@ -43,32 +43,36 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture) {
         transformVertex(
             {
                 glm::vec3(rect.topLeft.x, rect.topLeft.y, 0),
-                glm::vec3(0, 0, texture.arraySlot),
+                {},
                 glm::vec4(1, 1, 1, 1),
+                glm::vec2(0, 0)
             }
         ));
     region->vertices.push_back(
         transformVertex(
             {
                 glm::vec3(rect.bottomRight.x, rect.topLeft.y, 0),
-                glm::vec3(1, 0, texture.arraySlot),
+                {},
                 glm::vec4(1, 1, 1, 1),
+                glm::vec2(1, 0),
             }
         ));
     region->vertices.push_back(
         transformVertex(
             {
                 glm::vec3(rect.bottomRight.x, rect.bottomRight.y, 0),
-                glm::vec3(1, 1, texture.arraySlot),
+                {},
                 glm::vec4(1, 1, 1, 1),
+                glm::vec2(1, 1),
             }
         ));
     region->vertices.push_back(
         transformVertex(
             {
                 glm::vec3(rect.topLeft.x, rect.bottomRight.y, 0),
-                glm::vec3(0, 1, texture.arraySlot),
+                {},
                 glm::vec4(1, 1, 1, 1),
+                glm::vec2(0, 1),
             }
         ));
 
@@ -85,8 +89,8 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture, const Re
     // Region for this texture array
     // Create a new one every time the texture array switches to maintain vertex ordering
     Region *region;
-    if (!currentRegion || currentRegion->textureArrayId != texture.arrayId) {
-        region = &regions.emplace_back(Region { texture.arrayId });
+    if (!currentRegion || currentRegion->texture != &texture) {
+        region = &regions.emplace_back(Region { &texture });
         currentRegion = region;
     } else {
         region = currentRegion;
@@ -106,41 +110,44 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture, const Re
         transformVertex(
             {
                 glm::vec3(rect.topLeft.x, rect.topLeft.y, 0),
-                glm::vec3(
-                    sourceRect.topLeft.x / texture.width, sourceRect.topLeft.y / texture.height, texture.arraySlot
+                {},
+                colorVec,
+                glm::vec2(
+                    sourceRect.topLeft.x / texture.getWidth(), sourceRect.topLeft.y / texture.getHeight()
                 ),
-                colorVec
             }
         ));
     region->vertices.push_back(
         transformVertex(
             {
                 glm::vec3(rect.bottomRight.x, rect.topLeft.y, 0),
-                glm::vec3(
-                    sourceRect.bottomRight.x / texture.width, sourceRect.topLeft.y / texture.height, texture.arraySlot
-                ),
-                colorVec
+                {},
+                colorVec,
+                glm::vec2(
+                    sourceRect.bottomRight.x / texture.getWidth(), sourceRect.topLeft.y / texture.getHeight()
+                )
             }
         ));
     region->vertices.push_back(
         transformVertex(
             {
                 glm::vec3(rect.bottomRight.x, rect.bottomRight.y, 0),
-                glm::vec3(
-                    sourceRect.bottomRight.x / texture.width, sourceRect.bottomRight.y / texture.height,
-                    texture.arraySlot
+                {},
+                colorVec,
+                glm::vec2(
+                    sourceRect.bottomRight.x / texture.getWidth(), sourceRect.bottomRight.y / texture.getHeight()
                 ),
-                colorVec
             }
         ));
     region->vertices.push_back(
         transformVertex(
             {
                 glm::vec3(rect.topLeft.x, rect.bottomRight.y, 0),
-                glm::vec3(
-                    sourceRect.topLeft.x / texture.width, sourceRect.bottomRight.y / texture.height, texture.arraySlot
-                ),
-                colorVec
+                {},
+                colorVec,
+                glm::vec2(
+                    sourceRect.topLeft.x / texture.getWidth(), sourceRect.bottomRight.y / texture.getHeight()
+                )
             }
         ));
 
@@ -222,43 +229,51 @@ void Drawer::drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePositi
 
     vertices[0] = {
         { tlOuter, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[1] = {
         { trOuter, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[2] = {
         { tlInner, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[3] = {
         { trInner, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[4] = {
         { blInner, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[5] = {
         { brInner, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[6] = {
         { blOuter, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[7] = {
         { brOuter, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
 
     // Top
@@ -319,23 +334,27 @@ void Drawer::drawLine(const glm::vec2 &from, const glm::vec2 &to, uint32_t colou
 
     vertices[0] = {
         { startL, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[1] = {
         { endL, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[2] = {
         { endR, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
     vertices[3] = {
         { startR, 0 },
-        { 0, 0, whiteTexture.arraySlot },
-        colourVec
+        {},
+        colourVec,
+        { 0, 0 },
     };
 
     indices[0] = 0;
@@ -591,8 +610,8 @@ void Drawer::draw(
 ) {
     // Create a new one every time the texture array switches to maintain vertex ordering
     Region *region;
-    if (!currentRegion || currentRegion->textureArrayId != texture.arrayId) {
-        region = &regions.emplace_back(Region { texture.arrayId });
+    if (!currentRegion || currentRegion->texture != &texture) {
+        region = &regions.emplace_back(Region { &texture });
         currentRegion = region;
     } else {
         region = currentRegion;

@@ -9,13 +9,8 @@ namespace Engine {
 
 
 TextureBuilder::TextureBuilder(TextureManager &manager, std::string name)
-    : manager(manager),
-    name(std::move(name)),
-    pixelData(nullptr),
-    width(0),
-    height(0),
-    mipType(MipType::NoMipmap),
-    sourcedFromFile(false) {}
+    : manager(manager), name(std::move(name)) {
+}
 
 TextureBuilder &TextureBuilder::fromFile(const std::string &filename) {
     int texWidth, texHeight, texChannels;
@@ -50,18 +45,42 @@ TextureBuilder &TextureBuilder::fromRaw(uint32_t width, uint32_t height, uint32_
     return *this;
 }
 
-TextureBuilder &TextureBuilder::withMipMode(MipType type) {
+TextureBuilder &TextureBuilder::withMipMaps(TextureMipType type) {
     mipType = type;
-
     return *this;
 }
 
-const Texture *TextureBuilder::build() {
+TextureBuilder &TextureBuilder::withWrapMode(TextureWrapMode mode) {
+    wrapU = wrapV = mode;
+    return *this;
+}
+
+TextureBuilder &TextureBuilder::withWrapModeU(TextureWrapMode mode) {
+    wrapU = mode;
+    return *this;
+}
+
+TextureBuilder &TextureBuilder::withWrapModeV(TextureWrapMode mode) {
+    wrapV = mode;
+    return *this;
+}
+
+TextureBuilder &TextureBuilder::withFiltering(TextureFilterMode mode) {
+    filtering = mode;
+    return *this;
+}
+
+TextureBuilder &TextureBuilder::withAnisotropy(float amount) {
+    anisotropy = amount;
+    return *this;
+}
+
+const Texture *TextureBuilder::finish() {
     if (!pixelData || width == 0 || height == 0) {
         throw std::runtime_error("Incomplete texture definition");
     }
 
-    auto texture = manager.addTexture(name, width, height, pixelData, mipType);
+    auto texture = manager.add(*this);
 
     if (sourcedFromFile) {
         stbi_image_free(pixelData);

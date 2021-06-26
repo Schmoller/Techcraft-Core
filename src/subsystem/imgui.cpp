@@ -82,18 +82,11 @@ void ImGuiSubsystem::initialiseSwapChainResources(
         .withFragmentShader("assets/shaders/engine/imgui/fragment_plain.spv")
         .build();
 
-    pipelineForTextures = builder
-        .withVertexShader("assets/shaders/engine/imgui/vertex.spv")
-        .withFragmentShader("assets/shaders/engine/imgui/fragment_texarray.spv")
-        .withPushConstants<uint32_t>(vk::ShaderStageFlagBits::eFragment)
-        .build();
-
     vertexBuffers.resize(swapChainImages);
 }
 
 void ImGuiSubsystem::cleanupSwapChainResources(vk::Device device, _E::RenderEngine &engine) {
     pipeline.reset();
-    pipelineForTextures.reset();
 }
 
 void ImGuiSubsystem::cleanupResources(vk::Device device, _E::RenderEngine &engine) {
@@ -134,56 +127,31 @@ void ImGuiSubsystem::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_
         const ImDrawList *commandList = drawData->CmdLists[n];
         for (int commandIndex = 0; commandIndex < commandList->CmdBuffer.Size; commandIndex++) {
             const ImDrawCmd *command = &commandList->CmdBuffer[commandIndex];
+
+            Image* image;
             if (Image::isImage(command->TextureId, device)) {
-                auto image = reinterpret_cast<Image *>(command->TextureId);
-                auto it = imagePoolMapping.find(image);
-                if (it != imagePoolMapping.end()) {
-                    if (currentPipeline != pipeline.get()) {
-                        currentPipeline = pipeline.get();
+                image = reinterpret_cast<Image *>(command->TextureId);
+            } else {
+                image = reinterpret_cast<const Texture *>(command->TextureId)->getImage().get();
+            }
 
-                        setupFrame(drawData, pipeline.get(), commandBuffer, buffers, fbWidth, fbHeight);
-                        lastBound = 0xFFFFFFFF;
-                        lastSlot = 0xFFFFFFFF;
-                    }
+            auto it = imagePoolMapping.find(image);
+            if (it != imagePoolMapping.end()) {
+                if (currentPipeline != pipeline.get()) {
+                    currentPipeline = pipeline.get();
 
-                    if (it->second != lastBound) {
-                        currentPipeline->bindPoolImage(commandBuffer, 0, 0, it->second);
-                        lastBound = it->second;
-                    }
-                } else {
-                    std::cerr << "Unable to find pool mapping for image " << image << std::endl;
-                    continue;
+                    setupFrame(drawData, pipeline.get(), commandBuffer, buffers, fbWidth, fbHeight);
+                    lastBound = 0xFFFFFFFF;
+                    lastSlot = 0xFFFFFFFF;
+                }
+
+                if (it->second != lastBound) {
+                    currentPipeline->bindPoolImage(commandBuffer, 0, 0, it->second);
+                    lastBound = it->second;
                 }
             } else {
-                auto texture = reinterpret_cast<Texture *>(command->TextureId);
-                auto it = texturePoolMapping.find(texture);
-                if (it != texturePoolMapping.end()) {
-                    if (currentPipeline != pipelineForTextures.get()) {
-                        currentPipeline = pipelineForTextures.get();
-
-                        setupFrame(drawData, pipelineForTextures.get(), commandBuffer, buffers, fbWidth, fbHeight);
-                        lastBound = 0xFFFFFFFF;
-                        lastSlot = 0xFFFFFFFF;
-                    }
-
-                    if (it->second != lastBound) {
-                        currentPipeline->bindPoolImage(commandBuffer, 0, 0, it->second);
-                        lastBound = it->second;
-                    }
-
-                    if (texture->arraySlot != lastSlot) {
-                        auto arraySlot = static_cast<uint32_t>(texture->arraySlot);
-
-                        currentPipeline->push(
-                            commandBuffer, vk::ShaderStageFlagBits::eFragment, arraySlot, sizeof(ImGuiPushConstant)
-                        );
-
-                        lastSlot = arraySlot;
-                    }
-                } else {
-                    std::cerr << "Unable to find pool mapping for image " << texture << std::endl;
-                    continue;
-                }
+                std::cerr << "Unable to find pool mapping for image " << image << std::endl;
+                continue;
             }
 
             if (command->UserCallback != nullptr) {
@@ -290,46 +258,30 @@ void ImGuiSubsystem::prepareFrame(uint32_t activeImage) {
         const ImDrawList *commandList = drawData->CmdLists[n];
         for (int commandIndex = 0; commandIndex < commandList->CmdBuffer.Size; commandIndex++) {
             const ImDrawCmd *command = &commandList->CmdBuffer[commandIndex];
+            Image* image;
             if (Image::isImage(command->TextureId, device)) {
-                auto image = reinterpret_cast<Image *>(command->TextureId);
-
-                auto it = imagePoolMapping.find(image);
-                if (it == imagePoolMapping.end()) {
-                    if (nextImagePoolIndex >= MaxTexturesPerFrame) {
-                        // Too many textures
-                        std::cerr << "Too many textures per frame for ImGui. Only " << MaxTexturesPerFrame
-                            << " are supported" << std::endl;
-                        continue;
-                    }
-
-                    if (image->isReadyForSampling()) {
-                        pipeline->updatePoolImage(0, 0, nextImagePoolIndex, *image, image->getCurrentLayout());
-                    } else {
-                        pipeline->updatePoolImage(0, 0, nextImagePoolIndex, *image);
-                    }
-
-                    imagePoolMapping[image] = nextImagePoolIndex;
-                    ++nextImagePoolIndex;
-                }
+                image = reinterpret_cast<Image *>(command->TextureId);
             } else {
-                auto texture = reinterpret_cast<Texture *>(command->TextureId);
+                image = reinterpret_cast<const Texture *>(command->TextureId)->getImage().get();
+            }
 
-                auto it = texturePoolMapping.find(texture);
-                if (it == texturePoolMapping.end()) {
-                    if (nextTexturePoolIndex >= MaxTexturesPerFrame) {
-                        // Too many textures
-                        std::cerr << "Too many textures per frame for ImGui. Only " << MaxTexturesPerFrame
-                            << " are supported" << std::endl;
-                        continue;
-                    }
-
-                    auto image = engine->getTextureManager().getTextureView(*texture);
-
-                    pipelineForTextures->updatePoolImage(0, 0, nextTexturePoolIndex, image);
-
-                    texturePoolMapping[texture] = nextTexturePoolIndex;
-                    ++nextTexturePoolIndex;
+            auto it = imagePoolMapping.find(image);
+            if (it == imagePoolMapping.end()) {
+                if (nextImagePoolIndex >= MaxTexturesPerFrame) {
+                    // Too many textures
+                    std::cerr << "Too many textures per frame for ImGui. Only " << MaxTexturesPerFrame
+                        << " are supported" << std::endl;
+                    continue;
                 }
+
+                if (image->isReadyForSampling()) {
+                    pipeline->updatePoolImage(0, 0, nextImagePoolIndex, *image, image->getCurrentLayout());
+                } else {
+                    pipeline->updatePoolImage(0, 0, nextImagePoolIndex, *image);
+                }
+
+                imagePoolMapping[image] = nextImagePoolIndex;
+                ++nextImagePoolIndex;
             }
         }
     }
@@ -338,7 +290,6 @@ void ImGuiSubsystem::prepareFrame(uint32_t activeImage) {
 void ImGuiSubsystem::beginFrame() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-    texturePoolMapping.clear();
     imagePoolMapping.clear();
 }
 

@@ -1,28 +1,29 @@
 #pragma once
 
-// Forward def
-typedef void *ImTextureID;
+#include "common.hpp"
+#include "../forward.hpp"
+#include <memory>
 
 namespace Engine {
 
-struct Texture {
-    uint32_t arrayId { 0 };
-    size_t arraySlot { 0 };
-    bool mipmaps { false };
-    uint32_t width { 0 };
-    uint32_t height { 0 };
+class Texture {
+public:
+    Texture(std::string name, std::shared_ptr<Image> image, std::shared_ptr<Internal::SamplerRef> sampler);
 
-    ImTextureID toImGui() const {
-        return reinterpret_cast<ImTextureID>(
-            const_cast<Texture *>(this)
-        );
-    }
+    const std::string &getName() const { return name; }
 
-    explicit operator ImTextureID() const {
-        return reinterpret_cast<ImTextureID>(
-            const_cast<Texture *>(this)
-        );
-    }
+    uint32_t getWidth() const;
+    uint32_t getHeight() const;
+
+    const std::shared_ptr<Image> &getImage() const { return image; }
+
+    const std::shared_ptr<Internal::SamplerRef> &getSampler() const { return sampler; }
+private:
+    const std::string name;
+    std::shared_ptr<Image> image;
+    std::shared_ptr<Internal::SamplerRef> sampler;
 };
+
+typedef std::shared_ptr<Texture> SharedTexture;
 
 }
