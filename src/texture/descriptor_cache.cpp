@@ -1,5 +1,8 @@
 #include "descriptor_cache.hpp"
 #include "tech-core/device.hpp"
+#include "tech-core/texture/texture.hpp"
+#include "tech-core/image.hpp"
+#include "sampler_cache.hpp"
 
 namespace Engine::Internal {
 
@@ -13,10 +16,12 @@ DescriptorCache::DescriptorCache(VulkanDevice &device, uint32_t binding)
         vk::ShaderStageFlagBits::eFragment,
     };
 
-    layout = device.device.createDescriptorSetLayout({
-        {},
-        1, &bindingDescription
-    });
+    layout = device.device.createDescriptorSetLayout(
+        {
+            {},
+            1, &bindingDescription
+        }
+    );
 
     vk::DescriptorPoolSize poolSize {
         vk::DescriptorType::eCombinedImageSampler,
@@ -24,11 +29,13 @@ DescriptorCache::DescriptorCache(VulkanDevice &device, uint32_t binding)
         9999
     };
 
-    pool = device.device.createDescriptorPool({
-        {},
-        9999,
-        1, &poolSize
-    });
+    pool = device.device.createDescriptorPool(
+        {
+            {},
+            9999,
+            1, &poolSize
+        }
+    );
 }
 
 DescriptorCache::~DescriptorCache() {
@@ -42,12 +49,33 @@ vk::DescriptorSet DescriptorCache::get(const Texture *texture) {
         return it->second;
     }
 
-    auto sets = device.device.allocateDescriptorSets({
-        pool,
-        1, &layout
-    });
+    auto sets = device.device.allocateDescriptorSets(
+        {
+            pool,
+            1, &layout
+        }
+    );
 
     descriptors[texture] = sets[0];
+
+    auto sampler = texture->getSampler()->get();
+
+    vk::DescriptorImageInfo imageInfo {
+        sampler,
+        texture->getImage()->imageView(),
+        vk::ImageLayout::eShaderReadOnlyOptimal
+    };
+
+    vk::WriteDescriptorSet update {
+        sets[0],
+        binding,
+        0,
+        1,
+        vk::DescriptorType::eCombinedImageSampler,
+        &imageInfo
+    };
+
+    device.device.updateDescriptorSets(1, &update, 0, nullptr);
 
     return sets[0];
 }
@@ -67,7 +95,7 @@ std::shared_ptr<DescriptorCache> DescriptorCacheManager::get(uint32_t binding) {
 }
 
 DescriptorCacheManager::DescriptorCacheManager(VulkanDevice &device)
-: device(device) {
+    : device(device) {
 
 }
 
