@@ -1,6 +1,7 @@
 #include "tech-core/material/manager.hpp"
 #include "tech-core/material/material.hpp"
 #include "tech-core/material/builder.hpp"
+#include "tech-core/texture/manager.hpp"
 
 namespace Engine {
 
@@ -30,6 +31,13 @@ Material *MaterialManager::add(const MaterialBuilder &builder) {
     assert(materials.count(builder.getName()) == 0);
 
     auto material = std::make_shared<Material>(builder);
+    if (!material->getAlbedo()) {
+        material->setAlbedo(textureManager.getWhite());
+    }
+    if (!material->getNormal()) {
+        material->setNormal(textureManager.getTransparent());
+    }
+
     materials[builder.getName()] = material;
 
     return material.get();
@@ -57,6 +65,16 @@ std::vector<const Material *> MaterialManager::getMaterials() const {
         ++index;
     }
     return materialVec;
+}
+
+MaterialManager::MaterialManager(TextureManager &textureManager)
+    : textureManager(textureManager) {
+    generateDefaultMaterials();
+}
+
+void MaterialManager::generateDefaultMaterials() {
+    defaultMaterial = add("internal.default")
+        .build();
 }
 
 

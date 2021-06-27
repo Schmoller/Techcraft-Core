@@ -144,7 +144,7 @@ void RenderEngine::initVulkan() {
     updateEffectPipelines();
 
     createUniformBuffers();
-    materialManager = std::make_unique<MaterialManager>();
+    materialManager = std::make_unique<MaterialManager>(*textureManager);
     fontManager = std::make_unique<FontManager>(
         *textureManager
     );
