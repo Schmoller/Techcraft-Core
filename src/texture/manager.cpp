@@ -108,7 +108,8 @@ const Texture *TextureManager::add(const TextureBuilder &builder) {
             uint32_t width = image->getWidth();
             uint32_t height = image->getHeight();
 
-            if (builder.mipType == TextureMipType::None || (builder.mipType == TextureMipType::Generate && !useFallbackMipmapGen)) {
+            if (builder.mipType == TextureMipType::None ||
+                (builder.mipType == TextureMipType::Generate && !useFallbackMipmapGen)) {
                 image->transferIn(buffer, *stagingBuffer);
             } else if (builder.mipType == TextureMipType::StoredStandard) {
                 // Standard storage:
@@ -185,13 +186,15 @@ const Texture *TextureManager::add(const TextureBuilder &builder) {
     delete[] combinedPixels;
 
     // Make sampler
-    auto sampler = samplers->acquire({
-        builder.filtering,
-        builder.mipType != TextureMipType::None,
-        builder.wrapU,
-        builder.wrapV,
-        builder.anisotropy
-    });
+    auto sampler = samplers->acquire(
+        {
+            builder.filtering,
+            builder.mipType != TextureMipType::None,
+            builder.wrapU,
+            builder.wrapV,
+            builder.anisotropy
+        }
+    );
 
     auto texture = std::make_shared<Texture>(builder.name, image, sampler);
     texturesByName[builder.name] = texture;

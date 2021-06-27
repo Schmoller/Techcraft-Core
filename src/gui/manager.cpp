@@ -246,11 +246,11 @@ void GuiManager::render(vk::CommandBuffer commandBuffer, vk::CommandBufferInheri
 
             // texture info
             if (region.texture) {
-                pipeline->bindTexture(1, 2, region.texture);
+                pipeline->bindTexture(commandBuffer, 0, region.texture);
                 hasBoundTexture = true;
             } else if (!hasBoundTexture) {
                 // It is required that all bindings have a value, even if we wont use one
-                pipeline->bindTexture(1, 2, textureManager.get("internal.white"));
+                pipeline->bindTexture(commandBuffer, 0, textureManager.get("internal.white"));
                 hasBoundTexture = true;
             }
 

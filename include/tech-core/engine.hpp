@@ -227,6 +227,7 @@ private:
     std::unique_ptr<Gui::GuiManager> guiManager;
     std::unique_ptr<FontManager> fontManager;
     std::shared_ptr<Scene> currentScene;
+    std::unique_ptr<Internal::DescriptorCacheManager> descriptorManager;
 
     InputManager inputManager;
 

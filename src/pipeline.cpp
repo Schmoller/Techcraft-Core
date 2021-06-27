@@ -4,6 +4,7 @@
 #include "tech-core/image.hpp"
 #include "tech-core/buffer.hpp"
 #include "tech-core/engine.hpp"
+#include "texture/descriptor_cache.hpp"
 
 #include <array>
 #include <exception>
@@ -16,7 +17,8 @@ PipelineBuilder::PipelineBuilder(
     vk::Device device,
     vk::RenderPass renderPass,
     vk::Extent2D windowSize,
-    uint32_t swapChainImages
+    uint32_t swapChainImages,
+    Internal::DescriptorCacheManager &descriptorManager
 ) : engine(engine),
     device(device),
     renderPass(renderPass),
@@ -25,7 +27,8 @@ PipelineBuilder::PipelineBuilder(
     depthTestEnable(true),
     depthWriteEnable(true),
     cullFaces(true),
-    alpha(false) {}
+    alpha(false),
+    descriptorManager(descriptorManager) {}
 
 PipelineBuilder &PipelineBuilder::withVertexShader(const std::string &path) {
     vertexShaderPath = path;
@@ -955,12 +958,17 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     device.destroyShaderModule(fragShaderModule);
 
     std::map<uint32_t, Pipeline::PipelineBindingDetails> pipelineBindingDetails;
+    std::shared_ptr<Internal::DescriptorCache> descriptorCache;
     for (auto &binding : bindings) {
         pipelineBindingDetails[binding.binding] = {
             binding.definition.descriptorType,
             binding.targetLayout,
             binding.sampler
         };
+
+        if (binding.type == SpecialBinding::Textures) {
+            descriptorCache = descriptorManager.get(binding.binding);
+        }
     }
 
     auto pipeline = std::unique_ptr<Pipeline>(
@@ -973,7 +981,8 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
                 ownedLayouts,
                 descriptorPool
             },
-            pipelineBindingDetails
+            pipelineBindingDetails,
+            descriptorCache
         )
     );
 
@@ -987,16 +996,21 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
             pipeline->bindBuffer(binding.set, binding.binding, buffer);
         } else if (binding.type == SpecialBinding::Camera) {
             pipeline->bindCamera(binding.set, binding.binding, engine);
-        } else if (binding.type == SpecialBinding::Textures) {
-            // pipeline->bindTextures(binding.set, binding.binding, engine);
         }
     }
 
     return pipeline;
 }
 
-Pipeline::Pipeline(vk::Device device, PipelineResources resources, std::map<uint32_t, PipelineBindingDetails> bindings)
-    : device(device), resources(std::move(resources)), bindings(std::move(bindings)) {}
+Pipeline::Pipeline(
+    vk::Device device, PipelineResources resources, std::map<uint32_t, PipelineBindingDetails> bindings,
+    std::shared_ptr<Internal::DescriptorCache> descriptorCache
+)
+    : device(device),
+    resources(std::move(resources)),
+    bindings(std::move(bindings)),
+    descriptorCache(std::move(descriptorCache)) {
+}
 
 Pipeline::~Pipeline() {
     device.destroyPipeline(resources.pipeline);
@@ -1159,6 +1173,11 @@ void Pipeline::bindCamera(uint32_t set, uint32_t binding, RenderEngine &engine) 
     }
 }
 
+void Pipeline::bindTexture(vk::CommandBuffer commandBuffer, uint32_t set, const Texture *texture) {
+    auto descriptor = descriptorCache->get(texture);
+    bindDescriptorSets(commandBuffer, set, 1, &descriptor, 0, nullptr);
+}
+
 void Pipeline::bindPoolImage(vk::CommandBuffer commandBuffer, uint32_t set, uint32_t binding, uint32_t index) {
     auto descriptorSets = resources.descriptorSets[set];
     bindDescriptorSets(commandBuffer, set, 1, &descriptorSets[index], 0, nullptr);
@@ -1257,6 +1276,5 @@ Pipeline::updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, vk::Im
         )
     );
 }
-
 
 }

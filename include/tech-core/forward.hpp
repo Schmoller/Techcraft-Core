@@ -73,6 +73,8 @@ class Drawer;
 namespace Internal {
 class TextureArray;
 class RenderPlanner;
+class DescriptorCacheManager;
+class DescriptorCache;
 }
 
 }

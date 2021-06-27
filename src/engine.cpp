@@ -37,6 +37,7 @@
 
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
+#include "texture/descriptor_cache.hpp"
 #include "execution_controller.hpp"
 #include "scene/render_planner.hpp"
 
@@ -133,6 +134,7 @@ void RenderEngine::initVulkan() {
     taskManager = std::make_unique<TaskManager>(*device);
     textureManager = std::make_unique<TextureManager>(*this, *device, physicalDevice);
     executionController = std::make_unique<ExecutionController>(*device, swapChain->size());
+    descriptorManager = std::make_unique<Internal::DescriptorCacheManager>(*device);
 
     createAttachments();
     createMainRenderPass();
@@ -1006,7 +1008,8 @@ PipelineBuilder RenderEngine::createPipeline(Subsystem::SubsystemLayer layer) {
         device->device,
         renderPass,
         swapChain->extent,
-        layerMain.framebuffers.size()
+        layerMain.framebuffers.size(),
+        *descriptorManager
     );
 }
 
@@ -1036,7 +1039,13 @@ Gui::Rect RenderEngine::getScreenBounds() {
 
 EffectBuilder RenderEngine::createEffect(const std::string &name) {
     PipelineBuilder builder(
-        *this, device->device, layerMain.renderPass, swapChain->extent, layerMain.framebuffers.size());
+        *this,
+        device->device,
+        layerMain.renderPass,
+        swapChain->extent,
+        layerMain.framebuffers.size(),
+        *descriptorManager
+    );
     builder
         .withInputAttachment(0, 0)
         .withInputAttachment(0, 1);

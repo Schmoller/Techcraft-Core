@@ -167,7 +167,8 @@ public:
 
 private:
     PipelineBuilder(
-        RenderEngine &, vk::Device, vk::RenderPass, vk::Extent2D windowSize, uint32_t swapChainImages
+        RenderEngine &, vk::Device, vk::RenderPass, vk::Extent2D windowSize, uint32_t swapChainImages,
+        Internal::DescriptorCacheManager &
     );
 
     // Configurable
@@ -202,6 +203,7 @@ private:
     vk::RenderPass renderPass;
     vk::Extent2D windowSize;
     uint32_t swapChainImages;
+    Internal::DescriptorCacheManager &descriptorManager;
 
     void processBindings(
         std::vector<vk::DescriptorSetLayout> &layouts, std::vector<uint32_t> &setCounts,
@@ -236,9 +238,10 @@ public:
     void bindBuffer(uint32_t set, uint32_t binding, const std::shared_ptr<Buffer> &buffer);
 
     void bindCamera(uint32_t set, uint32_t binding, RenderEngine &);
-    void bindTexture(uint32_t set, uint32_t binding, const Texture *);
 
     void bind(vk::CommandBuffer, uint32_t activeImage = 0);
+
+    void bindTexture(vk::CommandBuffer, uint32_t set, const Texture *);
 
     void bindPoolImage(vk::CommandBuffer commandBuffer, uint32_t set, uint32_t binding, uint32_t index);
     void updatePoolImage(uint32_t set, uint32_t binding, uint32_t index, const Image &image);
@@ -261,17 +264,21 @@ public:
     );
 
 private:
-    Pipeline(vk::Device, PipelineResources resources, std::map<uint32_t, PipelineBindingDetails> bindings);
+    Pipeline(
+        vk::Device, PipelineResources resources, std::map<uint32_t, PipelineBindingDetails> bindings,
+        std::shared_ptr<Internal::DescriptorCache> descriptorCache
+    );
+
 
     // Shared resources
     vk::Device device;
+    std::shared_ptr<Internal::DescriptorCache> descriptorCache;
 
     // Owned resources
     PipelineResources resources;
     std::map<uint32_t, PipelineBindingDetails> bindings;
 
     // Bound resources
-
     std::map<uint32_t, std::shared_ptr<Image>> boundImages;
     std::map<uint32_t, std::shared_ptr<Buffer>> boundBuffers;
     std::vector<vk::WriteDescriptorSet> descriptorUpdates;
