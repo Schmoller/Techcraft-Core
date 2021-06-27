@@ -3,7 +3,8 @@
 
 namespace Engine {
 
-Material::Material(const MaterialBuilder &builder) {
+Material::Material(const MaterialBuilder &builder)
+    : name(builder.getName()) {
     albedo = builder.albedo;
     albedoColor = builder.albedoColor;
     normal = builder.normal;
