@@ -80,11 +80,16 @@ const Texture *TextureManager::add(const TextureBuilder &builder) {
     auto stagingBuffer = engine.getBufferManager().aquireStaging(imageSize);
     stagingBuffer->copyIn(pixelData);
 
+    auto usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled;
+    if (builder.mipType == TextureMipType::Generate && !useFallbackMipmapGen) {
+        usage |= vk::ImageUsageFlagBits::eTransferSrc;
+    }
+
     auto task = engine.getTaskManager().createTask();
     auto imageBuilder = engine.createImage(width, height)
         .withFormat(vk::Format::eR8G8B8A8Unorm)
         .withImageTiling(vk::ImageTiling::eOptimal)
-        .withUsage(vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled)
+        .withUsage(usage)
         .withMemoryUsage(vk::MemoryUsage::eGPUOnly)
         .withDestinationStage(vk::PipelineStageFlagBits::eFragmentShader);
 
