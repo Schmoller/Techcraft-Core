@@ -49,23 +49,32 @@ std::shared_ptr<SamplerRef> SamplerCache::acquire(const SamplerSettings &setting
     vk::SamplerAddressMode addressingU = convertToAddressMode(settings.wrapU);
     vk::SamplerAddressMode addressingV = convertToAddressMode(settings.wrapV);
     vk::SamplerMipmapMode mipMapping;
+    float maxLod;
     if (settings.mipMaps) {
         mipMapping = vk::SamplerMipmapMode::eLinear;
+        maxLod = 16;
     } else {
         mipMapping = vk::SamplerMipmapMode::eNearest;
+        maxLod = 0;
     }
 
-    auto sampler = device.device.createSampler({
-        {},
-        filter, filter,
-        mipMapping,
-        addressingU,
-        addressingV,
-        vk::SamplerAddressMode::eRepeat,
-        0,
-        settings.anisotropy > 0,
-        settings.anisotropy
-    });
+    auto sampler = device.device.createSampler(
+        {
+            {},
+            filter, filter,
+            mipMapping,
+            addressingU,
+            addressingV,
+            vk::SamplerAddressMode::eRepeat,
+            0,
+            settings.anisotropy > 0,
+            settings.anisotropy,
+            false,
+            {},
+            0,
+            maxLod
+        }
+    );
 
     auto samplerRef = std::make_shared<SamplerRef>(device.device, sampler);
     samplers[settings] = samplerRef;
@@ -84,10 +93,10 @@ SamplerRef::~SamplerRef() {
 bool SamplerSettings::operator==(const SamplerSettings &other) const {
     return (
         mipMaps == other.mipMaps &&
-        anisotropy == other.anisotropy &&
-        filtering == other.filtering &&
-        wrapU == other.wrapU &&
-        wrapV == other.wrapV
+            anisotropy == other.anisotropy &&
+            filtering == other.filtering &&
+            wrapU == other.wrapU &&
+            wrapV == other.wrapV
     );
 }
 }
