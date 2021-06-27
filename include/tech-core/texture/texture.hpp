@@ -3,6 +3,7 @@
 #include "common.hpp"
 #include "../forward.hpp"
 #include <memory>
+#include <vulkan/vulkan.hpp>
 
 namespace Engine {
 
@@ -18,6 +19,8 @@ public:
     const std::shared_ptr<Image> &getImage() const { return image; }
 
     const std::shared_ptr<Internal::SamplerRef> &getSampler() const { return sampler; }
+
+    vk::Sampler getVkSampler() const;
 private:
     const std::string name;
     std::shared_ptr<Image> image;

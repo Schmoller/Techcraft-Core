@@ -1,5 +1,6 @@
 #include "tech-core/texture/texture.hpp"
 #include "tech-core/image.hpp"
+#include "sampler_cache.hpp"
 
 namespace Engine {
 
@@ -13,6 +14,10 @@ uint32_t Texture::getWidth() const {
 
 uint32_t Texture::getHeight() const {
     return image->getHeight();
+}
+
+vk::Sampler Texture::getVkSampler() const {
+    return sampler->get();
 }
 
 
