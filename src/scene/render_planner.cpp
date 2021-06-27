@@ -242,7 +242,7 @@ void RenderPlanner::initialiseSwapChainResources(
         .withVertexShader("assets/shaders/engine/builtin/standard-vert.spv")
         .withFragmentShader("assets/shaders/engine/builtin/standard-frag.spv")
         .bindCamera(0, 0)
-        .bindUniformBuffer(1, 1)
+        .bindUniformBufferDynamic(1, 1)
         .bindTextures(2, 2)
         .withVertexBindingDescription(Vertex::getBindingDescription())
         .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions());
