@@ -409,6 +409,50 @@ PipelineBuilder &PipelineBuilder::bindUniformBuffer(
     return *this;
 }
 
+
+PipelineBuilder &
+PipelineBuilder::bindUniformBufferDynamic(uint32_t set, uint32_t binding, const vk::ShaderStageFlags &stages) {
+    bindings.emplace_back(
+        PipelineBinding {
+            set,
+            binding,
+            BindingCount::Single,
+            {
+                binding,
+                vk::DescriptorType::eUniformBufferDynamic,
+                1,
+                stages
+            }
+        }
+    );
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::bindUniformBufferDynamic(
+    uint32_t set, uint32_t binding, std::shared_ptr<Buffer> buffer, const vk::ShaderStageFlags &stages
+) {
+    bindings.emplace_back(
+        PipelineBinding {
+            set,
+            binding,
+            BindingCount::Single,
+            {
+                binding,
+                vk::DescriptorType::eUniformBufferDynamic,
+                1,
+                stages
+            },
+            SpecialBinding::None,
+            {},
+            {},
+            vk::ImageLayout::eUndefined,
+            std::move(buffer)
+        }
+    );
+
+    return *this;
+}
+
 PipelineBuilder &PipelineBuilder::bindSampledImagePool(
     uint32_t set, uint32_t binding, uint32_t size, const vk::ShaderStageFlags &stages, vk::Sampler sampler
 ) {
@@ -568,12 +612,13 @@ void PipelineBuilder::reconfigure(vk::RenderPass renderPass, vk::Extent2D window
 
 void PipelineBuilder::processBindings(
     std::vector<vk::DescriptorSetLayout> &layouts, std::vector<uint32_t> &setCounts,
-    std::vector<vk::DescriptorPoolSize> &poolSizes, uint32_t &totalSets
+    std::vector<vk::DescriptorPoolSize> &poolSizes, uint32_t &totalSets, std::vector<bool> &autoBindSet
 ) {
     std::map<vk::DescriptorType, uint32_t> counters;
     std::multimap<u_int32_t, vk::DescriptorSetLayoutBinding> bindingsBySet;
     uint32_t maxSet = 0;
 
+    autoBindSet.resize(0);
     setCounts.resize(0);
 
     for (auto &binding : bindings) {
@@ -607,6 +652,24 @@ void PipelineBuilder::processBindings(
         } else {
             it->second += count;
         }
+
+        if (autoBindSet.size() <= maxSet) {
+            uint32_t start = autoBindSet.size();
+            autoBindSet.resize(maxSet + 1);
+            std::fill(autoBindSet.begin() + start, autoBindSet.end(), true);
+        }
+
+        bool autoBind;
+        switch (binding.definition.descriptorType) {
+            case vk::DescriptorType::eUniformBufferDynamic:
+                autoBind = false;
+                break;
+            default:
+                autoBind = true;
+                break;
+        }
+
+        autoBindSet[binding.set] = autoBindSet[binding.set] && autoBind;
     }
 
     totalSets = 0;
@@ -684,9 +747,10 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     std::vector<vk::DescriptorSetLayout> descriptorSetLayouts;
     std::vector<uint32_t> setCounts;
     std::vector<vk::DescriptorPoolSize> poolSizes;
+    std::vector<bool> autoBindSet;
     uint32_t totalSets;
 
-    processBindings(descriptorSetLayouts, setCounts, poolSizes, totalSets);
+    processBindings(descriptorSetLayouts, setCounts, poolSizes, totalSets, autoBindSet);
 
     vk::DescriptorPool descriptorPool;
     if (totalSets != 0) {
@@ -903,6 +967,7 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
                 vulkanPipeline,
                 pipelineLayout,
                 descriptorSets,
+                autoBindSet,
                 ownedLayouts,
                 descriptorPool
             },
@@ -960,7 +1025,7 @@ void Pipeline::bind(vk::CommandBuffer commandBuffer, uint32_t activeImage) {
     // Now bind all descriptor sets
     uint32_t setIndex = 0;
     for (auto &descriptorSets : resources.descriptorSets) {
-        if (!descriptorSets.empty()) {
+        if (!descriptorSets.empty() && resources.autoBindSet[setIndex]) {
             vk::DescriptorSet set;
 
             if (descriptorSets.size() == 1) {

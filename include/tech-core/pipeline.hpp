@@ -131,6 +131,13 @@ public:
         uint32_t set, uint32_t binding, std::shared_ptr<Buffer> buffer,
         const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eVertex
     );
+    PipelineBuilder &bindUniformBufferDynamic(
+        uint32_t set, uint32_t binding, const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eVertex
+    );
+    PipelineBuilder &bindUniformBufferDynamic(
+        uint32_t set, uint32_t binding, std::shared_ptr<Buffer> buffer,
+        const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eVertex
+    );
     PipelineBuilder &bindSampledImagePool(
         uint32_t set, uint32_t binding, uint32_t size,
         const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment,
@@ -198,7 +205,7 @@ private:
 
     void processBindings(
         std::vector<vk::DescriptorSetLayout> &layouts, std::vector<uint32_t> &setCounts,
-        std::vector<vk::DescriptorPoolSize> &poolSizes, uint32_t &totalSets
+        std::vector<vk::DescriptorPoolSize> &poolSizes, uint32_t &totalSets, std::vector<bool> &autoBindSet
     );
 
     void reconfigure(vk::RenderPass, vk::Extent2D windowSize);
@@ -210,6 +217,7 @@ class Pipeline {
         vk::Pipeline pipeline;
         vk::PipelineLayout layout;
         std::vector<std::vector<vk::DescriptorSet>> descriptorSets;
+        std::vector<bool> autoBindSet;
         std::vector<vk::DescriptorSetLayout> descriptorLayouts;
         vk::DescriptorPool descriptorPool;
     };
