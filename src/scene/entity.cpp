@@ -63,6 +63,7 @@ void Entity::removeChildById(EntityId childId) {
             }
             return;
         }
+        ++it;
     }
 }
 

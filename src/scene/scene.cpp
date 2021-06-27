@@ -57,6 +57,7 @@ void Scene::removeChildById(EntityId id) {
                 children.erase(childIt);
                 break;
             }
+            ++childIt;
         }
         childrenById.erase(it);
         child->setScene({}, nullptr);
