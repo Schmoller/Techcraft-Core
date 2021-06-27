@@ -20,6 +20,12 @@ public:
     const Texture *get(const std::string &name) const;
     bool remove(const std::string &name);
 
+    const Texture *getWhite() const { return whiteTexture; }
+
+    const Texture *getError() const { return errorTexture; }
+
+    const Texture *getTransparent() const { return transparentTexture; }
+
 private:
     RenderEngine &engine;
     VulkanDevice &device;
@@ -30,6 +36,8 @@ private:
 
     std::unordered_map<std::string, SharedTexture> texturesByName;
     const Texture *errorTexture { nullptr };
+    const Texture *whiteTexture { nullptr };
+    const Texture *transparentTexture { nullptr };
 
     void generatePlaceholders();
 

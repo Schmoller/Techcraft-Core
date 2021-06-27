@@ -259,13 +259,13 @@ void TextureManager::generatePlaceholders() {
 
     generateSolidPixels(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels, 0x00000000);
 
-    add("internal.loading")
+    transparentTexture = add("internal.loading")
         .fromRaw(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels)
         .finish();
 
     generateSolidPixels(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels, 0xFFFFFFFF);
 
-    add("internal.white")
+    whiteTexture = add("internal.white")
         .fromRaw(PLACEHOLDER_TEXTURE_SIZE, PLACEHOLDER_TEXTURE_SIZE, pixels)
         .finish();
 
