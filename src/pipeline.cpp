@@ -648,7 +648,9 @@ void PipelineBuilder::processBindings(
         setCounts[binding.set] = std::max(setCounts[binding.set], count);
 
         if (it == counters.end()) {
-            counters[type] = count;
+            if (count > 0) {
+                counters[type] = count;
+            }
         } else {
             it->second += count;
         }
