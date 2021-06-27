@@ -7,6 +7,7 @@
 #include <scene/components/planner_data.hpp>
 #include <tech-core/scene/components/mesh_renderer.hpp>
 #include <tech-core/mesh.hpp>
+#include <tech-core/material/material.hpp>
 
 namespace Engine {
 
@@ -98,6 +99,14 @@ void showEntityInformation(Entity *entity) {
     if (entity->has<MeshRenderer>() && ImGui::CollapsingHeader("MeshRenderer")) {
         auto &data = entity->get<MeshRenderer>();
         ImGui::Text("Mesh: %ul", data.getMesh());
+
+        auto material = data.getMaterial();
+        if (material) {
+            auto name = material->getName().c_str();
+            ImGui::Text("Material: %s", name);
+        } else {
+            ImGui::Text("Material: None");
+        }
     }
 }
 
