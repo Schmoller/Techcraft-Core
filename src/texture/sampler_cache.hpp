@@ -15,6 +15,8 @@ struct SamplerSettings {
     TextureWrapMode wrapU { TextureWrapMode::Repeat };
     TextureWrapMode wrapV { TextureWrapMode::Repeat };
     float anisotropy { 0 };
+
+    bool operator== (const SamplerSettings &other) const;
 };
 
 }
