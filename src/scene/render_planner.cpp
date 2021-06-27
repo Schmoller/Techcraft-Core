@@ -7,6 +7,8 @@
 #include "components/planner_data.hpp"
 #include "tech-core/mesh.hpp"
 #include "tech-core/texture/manager.hpp"
+#include "tech-core/material/material.hpp"
+#include "tech-core/material/manager.hpp"
 #include <iostream>
 
 namespace Engine::Internal {
@@ -174,6 +176,8 @@ void RenderPlanner::initialiseResources(
 
     this->device = device;
     this->engine = &engine;
+
+    defaultMaterial = engine.getMaterialManager().getDefault();
 }
 
 void RenderPlanner::initialiseSwapChainResources(
@@ -336,11 +340,18 @@ void RenderPlanner::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t
         uint32_t dyanmicOffset = plannerData.render.uniformOffset;
 
         std::array<vk::DescriptorSet, 1> boundDescriptors = {
-            plannerData.render.buffer->set,
-//            engine->getMaterialManager().getBinding(engine->getMaterialManager().),
+            plannerData.render.buffer->set
         };
 
         pipeline->bindDescriptorSets(commandBuffer, 1, vkUseArray(boundDescriptors), 1, &dyanmicOffset);
+
+        auto material = renderData.getMaterial();
+        if (material) {
+            pipeline->bindTexture(commandBuffer, 2, material->getAlbedo());
+        } else {
+            pipeline->bindTexture(commandBuffer, 2, defaultMaterial->getAlbedo());
+        }
+
         commandBuffer.drawIndexed(mesh->getIndexCount(), 1, 0, 0, 0);
     }
 
@@ -360,7 +371,6 @@ void RenderPlanner::updateEntityUniform(Entity *entity) {
         data.render.uniformOffset + offsetof(EntityUBO, transform),
         sizeof(glm::mat4)
     );
-    // TODO: Add in the texture information
 }
 
 glm::mat4 RenderPlanner::getRelativeTransform(const glm::mat4 &parent, const glm::mat4 &child) {

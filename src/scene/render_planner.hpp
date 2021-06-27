@@ -10,7 +10,6 @@ namespace Engine::Internal {
 
 struct EntityUBO {
     alignas(16) glm::mat4 transform;
-    alignas(4)  uint32_t textureIndex;
 };
 
 
@@ -56,6 +55,8 @@ private:
 
     vk::DescriptorSetLayout objectDSL;
     vk::DescriptorPool objectDSPool;
+
+    const Material *defaultMaterial;
 
     void addToRender(Entity *);
     void removeFromRender(Entity *);

@@ -9,13 +9,16 @@ class MeshRenderer final : public Component {
 public:
     explicit MeshRenderer(Entity &);
 
-    void setMesh(const Mesh *mesh);
+    void setMesh(const Mesh *);
+    void setMaterial(const Material *);
 
-    const Mesh *getMesh() const { return mesh; };
+    const Mesh *getMesh() const { return mesh; }
 
-    // TODO: Materials
+    const Material *getMaterial() const { return material; }
+
 private:
     const Mesh *mesh {};
+    const Material *material {};
 };
 
 }

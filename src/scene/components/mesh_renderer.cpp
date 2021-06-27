@@ -13,4 +13,9 @@ void MeshRenderer::setMesh(const Mesh *newMesh) {
     owner.invalidate(EntityInvalidateType::Render);
 }
 
+void MeshRenderer::setMaterial(const Material *newMaterial) {
+    material = newMaterial;
+    owner.invalidate(EntityInvalidateType::Render);
+}
+
 }

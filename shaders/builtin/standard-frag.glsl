@@ -6,10 +6,9 @@ layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec4 fragColour;
 layout(location = 1) in vec3 fragNormal;
-layout(location = 2) in vec3 fragTexCoord;
-layout(set = 3, binding = 2) uniform sampler2D texSampler;
+layout(location = 2) in vec2 fragTexCoord;
+layout(set = 2, binding = 2) uniform sampler2D texSampler;
 
 void main() {
-    //    outColor = texture(texSampler, fragTexCoord) * vec4(fragColour, 1.0);
-    outColor = fragColour;
+    outColor = texture(texSampler, fragTexCoord) * fragColour;
 }

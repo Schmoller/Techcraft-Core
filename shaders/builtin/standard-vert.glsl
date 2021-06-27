@@ -9,7 +9,6 @@ layout(binding = 0) uniform CameraUBO {
 
 layout(set = 1, binding = 1) uniform EntityUBO {
     mat4 transform;
-    uint textureIndex;
 } obj;
 
 layout(location = 0) in vec3 inPosition;
@@ -19,12 +18,12 @@ layout(location = 3) in vec2 inTexCoord;
 
 layout(location = 0) out vec4 fragColour;
 layout(location = 1) out vec3 fragNormal;
-layout(location = 2) out vec3 fragTexCoord;
+layout(location = 2) out vec2 fragTexCoord;
 
 
 void main() {
     gl_Position = cam.proj * cam.view * obj.transform * vec4(inPosition, 1.0);
     fragNormal = inNormal * mat3(obj.transform);
-    fragTexCoord = vec3(inTexCoord, obj.textureIndex);
+    fragTexCoord = inTexCoord;
     fragColour = inColor;
 }
