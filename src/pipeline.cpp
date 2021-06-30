@@ -4,7 +4,9 @@
 #include "tech-core/image.hpp"
 #include "tech-core/buffer.hpp"
 #include "tech-core/engine.hpp"
+#include "tech-core/material/material.hpp"
 #include "texture/descriptor_cache.hpp"
+
 
 #include <array>
 #include <exception>
@@ -157,6 +159,12 @@ PipelineBuilder &PipelineBuilder::bindCamera(uint32_t set, uint32_t binding) {
 }
 
 PipelineBuilder &PipelineBuilder::bindTextures(uint32_t set, uint32_t binding) {
+    for (auto &existing : bindings) {
+        if (existing.type == SpecialBinding::Textures && existing.set == set) {
+            throw std::runtime_error("Cannot bind multiple textures to same set");
+        }
+    }
+
     bindings.emplace_back(
         PipelineBinding {
             set,
@@ -172,6 +180,13 @@ PipelineBuilder &PipelineBuilder::bindTextures(uint32_t set, uint32_t binding) {
         }
     );
 
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::bindMaterial(uint32_t set, uint32_t binding, MaterialBindPoint bindPoint) {
+    bindTextures(set, binding);
+
+    materialBindings[bindPoint] = binding;
     return *this;
 }
 
@@ -242,6 +257,7 @@ PipelineBuilder &PipelineBuilder::bindSampledImage(
     return *this;
 }
 
+
 PipelineBuilder &PipelineBuilder::bindSampledImage(
     uint32_t set, uint32_t binding, std::shared_ptr<Image> image, const vk::ShaderStageFlags &stages,
     vk::ImageLayout imageLayout, vk::Sampler sampler
@@ -265,7 +281,6 @@ PipelineBuilder &PipelineBuilder::bindSampledImage(
     );
     return *this;
 }
-
 
 PipelineBuilder &PipelineBuilder::bindSampledImageImmutable(
     uint32_t set, uint32_t binding, vk::Sampler sampler, const vk::ShaderStageFlags &stages
@@ -387,6 +402,7 @@ PipelineBuilder::bindUniformBuffer(uint32_t set, uint32_t binding, const vk::Sha
     return *this;
 }
 
+
 PipelineBuilder &PipelineBuilder::bindUniformBuffer(
     uint32_t set, uint32_t binding, std::shared_ptr<Buffer> buffer, const vk::ShaderStageFlags &stages
 ) {
@@ -411,7 +427,6 @@ PipelineBuilder &PipelineBuilder::bindUniformBuffer(
 
     return *this;
 }
-
 
 PipelineBuilder &
 PipelineBuilder::bindUniformBufferDynamic(uint32_t set, uint32_t binding, const vk::ShaderStageFlags &stages) {
@@ -958,16 +973,18 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     device.destroyShaderModule(fragShaderModule);
 
     std::map<uint32_t, Pipeline::PipelineBindingDetails> pipelineBindingDetails;
-    std::shared_ptr<Internal::DescriptorCache> descriptorCache;
+    std::map<uint32_t, std::shared_ptr<Internal::DescriptorCache>> textureDescriptorCaches;
     for (auto &binding : bindings) {
         pipelineBindingDetails[binding.binding] = {
+            binding.set,
             binding.definition.descriptorType,
             binding.targetLayout,
             binding.sampler
         };
 
         if (binding.type == SpecialBinding::Textures) {
-            descriptorCache = descriptorManager.get(binding.binding);
+            auto descriptorCache = descriptorManager.get(binding.binding);
+            textureDescriptorCaches.emplace(binding.binding, descriptorCache);
         }
     }
 
@@ -982,7 +999,8 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
                 descriptorPool
             },
             pipelineBindingDetails,
-            descriptorCache
+            textureDescriptorCaches,
+            materialBindings
         )
     );
 
@@ -1004,12 +1022,22 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
 
 Pipeline::Pipeline(
     vk::Device device, PipelineResources resources, std::map<uint32_t, PipelineBindingDetails> bindings,
-    std::shared_ptr<Internal::DescriptorCache> descriptorCache
+    std::map<uint32_t, std::shared_ptr<Internal::DescriptorCache>> textureDescriptorCaches,
+    const std::unordered_map<MaterialBindPoint, uint32_t> &materialBindings
 )
     : device(device),
     resources(std::move(resources)),
     bindings(std::move(bindings)),
-    descriptorCache(std::move(descriptorCache)) {
+    textureDescriptorCaches(std::move(textureDescriptorCaches)) {
+
+    auto it = materialBindings.find(MaterialBindPoint::Albedo);
+    if (it != materialBindings.end()) {
+        bindingMaterialAlbedo = it->second;
+    }
+    it = materialBindings.find(MaterialBindPoint::Normal);
+    if (it != materialBindings.end()) {
+        bindingMaterialNormal = it->second;
+    }
 }
 
 Pipeline::~Pipeline() {
@@ -1173,9 +1201,22 @@ void Pipeline::bindCamera(uint32_t set, uint32_t binding, RenderEngine &engine) 
     }
 }
 
-void Pipeline::bindTexture(vk::CommandBuffer commandBuffer, uint32_t set, const Texture *texture) {
-    auto descriptor = descriptorCache->get(texture);
+void Pipeline::bindTexture(vk::CommandBuffer commandBuffer, uint32_t binding, const Texture *texture) {
+    auto descriptor = textureDescriptorCaches[binding]->get(texture);
+    auto set = bindings[binding].set;
     bindDescriptorSets(commandBuffer, set, 1, &descriptor, 0, nullptr);
+}
+
+void Pipeline::bindMaterial(vk::CommandBuffer commandBuffer, const Material *material) {
+    if (bindingMaterialAlbedo) {
+        auto albedoTexture = material->getAlbedo();
+        bindTexture(commandBuffer, *bindingMaterialAlbedo, albedoTexture);
+    }
+
+    if (bindingMaterialNormal) {
+        auto normalTexture = material->getNormal();
+        bindTexture(commandBuffer, *bindingMaterialNormal, normalTexture);
+    }
 }
 
 void Pipeline::bindPoolImage(vk::CommandBuffer commandBuffer, uint32_t set, uint32_t binding, uint32_t index) {

@@ -247,7 +247,8 @@ void RenderPlanner::initialiseSwapChainResources(
         .withFragmentShader("assets/shaders/engine/builtin/standard-frag.spv")
         .bindCamera(0, 0)
         .bindUniformBufferDynamic(1, 1)
-        .bindTextures(2, 2)
+        .bindMaterial(2, 3, MaterialBindPoint::Albedo)
+        .bindMaterial(3, 4, MaterialBindPoint::Normal)
         .withVertexBindingDescription(Vertex::getBindingDescription())
         .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions());
 
@@ -347,9 +348,9 @@ void RenderPlanner::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t
 
         auto material = renderData.getMaterial();
         if (material) {
-            pipeline->bindTexture(commandBuffer, 2, material->getAlbedo());
+            pipeline->bindMaterial(commandBuffer, material);
         } else {
-            pipeline->bindTexture(commandBuffer, 2, defaultMaterial->getAlbedo());
+            pipeline->bindMaterial(commandBuffer, defaultMaterial);
         }
 
         commandBuffer.drawIndexed(mesh->getIndexCount(), 1, 0, 0, 0);
