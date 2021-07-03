@@ -9,6 +9,8 @@
 #include "tech-core/texture/manager.hpp"
 #include "tech-core/material/material.hpp"
 #include "tech-core/material/manager.hpp"
+#include "internal/packaged/builtin_standard_frag_glsl.h"
+#include "internal/packaged/builtin_standard_vert_glsl.h"
 #include <iostream>
 
 namespace Engine::Internal {
@@ -243,8 +245,8 @@ void RenderPlanner::initialiseSwapChainResources(
     );
 
     auto builder = engine.createPipeline()
-        .withVertexShader("assets/shaders/engine/builtin/standard-vert.spv")
-        .withFragmentShader("assets/shaders/engine/builtin/standard-frag.spv")
+        .withVertexShader(BUILTIN_STANDARD_VERT_GLSL, BUILTIN_STANDARD_VERT_GLSL_SIZE)
+        .withFragmentShader(BUILTIN_STANDARD_FRAG_GLSL, BUILTIN_STANDARD_FRAG_GLSL_SIZE)
         .bindCamera(0, 0)
         .bindUniformBufferDynamic(1, 1)
         .bindMaterial(2, 3, MaterialBindPoint::Albedo)

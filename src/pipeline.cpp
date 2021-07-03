@@ -33,12 +33,42 @@ PipelineBuilder::PipelineBuilder(
     descriptorManager(descriptorManager) {}
 
 PipelineBuilder &PipelineBuilder::withVertexShader(const std::string &path) {
-    vertexShaderPath = path;
+    vertexShaderData = readFile(path);
+
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::withVertexShader(const char *data, size_t size) {
+    vertexShaderData.resize(size);
+    std::memcpy(vertexShaderData.data(), data, size);
+
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::withVertexShader(const unsigned char *data, size_t size) {
+    vertexShaderData.resize(size);
+    std::memcpy(vertexShaderData.data(), data, size);
+
     return *this;
 }
 
 PipelineBuilder &PipelineBuilder::withFragmentShader(const std::string &path) {
-    fragmentShaderPath = path;
+    fragmentShaderData = readFile(path);
+
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::withFragmentShader(const char *data, size_t size) {
+    fragmentShaderData.resize(size);
+    std::memcpy(fragmentShaderData.data(), data, size);
+
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::withFragmentShader(const unsigned char *data, size_t size) {
+    fragmentShaderData.resize(size);
+    std::memcpy(fragmentShaderData.data(), data, size);
+
     return *this;
 }
 
@@ -728,20 +758,9 @@ void PipelineBuilder::processBindings(
 }
 
 std::unique_ptr<Pipeline> PipelineBuilder::build() {
-    // Check for valid settings
-    if (vertexShaderPath.empty()) {
-        throw std::runtime_error("Missing vertex shader");
-    }
-    if (fragmentShaderPath.empty()) {
-        throw std::runtime_error("Missing fragment shader");
-    }
-
     // Set up the shader stages
-    auto vertShaderCode = readFile(vertexShaderPath);
-    auto fragShaderCode = readFile(fragmentShaderPath);
-
-    vk::ShaderModule vertShaderModule = createShaderModule(device, vertShaderCode);
-    vk::ShaderModule fragShaderModule = createShaderModule(device, fragShaderCode);
+    vk::ShaderModule vertShaderModule = createShaderModule(device, vertexShaderData);
+    vk::ShaderModule fragShaderModule = createShaderModule(device, fragmentShaderData);
 
     vk::SpecializationInfo vertShaderSpecialization(
         vkUseArray(vertexSpecializationEntries), sizeof(uint32_t) * vertexSpecializationData.size(),

@@ -6,6 +6,8 @@
 #include "tech-core/texture/common.hpp"
 #include "tech-core/texture/manager.hpp"
 #include "vulkanutils.hpp"
+#include "internal/packaged/imgui_vertex_glsl.h"
+#include "internal/packaged/imgui_fragment_plain_glsl.h"
 
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
@@ -78,8 +80,8 @@ void ImGuiSubsystem::initialiseSwapChainResources(
         .withPushConstants<ImGuiPushConstant>(vk::ShaderStageFlagBits::eVertex);
 
     pipeline = builder
-        .withVertexShader("assets/shaders/engine/imgui/vertex.spv")
-        .withFragmentShader("assets/shaders/engine/imgui/fragment_plain.spv")
+        .withVertexShader(IMGUI_VERTEX_GLSL, IMGUI_VERTEX_GLSL_SIZE)
+        .withFragmentShader(IMGUI_FRAGMENT_PLAIN_GLSL, IMGUI_FRAGMENT_PLAIN_GLSL_SIZE)
         .build();
 
     vertexBuffers.resize(swapChainImages);
@@ -128,7 +130,7 @@ void ImGuiSubsystem::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_
         for (int commandIndex = 0; commandIndex < commandList->CmdBuffer.Size; commandIndex++) {
             const ImDrawCmd *command = &commandList->CmdBuffer[commandIndex];
 
-            Image* image;
+            Image *image;
             if (Image::isImage(command->TextureId, device)) {
                 image = reinterpret_cast<Image *>(command->TextureId);
             } else {
@@ -258,7 +260,7 @@ void ImGuiSubsystem::prepareFrame(uint32_t activeImage) {
         const ImDrawList *commandList = drawData->CmdLists[n];
         for (int commandIndex = 0; commandIndex < commandList->CmdBuffer.Size; commandIndex++) {
             const ImDrawCmd *command = &commandList->CmdBuffer[commandIndex];
-            Image* image;
+            Image *image;
             if (Image::isImage(command->TextureId, device)) {
                 image = reinterpret_cast<Image *>(command->TextureId);
             } else {

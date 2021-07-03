@@ -2,6 +2,8 @@
 #include "tech-core/shapes/bounding_box.hpp"
 #include "tech-core/engine.hpp"
 #include "vulkanutils.hpp"
+#include "internal/packaged/debugline_frag_glsl.h"
+#include "internal/packaged/debugline_vert_glsl.h"
 
 namespace Engine::Subsystem {
 namespace _E = Engine;
@@ -76,8 +78,8 @@ DebugSubsystem::initialiseResources(vk::Device device, vk::PhysicalDevice physic
 void
 DebugSubsystem::initialiseSwapChainResources(vk::Device device, _E::RenderEngine &engine, uint32_t swapChainImages) {
     pipeline = engine.createPipeline()
-        .withVertexShader("assets/shaders/debugline-vert.spv")
-        .withFragmentShader("assets/shaders/debugline-frag.spv")
+        .withVertexShader(DEBUGLINE_VERT_GLSL, DEBUGLINE_VERT_GLSL_SIZE)
+        .withFragmentShader(DEBUGLINE_FRAG_GLSL, DEBUGLINE_FRAG_GLSL_SIZE)
         .withGeometryType(PipelineGeometryType::SegmentedLines)
         .withPushConstants<DebugLinePC>(vk::ShaderStageFlagBits::eVertex)
         .bindCamera(0, 0)

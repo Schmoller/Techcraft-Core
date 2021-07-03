@@ -1,5 +1,6 @@
 #include "tech-core/post_processing.hpp"
 #include "tech-core/engine.hpp"
+#include "internal/packaged/effects_screen_gen_vertex_glsl.h"
 
 #include <utility>
 
@@ -10,7 +11,7 @@ EffectBuilder::EffectBuilder(std::string name, RenderEngine &renderEngine, Pipel
 
     // FIXME: This is inefficient loading this every time
     pipelineBuilder
-        .withVertexShader("assets/shaders/engine/effects/screen_gen_vertex.spv")
+        .withVertexShader(EFFECTS_SCREEN_GEN_VERTEX_GLSL, EFFECTS_SCREEN_GEN_VERTEX_GLSL_SIZE)
         .withoutDepthTest()
         .withoutDepthWrite()
         .withoutFaceCulling()

@@ -2,6 +2,8 @@
 #include "tech-core/gui/drawer.hpp"
 #include "tech-core/pipeline.hpp"
 #include "tech-core/texture/manager.hpp"
+#include "internal/packaged/gui_frag_glsl.h"
+#include "internal/packaged/gui_vert_glsl.h"
 #include <iostream>
 
 namespace Engine::Gui {
@@ -41,8 +43,8 @@ GuiManager::GuiManager(
 
 void GuiManager::recreatePipeline(Engine::PipelineBuilder pipelineBuilder, const vk::Extent2D &windowSize) {
     pipeline = pipelineBuilder
-        .withVertexShader("assets/shaders/gui-vert.spv")
-        .withFragmentShader("assets/shaders/gui-frag.spv")
+        .withVertexShader(GUI_VERT_GLSL, GUI_VERT_GLSL_SIZE)
+        .withFragmentShader(GUI_FRAG_GLSL, GUI_FRAG_GLSL_SIZE)
         .withoutDepthTest()
         .withoutDepthWrite()
         .bindTextures(0, 2)

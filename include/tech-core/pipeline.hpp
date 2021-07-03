@@ -71,7 +71,11 @@ class PipelineBuilder {
 
 public:
     PipelineBuilder &withVertexShader(const std::string &path);
+    PipelineBuilder &withVertexShader(const unsigned char *data, size_t size);
+    PipelineBuilder &withVertexShader(const char *data, size_t size);
     PipelineBuilder &withFragmentShader(const std::string &path);
+    PipelineBuilder &withFragmentShader(const unsigned char *data, size_t size);
+    PipelineBuilder &withFragmentShader(const char *data, size_t size);
     PipelineBuilder &withShaderConstant(uint32_t constantId, vk::ShaderStageFlagBits stage, bool);
     template<typename T>
     PipelineBuilder &withShaderConstant(uint32_t constantId, vk::ShaderStageFlagBits stage, T);
@@ -179,8 +183,8 @@ private:
 
     // Configurable
     PipelineGeometryType geomType { PipelineGeometryType::Polygons };
-    std::string vertexShaderPath;
-    std::string fragmentShaderPath;
+    std::vector<char> vertexShaderData;
+    std::vector<char> fragmentShaderData;
     std::vector<vk::PushConstantRange> pushConstants;
     std::vector<vk::DescriptorSetLayout> providedDescriptorLayouts;
     std::vector<vk::DynamicState> dynamicState;
