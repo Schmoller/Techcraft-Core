@@ -998,15 +998,33 @@ void RenderEngine::destroyMaterial(const char *name) {
 
 PipelineBuilder RenderEngine::createPipeline(Subsystem::SubsystemLayer layer) {
     vk::RenderPass renderPass;
+    uint32_t colorAttachmentCount;
     if (layer == Subsystem::SubsystemLayer::Main) {
         renderPass = layerMain.renderPass;
+        colorAttachmentCount = 1;
     } else {
         renderPass = layerOverlay.renderPass;
+        colorAttachmentCount = 1;
     }
+
     return PipelineBuilder(
         *this,
         device->device,
         renderPass,
+        colorAttachmentCount,
+        swapChain->extent,
+        layerMain.framebuffers.size(),
+        *descriptorManager
+    );
+}
+
+
+PipelineBuilder RenderEngine::createPipeline(vk::RenderPass renderPass, uint32_t colorAttachmentCount) {
+    return PipelineBuilder(
+        *this,
+        device->device,
+        renderPass,
+        colorAttachmentCount,
         swapChain->extent,
         layerMain.framebuffers.size(),
         *descriptorManager
@@ -1042,6 +1060,7 @@ EffectBuilder RenderEngine::createEffect(const std::string &name) {
         *this,
         device->device,
         layerMain.renderPass,
+        1,
         swapChain->extent,
         layerMain.framebuffers.size(),
         *descriptorManager

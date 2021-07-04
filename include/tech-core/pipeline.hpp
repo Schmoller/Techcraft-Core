@@ -177,7 +177,8 @@ public:
 
 private:
     PipelineBuilder(
-        RenderEngine &, vk::Device, vk::RenderPass, vk::Extent2D windowSize, uint32_t swapChainImages,
+        RenderEngine &, vk::Device, vk::RenderPass, uint32_t colorAttachmentCount, vk::Extent2D windowSize,
+        uint32_t swapChainImages,
         Internal::DescriptorCacheManager &
     );
 
@@ -212,6 +213,7 @@ private:
     RenderEngine &engine;
     vk::Device device;
     vk::RenderPass renderPass;
+    uint32_t colorAttachmentCount;
     vk::Extent2D windowSize;
     uint32_t swapChainImages;
     Internal::DescriptorCacheManager &descriptorManager;

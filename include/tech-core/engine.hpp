@@ -103,6 +103,7 @@ public:
     //  Builders
     // ==============================================
     PipelineBuilder createPipeline(Subsystem::SubsystemLayer layer = Subsystem::SubsystemLayer::Main);
+    PipelineBuilder createPipeline(vk::RenderPass, uint32_t colorAttachmentCount);
     ComputeTaskBuilder createComputeTask();
 
     // ==============================================
