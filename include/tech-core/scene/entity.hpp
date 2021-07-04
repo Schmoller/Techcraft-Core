@@ -17,7 +17,8 @@ namespace Engine {
 
 enum class EntityInvalidateType {
     Transform,
-    Render
+    Render,
+    Light
 };
 
 class Entity final {

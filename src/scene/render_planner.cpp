@@ -1,6 +1,7 @@
 #include <vulkanutils.hpp>
 #include "render_planner.hpp"
 #include "tech-core/scene/components/mesh_renderer.hpp"
+#include "tech-core/scene/components/light.hpp"
 #include "tech-core/buffer.hpp"
 #include "tech-core/engine.hpp"
 #include "tech-core/device.hpp"
@@ -11,6 +12,7 @@
 #include "tech-core/material/manager.hpp"
 #include "internal/packaged/builtin_standard_frag_glsl.h"
 #include "internal/packaged/builtin_standard_vert_glsl.h"
+#include "bindings.hpp"
 #include <iostream>
 
 namespace Engine::Internal {
@@ -28,11 +30,17 @@ void RenderPlanner::addEntity(Entity *entity) {
     if (entity->has<MeshRenderer>()) {
         addToRender(entity);
     }
+    if (entity->has<Light>()) {
+        addLight(entity);
+    }
 }
 
 void RenderPlanner::removeEntity(Entity *entity) {
     if (entity->has<MeshRenderer>()) {
         removeFromRender(entity);
+    }
+    if (entity->has<Light>()) {
+        removeLight(entity);
     }
 }
 
@@ -47,13 +55,23 @@ void RenderPlanner::updateEntity(Entity *entity, EntityUpdateType update) {
                 }
             }
         );
+    } else if (update == EntityUpdateType::Light) {
+        if (entity->has<Light>()) {
+            updateLightUniform(entity);
+        }
     } else if (update == EntityUpdateType::ComponentAdd && !ignoreComponentUpdates) {
         if (entity->has<MeshRenderer>() && !renderableEntities.contains(entity)) {
             addToRender(entity);
         }
+        if (entity->has<Light>() && !lightEntities.contains(entity)) {
+            addLight(entity);
+        }
     } else if (update == EntityUpdateType::ComponentRemove && !ignoreComponentUpdates) {
         if (!entity->has<MeshRenderer>() && renderableEntities.contains(entity)) {
             removeFromRender(entity);
+        }
+        if (!entity->has<Light>() && lightEntities.contains(entity)) {
+            removeLight(entity);
         }
     }
 }
@@ -62,7 +80,7 @@ void RenderPlanner::addToRender(Entity *entity) {
     renderableEntities.insert(entity);
     auto &data = entity->get<PlannerData>();
 
-    auto pair = allocateUniform();
+    auto pair = allocateEntityUniform();
     data.render.buffer = pair.first;
     data.render.uniformOffset = pair.second;
 
@@ -106,7 +124,7 @@ EntityBuffer &RenderPlanner::newEntityBuffer() {
     std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {{
         { // Object UBO
             objectDS,
-            1, // Binding
+            Internal::StandardBindings::EntityUniform,
             0, // Array element
             1, // Count
             vk::DescriptorType::eUniformBufferDynamic,
@@ -125,7 +143,7 @@ EntityBuffer &RenderPlanner::newEntityBuffer() {
     return buffer;
 }
 
-std::pair<EntityBuffer *, uint32_t> RenderPlanner::allocateUniform() {
+std::pair<EntityBuffer *, uint32_t> RenderPlanner::allocateEntityUniform() {
     // Find the next available slot
 
     // TODO: Need a way to have the allocator consider the alignment requirements
@@ -152,7 +170,7 @@ void RenderPlanner::initialiseResources(
 
     // Object shader layout contains the camera UBO
     vk::DescriptorSetLayoutBinding cameraBinding {
-        0, // binding
+        Internal::StandardBindings::CameraUniform,
         vk::DescriptorType::eUniformBuffer,
         1, // count
         vk::ShaderStageFlagBits::eVertex
@@ -162,13 +180,23 @@ void RenderPlanner::initialiseResources(
 
     // Holds the object information
     vk::DescriptorSetLayoutBinding objectBinding {
-        1, // binding
+        Internal::StandardBindings::EntityUniform,
         vk::DescriptorType::eUniformBufferDynamic,
         1, // count
         vk::ShaderStageFlagBits::eVertex
     };
 
     objectDSL = device.createDescriptorSetLayout({{}, 1, &objectBinding });
+
+    // Holds the light information
+    vk::DescriptorSetLayoutBinding lightBinding {
+        Internal::StandardBindings::LightUniform,
+        vk::DescriptorType::eUniformBufferDynamic,
+        1, // count
+        vk::ShaderStageFlagBits::eFragment
+    };
+
+    lightDSL = device.createDescriptorSetLayout({{}, 1, &lightBinding });
 
     size_t minimumAlignment = physicalDevice.getProperties().limits.minUniformBufferOffsetAlignment;
     uboBufferAlignment = sizeof(EntityUBO);
@@ -216,7 +244,7 @@ void RenderPlanner::initialiseSwapChainResources(
         std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {
             vk::WriteDescriptorSet(
                 cameraAndModelDS[imageIndex],
-                0, // Binding
+                Internal::StandardBindings::CameraUniform,
                 0, // Array element
                 1, // Count
                 vk::DescriptorType::eUniformBuffer,
@@ -247,63 +275,101 @@ void RenderPlanner::initialiseSwapChainResources(
     auto builder = engine.createPipeline()
         .withVertexShader(BUILTIN_STANDARD_VERT_GLSL, BUILTIN_STANDARD_VERT_GLSL_SIZE)
         .withFragmentShader(BUILTIN_STANDARD_FRAG_GLSL, BUILTIN_STANDARD_FRAG_GLSL_SIZE)
-        .bindCamera(0, 0)
-        .bindUniformBufferDynamic(1, 1)
-        .bindMaterial(2, 3, MaterialBindPoint::Albedo)
-        .bindMaterial(3, 4, MaterialBindPoint::Normal)
+        .bindCamera(0, Internal::StandardBindings::CameraUniform)
+        .bindUniformBufferDynamic(1, Internal::StandardBindings::EntityUniform)
+        .bindUniformBufferDynamic(2, Internal::StandardBindings::LightUniform)
+        .bindMaterial(3, Internal::StandardBindings::AlbedoTexture, MaterialBindPoint::Albedo)
+        .bindMaterial(4, Internal::StandardBindings::NormalTexture, MaterialBindPoint::Normal)
         .withVertexBindingDescription(Vertex::getBindingDescription())
         .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions());
 
     pipelineNormal = builder.build();
 
     // Re-allocate descriptor sets
-    if (entityBuffers.empty()) {
-        // Nothing to allocate
-        return;
-    }
+    if (!entityBuffers.empty()) {
 
-    std::vector<vk::DescriptorSetLayout> entityLayouts(entityBuffers.size(), objectDSL);
+        std::vector<vk::DescriptorSetLayout> entityLayouts(entityBuffers.size(), objectDSL);
 
-    auto sets = device.allocateDescriptorSets(
-        {
-            objectDSPool,
-            vkUseArray(entityLayouts)
-        }
-    );
-
-    // Assign buffers to DS'
-    for (uint32_t bufferIndex = 0; bufferIndex < entityBuffers.size(); ++bufferIndex) {
-        auto buf = entityBuffers[bufferIndex].buffer.get();
-
-        vk::DescriptorBufferInfo objectUbo(
-            buf->buffer(),
-            0,
-            sizeof(EntityUBO)
+        auto sets = device.allocateDescriptorSets(
+            {
+                objectDSPool,
+                vkUseArray(entityLayouts)
+            }
         );
 
-        std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {
-            vk::WriteDescriptorSet(
-                sets[bufferIndex],
-                1, // Binding
-                0, // Array element
-                1, // Count
-                vk::DescriptorType::eUniformBufferDynamic,
-                nullptr,
-                &objectUbo
-            )
-        };
+        // Assign buffers to DS'
+        for (uint32_t bufferIndex = 0; bufferIndex < entityBuffers.size(); ++bufferIndex) {
+            auto buf = entityBuffers[bufferIndex].buffer.get();
 
-        device.updateDescriptorSets(descriptorWrites, {});
-        entityBuffers[bufferIndex].set = sets[bufferIndex];
+            vk::DescriptorBufferInfo objectUbo(
+                buf->buffer(),
+                0,
+                sizeof(EntityUBO)
+            );
+
+            std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {
+                vk::WriteDescriptorSet(
+                    sets[bufferIndex],
+                    Internal::StandardBindings::EntityUniform,
+                    0, // Array element
+                    1, // Count
+                    vk::DescriptorType::eUniformBufferDynamic,
+                    nullptr,
+                    &objectUbo
+                )
+            };
+
+            device.updateDescriptorSets(descriptorWrites, {});
+            entityBuffers[bufferIndex].set = sets[bufferIndex];
+        }
     }
 
+    if (!lightBuffers.empty()) {
+        std::vector<vk::DescriptorSetLayout> lightLayouts(lightBuffers.size(), lightDSL);
+
+        auto sets = device.allocateDescriptorSets(
+            {
+                objectDSPool,
+                vkUseArray(lightLayouts)
+            }
+        );
+
+        // Assign buffers to DS'
+        for (uint32_t bufferIndex = 0; bufferIndex < lightBuffers.size(); ++bufferIndex) {
+            auto buf = lightBuffers[bufferIndex].buffer.get();
+
+            vk::DescriptorBufferInfo objectUbo(
+                buf->buffer(),
+                0,
+                sizeof(LightUBO)
+            );
+
+            std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {
+                vk::WriteDescriptorSet(
+                    sets[bufferIndex],
+                    Internal::StandardBindings::LightUniform,
+                    0, // Array element
+                    1, // Count
+                    vk::DescriptorType::eUniformBufferDynamic,
+                    nullptr,
+                    &objectUbo
+                )
+            };
+
+            device.updateDescriptorSets(descriptorWrites, {});
+            lightBuffers[bufferIndex].set = sets[bufferIndex];
+        }
+    }
 }
 
 void RenderPlanner::cleanupResources(vk::Device device, RenderEngine &engine) {
     renderableEntities.clear();
     entityBuffers.clear();
+    lightEntities.clear();
+    lightBuffers.clear();
     device.destroyDescriptorSetLayout(cameraAndModelDSL);
     device.destroyDescriptorSetLayout(objectDSL);
+    device.destroyDescriptorSetLayout(lightDSL);
 }
 
 void RenderPlanner::cleanupSwapChainResources(vk::Device device, RenderEngine &engine) {
@@ -424,6 +490,119 @@ void RenderPlanner::prepareEntity(Entity *entity) {
         entity->add<PlannerData>();
         ignoreComponentUpdates = false;
     }
+}
+
+void RenderPlanner::addLight(Entity *entity) {
+    lightEntities.insert(entity);
+    auto &data = entity->get<PlannerData>();
+
+    auto pair = allocateLightUniform();
+    data.light.buffer = pair.first;
+    data.light.uniformOffset = pair.second;
+
+    updateEntity(entity, EntityUpdateType::Light);
+}
+
+void RenderPlanner::removeLight(Entity *entity) {
+    lightEntities.erase(entity);
+
+    auto &data = entity->get<PlannerData>();
+    if (data.light.buffer) {
+        data.light.buffer->buffer->freeSection(data.light.uniformOffset, uboBufferAlignment);
+        data.light.buffer = nullptr;
+    }
+}
+
+LightBuffer &RenderPlanner::newLightBuffer() {
+    auto uboBuffer = engine->getBufferManager().aquireDivisible(
+        uboBufferMaxSize,
+        vk::BufferUsageFlagBits::eUniformBuffer,
+        vk::MemoryUsage::eCPUToGPU
+    );
+
+    auto descriptorSets = device.allocateDescriptorSets(
+        {
+            objectDSPool,
+            1,
+            &lightDSL
+        }
+    );
+
+    auto objectDS = descriptorSets[0];
+
+    // Assign buffer to DS
+    vk::DescriptorBufferInfo bufferInfo(
+        uboBuffer->buffer(),
+        0,
+        sizeof(LightUBO)
+    );
+
+    std::array<vk::WriteDescriptorSet, 1> descriptorWrites = {{
+        {
+            objectDS,
+            Internal::StandardBindings::LightUniform,
+            0, // Array element
+            1, // Count
+            vk::DescriptorType::eUniformBufferDynamic,
+            nullptr,
+            &bufferInfo
+        }
+    }};
+
+    device.updateDescriptorSets(descriptorWrites, {});
+
+    auto &buffer = lightBuffers.emplace_back();
+    buffer.id = lightBuffers.size() - 1;
+    buffer.buffer = std::move(uboBuffer);
+    buffer.set = objectDS;
+
+    return buffer;
+}
+
+std::pair<LightBuffer *, uint32_t> RenderPlanner::allocateLightUniform() {
+    // Find the next available slot
+
+    // TODO: Need a way to have the allocator consider the alignment requirements
+    for (auto &buffer : lightBuffers) {
+        auto offset = buffer.buffer->allocateSection(uboBufferAlignment);
+        if (offset != ALLOCATION_FAILED) {
+            return { &buffer, offset };
+        }
+    }
+
+    auto &buffer = newLightBuffer();
+    auto offset = buffer.buffer->allocateSection(uboBufferAlignment);
+    // Sanity check
+    if (offset == ALLOCATION_FAILED) {
+        throw std::runtime_error("Out of object slots");
+    }
+
+    return { &buffer, offset };
+}
+
+void RenderPlanner::updateLightUniform(Entity *entity) {
+    auto &data = entity->get<PlannerData>();
+    auto &light = entity->get<Light>();
+    assert(data.light.buffer);
+
+    auto &buffer = data.light.buffer;
+    LightUBO uniform {};
+    uniform.position = entity->getTransform().getPosition();
+    // TODO: Direction
+    uniform.color = light.getColor();
+    uniform.intensity = light.getIntensity();
+    uniform.range = light.getRange();
+    uniform.type = static_cast<uint32_t>(light.getType());
+
+    buffer->buffer->copyIn(
+        &uniform,
+        data.render.uniformOffset,
+        sizeof(LightUBO)
+    );
+}
+
+void RenderPlanner::init(DeferredPipeline &pipeline) {
+    deferredPipeline = &pipeline;
 }
 
 }

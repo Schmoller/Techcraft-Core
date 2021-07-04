@@ -12,11 +12,20 @@ struct EntityUBO {
     alignas(16) glm::mat4 transform;
 };
 
+struct LightUBO {
+    glm::vec3 position;
+    glm::vec3 direction;
+    glm::vec3 color;
+    float intensity;
+    float range;
+    uint32_t type;
+};
 
 enum class EntityUpdateType {
     Transform,
     ComponentAdd,
     ComponentRemove,
+    Light,
     Other
 };
 
@@ -43,11 +52,13 @@ private:
 
     // TODO: Eventually replace this with a QuadTree or other spacial partitioning structure
     std::unordered_set<Entity *> renderableEntities;
+    std::unordered_set<Entity *> lightEntities;
     std::unique_ptr<Pipeline> pipelineNormal;
 
     vk::DeviceSize uboBufferAlignment;
     vk::DeviceSize uboBufferMaxSize;
     std::vector<EntityBuffer> entityBuffers;
+    std::vector<LightBuffer> lightBuffers;
 
     vk::DescriptorSetLayout cameraAndModelDSL;
     vk::DescriptorPool descriptorPool;
@@ -56,13 +67,20 @@ private:
     vk::DescriptorSetLayout objectDSL;
     vk::DescriptorPool objectDSPool;
 
+    vk::DescriptorSetLayout lightDSL;
+
     const Material *defaultMaterial;
 
     void addToRender(Entity *);
     void removeFromRender(Entity *);
+    void addLight(Entity *);
+    void removeLight(Entity *);
     EntityBuffer &newEntityBuffer();
-    std::pair<EntityBuffer *, uint32_t> allocateUniform();
+    std::pair<EntityBuffer *, uint32_t> allocateEntityUniform();
     void updateEntityUniform(Entity *);
+    LightBuffer &newLightBuffer();
+    std::pair<LightBuffer *, uint32_t> allocateLightUniform();
+    void updateLightUniform(Entity *);
     static glm::mat4 getRelativeTransform(const glm::mat4 &parent, const glm::mat4 &child);
     void updateTransforms(Entity *, bool includeSelf);
 };

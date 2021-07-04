@@ -15,6 +15,11 @@ public:
         vk::DeviceSize uniformOffset { 0 };
     } render;
 
+    struct {
+        LightBuffer *buffer { nullptr };
+        vk::DeviceSize uniformOffset { 0 };
+    } light;
+
     glm::mat4 absoluteTransform { 1 };
 };
 
