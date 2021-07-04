@@ -1,10 +1,11 @@
 #pragma once
 
 #include "tech-core/scene/entity.hpp"
+#include "tech-core/subsystem/base.hpp"
 #include "internal.hpp"
+#include "pipelines/deferred_pipeline.hpp"
 #include <vulkan/vulkan.hpp>
 #include <unordered_set>
-#include "tech-core/subsystem/base.hpp"
 
 namespace Engine::Internal {
 
@@ -33,6 +34,9 @@ class RenderPlanner : public Subsystem::Subsystem {
 public:
     static const Engine::Subsystem::SubsystemID<RenderPlanner> ID;
 
+    Engine::Subsystem::SubsystemLayer getLayer() const override { return Engine::Subsystem::SubsystemLayer::BeforePasses; }
+
+    void init(DeferredPipeline &deferredPipeline);
     void initialiseResources(vk::Device device, vk::PhysicalDevice physicalDevice, RenderEngine &engine) override;
     void initialiseSwapChainResources(vk::Device device, RenderEngine &engine, uint32_t swapChainImages) override;
     void cleanupResources(vk::Device device, RenderEngine &engine) override;
@@ -47,6 +51,7 @@ public:
 private:
     RenderEngine *engine;
     vk::Device device;
+    DeferredPipeline *deferredPipeline { nullptr };
 
     bool ignoreComponentUpdates { false };
 

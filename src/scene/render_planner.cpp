@@ -213,6 +213,7 @@ void RenderPlanner::initialiseResources(
 void RenderPlanner::initialiseSwapChainResources(
     vk::Device device, RenderEngine &engine, uint32_t swapChainImages
 ) {
+
     // Descriptor pool for allocating the descriptors
     vk::DescriptorPoolSize cameraBinding = {
         vk::DescriptorType::eUniformBuffer,
@@ -379,50 +380,67 @@ void RenderPlanner::cleanupSwapChainResources(vk::Device device, RenderEngine &e
     device.destroyDescriptorPool(objectDSPool);
 }
 
-void RenderPlanner::writeFrameCommands(vk::CommandBuffer commandBuffer, uint32_t activeImage) {
+void RenderPlanner::writeFrameCommands(vk::CommandBuffer, uint32_t activeImage) {
     const Mesh *lastMesh = nullptr;
 
-    Pipeline *pipeline = pipelineNormal.get();
+    deferredPipeline->begin(activeImage);
 
-    pipeline->bind(commandBuffer);
-
-    // Bind camera
-    std::array<vk::DescriptorSet, 1> globalDescriptors = {
-        cameraAndModelDS[activeImage],
-    };
-    pipeline->bindDescriptorSets(commandBuffer, 0, vkUseArray(globalDescriptors), 0, nullptr);
-
+    deferredPipeline->beginGeometry();
     for (auto entity : renderableEntities) {
-        auto &renderData = entity->get<MeshRenderer>();
-        auto &plannerData = entity->get<PlannerData>();
-        auto mesh = renderData.getMesh();
-
-        if (!mesh) {
-            continue;
-        }
-
-        if (mesh != lastMesh) {
-            mesh->bind(commandBuffer);
-            lastMesh = mesh;
-        }
-
-        uint32_t dyanmicOffset = plannerData.render.uniformOffset;
-
-        std::array<vk::DescriptorSet, 1> boundDescriptors = {
-            plannerData.render.buffer->set
-        };
-
-        pipeline->bindDescriptorSets(commandBuffer, 1, vkUseArray(boundDescriptors), 1, &dyanmicOffset);
-
-        auto material = renderData.getMaterial();
-        if (material) {
-            pipeline->bindMaterial(commandBuffer, material);
-        } else {
-            pipeline->bindMaterial(commandBuffer, defaultMaterial);
-        }
-
-        commandBuffer.drawIndexed(mesh->getIndexCount(), 1, 0, 0, 0);
+        deferredPipeline->renderGeometry(entity);
     }
+    deferredPipeline->endGeometry();
+
+    deferredPipeline->beginLighting();
+    for (auto entity : lightEntities) {
+        deferredPipeline->renderLight(entity);
+    }
+    deferredPipeline->endLighting();
+
+    deferredPipeline->end();
+
+//
+//    Pipeline *pipeline = pipelineNormal.get();
+//
+//    pipeline->bind(commandBuffer);
+//
+//    // Bind camera
+//    std::array<vk::DescriptorSet, 1> globalDescriptors = {
+//        cameraAndModelDS[activeImage],
+//    };
+//    pipeline->bindDescriptorSets(commandBuffer, 0, vkUseArray(globalDescriptors), 0, nullptr);
+//
+//    for (auto entity : renderableEntities) {
+//        auto &renderData = entity->get<MeshRenderer>();
+//        auto &plannerData = entity->get<PlannerData>();
+//        auto mesh = renderData.getMesh();
+//
+//        if (!mesh) {
+//            continue;
+//        }
+//
+//        if (mesh != lastMesh) {
+//            mesh->bind(commandBuffer);
+//            lastMesh = mesh;
+//        }
+//
+//        uint32_t dyanmicOffset = plannerData.render.uniformOffset;
+//
+//        std::array<vk::DescriptorSet, 1> boundDescriptors = {
+//            plannerData.render.buffer->set
+//        };
+//
+//        pipeline->bindDescriptorSets(commandBuffer, 1, vkUseArray(boundDescriptors), 1, &dyanmicOffset);
+//
+//        auto material = renderData.getMaterial();
+//        if (material) {
+//            pipeline->bindMaterial(commandBuffer, material);
+//        } else {
+//            pipeline->bindMaterial(commandBuffer, defaultMaterial);
+//        }
+//
+//        commandBuffer.drawIndexed(mesh->getIndexCount(), 1, 0, 0, 0);
+//    }
 
 }
 

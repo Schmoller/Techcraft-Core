@@ -75,6 +75,8 @@ class TextureArray;
 class RenderPlanner;
 class DescriptorCacheManager;
 class DescriptorCache;
+
+class DeferredPipeline;
 }
 
 }

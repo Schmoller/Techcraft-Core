@@ -15,6 +15,8 @@ namespace Engine::Subsystem {
 namespace _E = Engine;
 
 enum class SubsystemLayer {
+    // A special layer which does not execute in a render pass.
+    BeforePasses,
     Main,
     Overlay
 };

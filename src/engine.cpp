@@ -40,6 +40,7 @@
 #include "texture/descriptor_cache.hpp"
 #include "execution_controller.hpp"
 #include "scene/render_planner.hpp"
+#include "pipelines/deferred_pipeline.hpp"
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
@@ -159,7 +160,12 @@ void RenderEngine::initVulkan() {
             swapChain->extent
         ));
 
+    deferredPipeline = std::make_unique<Internal::DeferredPipeline>(*this, *device, *executionController);
+
     createCommandBuffers();
+
+    // Special init workaround
+    getSubsystem(Internal::RenderPlanner::ID)->init(*deferredPipeline);
 
     for (auto &subsystem : orderedSubsystems) {
         subsystem->initialiseWindow(window);
@@ -201,6 +207,17 @@ void RenderEngine::recreateSwapChain() {
     createUniformBuffers();
     createCommandBuffers();
     updateEffectPipelines();
+
+    if (effects.empty()) {
+        deferredPipeline->recreateSwapChain(
+            swapChain->imageViews, swapChain->imageFormat, swapChain->extent, finalDepthAttachment
+        );
+    } else {
+        deferredPipeline->recreateSwapChain(
+            { intermediateAttachments[0]->imageView() }, swapChain->imageFormat, swapChain->extent,
+            finalDepthAttachment
+        );
+    }
 
     for (auto &subsystem : orderedSubsystems) {
         subsystem->initialiseSwapChainResources(device->device, *this, swapChain->images.size());
@@ -285,18 +302,18 @@ void RenderEngine::createMainRenderPass() {
         {},
         swapChain->imageFormat,
         vk::SampleCountFlagBits::e1,
-        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentLoadOp::eLoad,
         vk::AttachmentStoreOp::eStore,
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
-        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eColorAttachmentOptimal,
         vk::ImageLayout::eColorAttachmentOptimal
     };
     attachments[2] = {
         {},
         swapChain->imageFormat,
         vk::SampleCountFlagBits::e1,
-        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eStore,
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
@@ -307,11 +324,11 @@ void RenderEngine::createMainRenderPass() {
         {},
         findDepthFormat(),
         vk::SampleCountFlagBits::e1,
-        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentLoadOp::eLoad,
         vk::AttachmentStoreOp::eDontCare,
-        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentLoadOp::eLoad,
         vk::AttachmentStoreOp::eDontCare,
-        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eDepthStencilAttachmentOptimal,
         vk::ImageLayout::eDepthStencilAttachmentOptimal
     };
 
@@ -730,6 +747,9 @@ void RenderEngine::drawFrame() {
     }
     updateUniformBuffer(imageIndex);
 
+    // Special before pass layer
+    fillFrameCommands({}, imageIndex, Subsystem::SubsystemLayer::BeforePasses);
+
     // Main layer
     executionController->beginRenderPass(
         layerMain.renderPass, layerMain.framebuffers[imageIndex], swapChain->extent, { 0, 0, 0, 1 }, 2
@@ -851,6 +871,8 @@ void RenderEngine::updateUniformBuffer(uint32_t currentImage) {
 
 void RenderEngine::cleanupSwapChain() {
     cout << "cleanupSwapChain" << endl;
+
+    deferredPipeline->cleanupSwapChain();
 
     for (auto &subsystem : orderedSubsystems) {
         subsystem->cleanupSwapChainResources(device->device, *this);

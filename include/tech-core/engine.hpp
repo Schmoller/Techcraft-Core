@@ -229,6 +229,7 @@ private:
     std::unique_ptr<FontManager> fontManager;
     std::shared_ptr<Scene> currentScene;
     std::unique_ptr<Internal::DescriptorCacheManager> descriptorManager;
+    std::unique_ptr<Internal::DeferredPipeline> deferredPipeline;
 
     InputManager inputManager;
 

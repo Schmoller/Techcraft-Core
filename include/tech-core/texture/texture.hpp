@@ -25,6 +25,9 @@ private:
     const std::string name;
     std::shared_ptr<Image> image;
     std::shared_ptr<Internal::SamplerRef> sampler;
+
+    size_t settingsOffset;
+    std::shared_ptr<Buffer> settingsUbo;
 };
 
 typedef std::shared_ptr<Texture> SharedTexture;
