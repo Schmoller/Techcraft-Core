@@ -105,6 +105,8 @@ public:
 
     uint32_t getMipLevels() const { return mipLevels; }
 
+    vk::Format getFormat() const { return format; }
+
     bool isReadyForSampling() const;
 
     explicit operator ImTextureID() const;
