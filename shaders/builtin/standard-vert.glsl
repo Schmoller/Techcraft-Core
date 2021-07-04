@@ -19,11 +19,14 @@ layout(location = 3) in vec2 inTexCoord;
 layout(location = 0) out vec4 fragColour;
 layout(location = 1) out vec3 fragNormal;
 layout(location = 2) out vec2 fragTexCoord;
+layout(location = 3) out vec4 fragPosition;
 
 
 void main() {
-    gl_Position = cam.proj * cam.view * obj.transform * vec4(inPosition, 1.0);
+    fragPosition = obj.transform * vec4(inPosition, 1.0);
+    gl_Position = cam.proj * cam.view * fragPosition;
     fragNormal = inNormal * mat3(obj.transform);
     fragTexCoord = inTexCoord;
     fragColour = inColor;
+
 }

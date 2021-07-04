@@ -21,9 +21,10 @@ namespace Engine::Internal {
 
 enum DeferredAttachments {
     CombinedOutput,
-    DiffuseOcclusion,
+    Position,
     NormalRoughness,
-    Depth
+    DiffuseOcclusion,
+    Depth,
 };
 
 enum DeferredPasses {
@@ -35,9 +36,10 @@ enum DeferredBindings {
     CameraBinding = 0,
     EntityBinding = 1,
     LightingUniformBinding = 2,
-    DiffuseOcclusionBinding = 3,
+    PositionBinding = 3,
     NormalRoughnessBinding = 4,
-    DepthBinding = 5,
+    DiffuseOcclusionBinding = 5,
+    DepthBinding = 6,
 };
 
 DeferredPipeline::DeferredPipeline(RenderEngine &engine, VulkanDevice &device, ExecutionController &controller)
@@ -65,11 +67,22 @@ void DeferredPipeline::createAttachments() {
         .withSampleCount(vk::SampleCountFlagBits::e1);
 
     attachmentDiffuseOcclusion = attachmentBuilder.build();
-    attachmentNormalRoughness = attachmentBuilder.build();
+
+    auto highPBuilder = engine.createImage(framebufferSize.width, framebufferSize.height)
+        .withMipLevels(1)
+            // TODO: Verify that we can use this format. Find alternative if not
+        .withFormat(vk::Format::eR16G16B16A16Sfloat)
+        .withMemoryUsage(vk::MemoryUsage::eGPUOnly)
+        .withUsage(vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment)
+        .withImageTiling(vk::ImageTiling::eOptimal)
+        .withSampleCount(vk::SampleCountFlagBits::e1);
+
+    attachmentNormalRoughness = highPBuilder.build();
+    attachmentPosition = highPBuilder.build();
 }
 
 void DeferredPipeline::createRenderPass() {
-    std::array<vk::AttachmentDescription, 4> attachments;
+    std::array<vk::AttachmentDescription, 5> attachments;
 
     attachments[DeferredAttachments::CombinedOutput] = {
         {},
@@ -82,9 +95,9 @@ void DeferredPipeline::createRenderPass() {
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eColorAttachmentOptimal
     };
-    attachments[DeferredAttachments::DiffuseOcclusion] = {
+    attachments[DeferredAttachments::Position] = {
         {},
-        vk::Format::eR8G8B8A8Unorm,
+        vk::Format::eR16G16B16A16Sfloat,
         vk::SampleCountFlagBits::e1,
         vk::AttachmentLoadOp::eClear,
         vk::AttachmentStoreOp::eStore,
@@ -94,6 +107,17 @@ void DeferredPipeline::createRenderPass() {
         vk::ImageLayout::eColorAttachmentOptimal
     };
     attachments[DeferredAttachments::NormalRoughness] = {
+        {},
+        vk::Format::eR16G16B16A16Sfloat,
+        vk::SampleCountFlagBits::e1,
+        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentStoreOp::eStore,
+        vk::AttachmentLoadOp::eDontCare,
+        vk::AttachmentStoreOp::eDontCare,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eColorAttachmentOptimal
+    };
+    attachments[DeferredAttachments::DiffuseOcclusion] = {
         {},
         vk::Format::eR8G8B8A8Unorm,
         vk::SampleCountFlagBits::e1,
@@ -119,21 +143,27 @@ void DeferredPipeline::createRenderPass() {
     vk::AttachmentReference combinedOutputRef(
         DeferredAttachments::CombinedOutput, vk::ImageLayout::eColorAttachmentOptimal
     );
-    vk::AttachmentReference diffuseOcclusionOutputRef(
-        DeferredAttachments::DiffuseOcclusion, vk::ImageLayout::eColorAttachmentOptimal
+    vk::AttachmentReference positionOutputRef(
+        DeferredAttachments::Position, vk::ImageLayout::eColorAttachmentOptimal
     );
     vk::AttachmentReference normalRoughnessOutputRef(
         DeferredAttachments::NormalRoughness, vk::ImageLayout::eColorAttachmentOptimal
+    );
+    vk::AttachmentReference diffuseOcclusionOutputRef(
+        DeferredAttachments::DiffuseOcclusion, vk::ImageLayout::eColorAttachmentOptimal
     );
     vk::AttachmentReference depthOutputRef(
         DeferredAttachments::Depth, vk::ImageLayout::eDepthStencilAttachmentOptimal
     );
 
-    vk::AttachmentReference diffuseOcclusionInputRef(
-        DeferredAttachments::DiffuseOcclusion, vk::ImageLayout::eShaderReadOnlyOptimal
+    vk::AttachmentReference positionInputRef(
+        DeferredAttachments::Position, vk::ImageLayout::eShaderReadOnlyOptimal
     );
     vk::AttachmentReference normalRoughnessInputRef(
         DeferredAttachments::NormalRoughness, vk::ImageLayout::eShaderReadOnlyOptimal
+    );
+    vk::AttachmentReference diffuseOcclusionInputRef(
+        DeferredAttachments::DiffuseOcclusion, vk::ImageLayout::eShaderReadOnlyOptimal
     );
     vk::AttachmentReference depthInputRef(
         DeferredAttachments::Depth, vk::ImageLayout::eShaderReadOnlyOptimal
@@ -142,9 +172,10 @@ void DeferredPipeline::createRenderPass() {
     std::array<vk::SubpassDescription, 2> subpasses;
     std::array<vk::SubpassDependency, 2> dependencies;
 
-    std::array<vk::AttachmentReference, 2> geometryColorAttachments {
+    std::array<vk::AttachmentReference, 3> geometryColorAttachments {
+        positionOutputRef,
+        normalRoughnessOutputRef,
         diffuseOcclusionOutputRef,
-        normalRoughnessOutputRef
     };
 
     subpasses[DeferredPasses::GeometryPass] = {
@@ -166,9 +197,10 @@ void DeferredPipeline::createRenderPass() {
         vk::DependencyFlagBits::eByRegion
     };
 
-    std::array<vk::AttachmentReference, 3> lightingInputAttachments {
-        diffuseOcclusionInputRef,
+    std::array<vk::AttachmentReference, 4> lightingInputAttachments {
+        positionInputRef,
         normalRoughnessInputRef,
+        diffuseOcclusionInputRef,
         depthInputRef
     };
     subpasses[DeferredPasses::LightingPass] = {
@@ -206,10 +238,11 @@ void DeferredPipeline::createFramebuffers(const Image *depthImage) {
     framebuffers.reserve(passOutputImages.size());
 
     for (auto &image : passOutputImages) {
-        std::array<vk::ImageView, 4> mainAttachments = {
+        std::array<vk::ImageView, 5> mainAttachments = {
             image,
-            attachmentDiffuseOcclusion->imageView(),
+            attachmentPosition->imageView(),
             attachmentNormalRoughness->imageView(),
+            attachmentDiffuseOcclusion->imageView(),
             depthImage->imageView()
         };
 
@@ -228,8 +261,9 @@ void DeferredPipeline::createFramebuffers(const Image *depthImage) {
 
 void DeferredPipeline::createLightingPipeline(const std::shared_ptr<Image> &depth) {
     fullScreenLightingPipeline = engine.createPipeline(renderPass, 1)
-        .withInputAttachment(0, DeferredBindings::DiffuseOcclusionBinding, attachmentDiffuseOcclusion)
+        .withInputAttachment(0, DeferredBindings::PositionBinding, attachmentPosition)
         .withInputAttachment(0, DeferredBindings::NormalRoughnessBinding, attachmentNormalRoughness)
+        .withInputAttachment(0, DeferredBindings::DiffuseOcclusionBinding, attachmentDiffuseOcclusion)
         .withInputAttachment(0, DeferredBindings::DepthBinding, depth)
         .withSubpass(DeferredPasses::LightingPass)
         .withoutDepthWrite()
@@ -241,8 +275,9 @@ void DeferredPipeline::createLightingPipeline(const std::shared_ptr<Image> &dept
         .build();
 
     worldLightingPipeline = engine.createPipeline(renderPass, 1)
-        .withInputAttachment(0, DeferredBindings::DiffuseOcclusionBinding, attachmentDiffuseOcclusion)
+        .withInputAttachment(0, DeferredBindings::PositionBinding, attachmentPosition)
         .withInputAttachment(0, DeferredBindings::NormalRoughnessBinding, attachmentNormalRoughness)
+        .withInputAttachment(0, DeferredBindings::DiffuseOcclusionBinding, attachmentDiffuseOcclusion)
         .withInputAttachment(0, DeferredBindings::DepthBinding, depth)
         .withSubpass(DeferredPasses::LightingPass)
         .withoutDepthWrite()
@@ -257,7 +292,7 @@ void DeferredPipeline::createLightingPipeline(const std::shared_ptr<Image> &dept
 }
 
 void DeferredPipeline::createGeometryPipeline() {
-    geometryPipeline = engine.createPipeline(renderPass, 2)
+    geometryPipeline = engine.createPipeline(renderPass, 3)
         .withVertexShader(BUILTIN_STANDARD_VERT_GLSL, BUILTIN_STANDARD_VERT_GLSL_SIZE)
         .withFragmentShader(BUILTIN_DEFERRED_GEOM_FRAG_GLSL, BUILTIN_DEFERRED_GEOM_FRAG_GLSL_SIZE)
         .withSubpass(DeferredPasses::GeometryPass)
@@ -279,8 +314,9 @@ void DeferredPipeline::cleanupSwapChain() {
     worldLightingPipeline.reset();
     geometryPipeline.reset();
 
-    attachmentDiffuseOcclusion.reset();
+    attachmentPosition.reset();
     attachmentNormalRoughness.reset();
+    attachmentDiffuseOcclusion.reset();
 
     if (renderPass) {
         device.device.destroy(renderPass);
@@ -312,7 +348,7 @@ void DeferredPipeline::begin(uint32_t imageIndex) {
     }
     activeImage = imageIndex;
     lastMesh = nullptr;
-    controller.beginRenderPass(renderPass, activeFramebuffer, framebufferSize, { 0, 0, 0, 0 }, 2);
+    controller.beginRenderPass(renderPass, activeFramebuffer, framebufferSize, { 0, 0, 0, 0 }, 3);
 }
 
 void DeferredPipeline::beginGeometry() {

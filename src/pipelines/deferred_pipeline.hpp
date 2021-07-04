@@ -45,6 +45,7 @@ private:
     std::vector<vk::Framebuffer> framebuffers;
     std::shared_ptr<Image> attachmentDiffuseOcclusion;
     std::shared_ptr<Image> attachmentNormalRoughness;
+    std::shared_ptr<Image> attachmentPosition;
 
     std::unique_ptr<Pipeline> geometryPipeline;
     std::unique_ptr<Pipeline> fullScreenLightingPipeline;
