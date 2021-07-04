@@ -671,6 +671,28 @@ void PipelineBuilder::processBindings(
     autoBindSet.resize(0);
     setCounts.resize(0);
 
+    // Work out the number of sets we need to make for each set defined
+    for (auto &binding : bindings) {
+        // Work out how many descriptor types are required for the pool
+        auto type = binding.definition.descriptorType;
+        auto it = counters.find(type);
+        uint32_t count;
+        if (binding.count == BindingCount::Single) {
+            count = 1;
+        } else if (binding.count == BindingCount::External) {
+            count = 0;
+        } else if (binding.count == BindingCount::Pool) {
+            count = binding.poolSize;
+        } else {
+            count = swapChainImages;
+        }
+
+        if (setCounts.size() <= binding.set) {
+            setCounts.resize(binding.set + 1);
+        }
+        setCounts[binding.set] = std::max(setCounts[binding.set], count);
+    }
+
     for (auto &binding : bindings) {
         if (binding.isSamplerImmutable) {
             binding.definition.setPImmutableSamplers(&binding.sampler);
@@ -689,13 +711,11 @@ void PipelineBuilder::processBindings(
         } else if (binding.count == BindingCount::Pool) {
             count = binding.poolSize;
         } else {
-            count = swapChainImages;
+            count = 1;
         }
 
-        if (setCounts.size() <= maxSet) {
-            setCounts.resize(maxSet + 1);
-        }
-        setCounts[binding.set] = std::max(setCounts[binding.set], count);
+        auto numberOfSets = setCounts[binding.set];
+        count *= numberOfSets;
 
         if (it == counters.end()) {
             if (count > 0) {
