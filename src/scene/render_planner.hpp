@@ -14,9 +14,9 @@ struct EntityUBO {
 };
 
 struct LightUBO {
-    glm::vec3 position;
-    glm::vec3 direction;
-    glm::vec3 color;
+    alignas(16) glm::vec3 position;
+    alignas(16) glm::vec3 direction;
+    alignas(16) glm::vec3 color;
     float intensity;
     float range;
     uint32_t type;

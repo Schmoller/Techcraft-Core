@@ -14,6 +14,7 @@
 #include "internal/packaged/builtin_standard_vert_glsl.h"
 #include "bindings.hpp"
 #include <iostream>
+#include <glm/gtx/quaternion.hpp>
 
 namespace Engine::Internal {
 
@@ -48,10 +49,17 @@ void RenderPlanner::updateEntity(Entity *entity, EntityUpdateType update) {
     if (update == EntityUpdateType::Transform) {
         updateTransforms(entity, true);
         updateEntityUniform(entity);
+        if (entity->has<Light>()) {
+            updateLightUniform(entity);
+        }
         entity->forEachChild(
             true, [this](Entity *entity) {
                 if (entity->get<PlannerData>().render.buffer) {
                     updateEntityUniform(entity);
+                }
+
+                if (entity->has<Light>()) {
+                    updateLightUniform(entity);
                 }
             }
         );
@@ -450,7 +458,9 @@ void RenderPlanner::prepareFrame(uint32_t activeImage) {
 
 void RenderPlanner::updateEntityUniform(Entity *entity) {
     auto &data = entity->get<PlannerData>();
-    assert(data.render.buffer);
+    if (!data.render.buffer) {
+        return;
+    }
 
     auto &buffer = data.render.buffer;
     buffer->buffer->copyIn(
@@ -606,7 +616,10 @@ void RenderPlanner::updateLightUniform(Entity *entity) {
     auto &buffer = data.light.buffer;
     LightUBO uniform {};
     uniform.position = entity->getTransform().getPosition();
-    // TODO: Direction
+    if (light.getType() == LightType::Directional || light.getType() == LightType::Spot) {
+        uniform.direction = glm::normalize(glm::rotate(entity->getTransform().getRotation(), glm::vec3(0, 0, 1)));
+    }
+
     uniform.color = light.getColor();
     uniform.intensity = light.getIntensity();
     uniform.range = light.getRange();
@@ -614,7 +627,7 @@ void RenderPlanner::updateLightUniform(Entity *entity) {
 
     buffer->buffer->copyIn(
         &uniform,
-        data.render.uniformOffset,
+        data.light.uniformOffset,
         sizeof(LightUBO)
     );
 }

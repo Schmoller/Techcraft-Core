@@ -85,6 +85,9 @@ void Entity::invalidate(EntityInvalidateType type) {
             case EntityInvalidateType::Transform:
                 updateType = Internal::EntityUpdateType::Transform;
                 break;
+            case EntityInvalidateType::Light:
+                updateType = Internal::EntityUpdateType::Light;
+                break;
             default:
                 updateType = Internal::EntityUpdateType::Other;
                 break;
