@@ -52,7 +52,7 @@ foreach (SHADER_FILE ${SHADERS_SRC})
     add_custom_command(
             OUTPUT ${SPIRV} ${SPV_HEADER}
             COMMAND ${CMAKE_COMMAND} -E make_directory "${SHADER_BIN_DIR}/${RELATIVE_DIR_TO_SHADER}"
-            COMMAND ${GLSL_COMPILER} ${SHADER_FILE} -o ${SPIRV}
+            COMMAND ${GLSL_COMPILER} -g ${SHADER_FILE} -o ${SPIRV}
             COMMAND ${CMAKE_COMMAND} -DINPUT_FILE=${SPIRV} -DOUTPUT=${SPV_HEADER} -DNAME=${SPV_HEADER_NAME} -P ${PROJECT_SOURCE_DIR}/cmake/pack_file.cmake
             DEPENDS ${SHADER_FILE}
     )
