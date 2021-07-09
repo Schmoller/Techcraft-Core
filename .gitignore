@@ -16,3 +16,4 @@ Thumbs.db
 # CMake
 /cmake-build-debug/
 /cmake-build-release/
+/demo/assets/textures/terrain/

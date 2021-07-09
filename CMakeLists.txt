@@ -67,3 +67,5 @@ add_custom_target(
 )
 
 add_dependencies(tech tech_shaders)
+
+add_subdirectory(demo)
