@@ -162,6 +162,17 @@ void RenderEngine::initVulkan() {
 
     deferredPipeline = std::make_unique<Internal::DeferredPipeline>(*this, *device, *executionController);
 
+    if (effects.empty()) {
+        deferredPipeline->recreateSwapChain(
+            swapChain->imageViews, swapChain->imageFormat, swapChain->extent, finalDepthAttachment
+        );
+    } else {
+        deferredPipeline->recreateSwapChain(
+            { intermediateAttachments[0]->imageView() }, swapChain->imageFormat, swapChain->extent,
+            finalDepthAttachment
+        );
+    }
+
     createCommandBuffers();
 
     // Special init workaround
@@ -291,11 +302,11 @@ void RenderEngine::createMainRenderPass() {
         {},
         swapChain->imageFormat,
         vk::SampleCountFlagBits::e1,
-        vk::AttachmentLoadOp::eClear,
+        vk::AttachmentLoadOp::eLoad,
         vk::AttachmentStoreOp::eStore,
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
-        vk::ImageLayout::eUndefined,
+        !effects.empty() ? vk::ImageLayout::eUndefined : vk::ImageLayout::eColorAttachmentOptimal,
         vk::ImageLayout::eColorAttachmentOptimal
     };
     attachments[1] = {
@@ -306,7 +317,7 @@ void RenderEngine::createMainRenderPass() {
         vk::AttachmentStoreOp::eStore,
         vk::AttachmentLoadOp::eDontCare,
         vk::AttachmentStoreOp::eDontCare,
-        vk::ImageLayout::eColorAttachmentOptimal,
+        effects.empty() ? vk::ImageLayout::eUndefined : vk::ImageLayout::eColorAttachmentOptimal,
         vk::ImageLayout::eColorAttachmentOptimal
     };
     attachments[2] = {
