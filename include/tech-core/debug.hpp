@@ -17,5 +17,8 @@ void drawAABB(const glm::vec3 &from, const glm::vec3 &to, uint32_t colour = 0xFF
 void drawPlane(const glm::vec4 &plane, uint32_t colour = 0xFFFFFFFF);
 void drawPlane(const glm::vec4 &plane, const glm::vec2 &size, uint32_t colour = 0xFFFFFFFF);
 
+void drawGizmoLightDirectional(const glm::vec3 &from, const glm::vec3 &direction, uint32_t colour = 0xFFFFFFFF);
+void drawGizmoLightPoint(const glm::vec3 &from, float range, uint32_t colour = 0xFFFFFFFF);
+
 void drawGizmoAxis(const glm::vec3 &origin);
 }

@@ -9,6 +9,7 @@
 #include <tech-core/mesh.hpp>
 #include <tech-core/material/material.hpp>
 #include <tech-core/scene/components/light.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 namespace Engine {
 
@@ -69,19 +70,34 @@ void makeEntityTree(const std::shared_ptr<Entity> &entity, std::weak_ptr<Entity>
 void showEntityInformation(Entity *entity) {
     auto pos = entity->getTransform().getPosition();
     auto rotation = entity->getTransform().getRotation();
+    auto euler = glm::eulerAngles(rotation);
     auto scale = entity->getTransform().getScale();
 
     drawAABB(pos - scale / 2.0f, pos + scale / 2.0f);
 
     if (ImGui::CollapsingHeader("Transform")) {
+        bool needsEulerUpdate = false;
         if (ImGui::DragFloat3("Position", &pos.x)) {
             entity->getTransform().setPosition(pos);
         }
         if (ImGui::DragFloat4("Rotation", &rotation.x)) {
             entity->getTransform().setRotation(rotation);
         }
+        if (ImGui::SliderAngle("Yaw", &euler.x)) {
+            needsEulerUpdate = true;
+        }
+        if (ImGui::SliderAngle("Pitch", &euler.y)) {
+            needsEulerUpdate = true;
+        }
+        if (ImGui::SliderAngle("Roll", &euler.z)) {
+            needsEulerUpdate = true;
+        }
         if (ImGui::DragFloat3("Scale", &scale.x, 0.01)) {
             entity->getTransform().setScale(scale);
+        }
+
+        if (needsEulerUpdate) {
+            entity->getTransform().setRotation({ euler });
         }
     }
 
@@ -134,6 +150,20 @@ void showEntityInformation(Entity *entity) {
         auto intensity = data.getIntensity();
         if (ImGui::DragFloat("Intensity", &intensity, 0.01, 0, 5)) {
             data.setIntensity(intensity);
+        }
+
+        switch (type) {
+            case LightType::Directional:
+                drawGizmoLightDirectional(
+                    pos, glm::normalize(glm::rotate(rotation, glm::vec3(0, 0, 1)))
+                );
+                break;
+            case LightType::Point:
+                drawGizmoLightPoint(pos, range);
+                break;
+            case LightType::Spot:
+                // TODO: Spot gizmo
+                break;
         }
     }
 }

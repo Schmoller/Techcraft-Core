@@ -171,6 +171,36 @@ void drawPlane(const glm::vec4 &plane, const glm::vec2 &size, uint32_t colour) {
     inst->debugDrawLine(cornerTopLeft, cornerTopRight, colour);
 }
 
+void drawGizmoLightDirectional(const glm::vec3 &from, const glm::vec3 &direction, uint32_t colour) {
+    const float offset = 1;
+    const float range = 5;
+
+    auto right = glm::normalize(glm::cross(direction, { 0, 0, 1 }));
+    auto up = glm::normalize(glm::cross(right, direction));
+
+    drawLine(from, from + direction * range * 1.2f, colour);
+    auto lineOffset = right * offset + up * offset;
+    drawLine(from + lineOffset, from + direction * range + lineOffset, colour);
+    lineOffset = right * offset - up * offset;
+    drawLine(from + lineOffset, from + direction * range + lineOffset, colour);
+    lineOffset = -right * offset + up * offset;
+    drawLine(from + lineOffset, from + direction * range + lineOffset, colour);
+    lineOffset = -right * offset - up * offset;
+    drawLine(from + lineOffset, from + direction * range + lineOffset, colour);
+}
+
+void drawGizmoLightPoint(const glm::vec3 &from, float range, uint32_t colour) {
+    // Origin marker
+    drawLine(from - glm::vec3 { 0.5, 0, 0 }, from + glm::vec3 { 0.5, 0, 0 }, colour);
+    drawLine(from - glm::vec3 { 0, 0.5, 0 }, from + glm::vec3 { 0, 0.5, 0 }, colour);
+    drawLine(from - glm::vec3 { 0, 0, 0.5 }, from + glm::vec3 { 0, 0, 0.5 }, colour);
+
+    // Range rings
+    drawRing<Axis::X>(from, range, colour);
+    drawRing<Axis::Y>(from, range, colour);
+    drawRing<Axis::Z>(from, range, colour);
+}
+
 void drawGizmoAxis(const glm::vec3 &origin) {
     auto inst = Subsystem::DebugSubsystem::instance();
     inst->debugDrawLine(
