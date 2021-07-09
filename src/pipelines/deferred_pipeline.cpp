@@ -310,6 +310,8 @@ void DeferredPipeline::cleanupSwapChain() {
         device.device.destroy(framebuffer);
     }
 
+    framebuffers.clear();
+
     fullScreenLightingPipeline.reset();
     worldLightingPipeline.reset();
     geometryPipeline.reset();
