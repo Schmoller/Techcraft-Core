@@ -31,7 +31,6 @@ PipelineBuilder::PipelineBuilder(
     depthTestEnable(true),
     depthWriteEnable(true),
     cullFaces(true),
-    alpha(false),
     descriptorManager(descriptorManager) {}
 
 PipelineBuilder &PipelineBuilder::withVertexShader(const std::string &path) {
@@ -151,7 +150,8 @@ PipelineBuilder &PipelineBuilder::withoutDepthTest() {
 }
 
 PipelineBuilder &PipelineBuilder::withAlpha() {
-    alpha = true;
+    withColorBlend(vk::BlendOp::eAdd, vk::BlendFactor::eSrcAlpha, vk::BlendFactor::eOneMinusDstAlpha);
+    withAlphaBlend(vk::BlendOp::eAdd, vk::BlendFactor::eOne, vk::BlendFactor::eZero);
 
     return *this;
 }
@@ -168,6 +168,27 @@ PipelineBuilder &PipelineBuilder::withDynamicState(vk::DynamicState state) {
 
 PipelineBuilder &PipelineBuilder::withSubpass(uint32_t subpassIndex) {
     subpass = subpassIndex;
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::withColorBlend(vk::BlendOp op, vk::BlendFactor source, vk::BlendFactor dest) {
+    useBlending = true;
+    colorOp = op;
+    colorSrc = source;
+    colorDest = dest;
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::withAlphaBlend(vk::BlendOp op, vk::BlendFactor source, vk::BlendFactor dest) {
+    useBlending = true;
+    alphaOp = op;
+    alphaSrc = source;
+    alphaDest = dest;
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::withColorMask(const vk::ColorComponentFlags &mask) {
+    colorMask = mask;
     return *this;
 }
 
@@ -942,21 +963,16 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
 
     for (auto i = 0; i < colorAttachmentCount; ++i) {
         vk::PipelineColorBlendAttachmentState colorBlendAttachment;
-        colorBlendAttachment.setColorWriteMask(
-            vk::ColorComponentFlagBits::eR |
-                vk::ColorComponentFlagBits::eG |
-                vk::ColorComponentFlagBits::eB |
-                vk::ColorComponentFlagBits::eA
-        );
+        colorBlendAttachment.colorWriteMask = colorMask;
 
-        if (alpha) {
+        if (useBlending) {
             colorBlendAttachment.blendEnable = VK_TRUE;
-            colorBlendAttachment.colorBlendOp = vk::BlendOp::eAdd;
-            colorBlendAttachment.alphaBlendOp = vk::BlendOp::eAdd;
-            colorBlendAttachment.srcAlphaBlendFactor = vk::BlendFactor::eOne;
-            colorBlendAttachment.dstAlphaBlendFactor = vk::BlendFactor::eZero;
-            colorBlendAttachment.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
-            colorBlendAttachment.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+            colorBlendAttachment.colorBlendOp = colorOp;
+            colorBlendAttachment.alphaBlendOp = alphaOp;
+            colorBlendAttachment.srcAlphaBlendFactor = alphaSrc;
+            colorBlendAttachment.dstAlphaBlendFactor = alphaDest;
+            colorBlendAttachment.srcColorBlendFactor = colorSrc;
+            colorBlendAttachment.dstColorBlendFactor = colorDest;
         }
 
         colorBlendAttachments[i] = colorBlendAttachment;

@@ -96,6 +96,9 @@ public:
     PipelineBuilder &withFillMode(FillMode);
     PipelineBuilder &withDynamicState(vk::DynamicState);
     PipelineBuilder &withSubpass(uint32_t);
+    PipelineBuilder &withColorBlend(vk::BlendOp op, vk::BlendFactor source, vk::BlendFactor dest);
+    PipelineBuilder &withAlphaBlend(vk::BlendOp op, vk::BlendFactor source, vk::BlendFactor dest);
+    PipelineBuilder &withColorMask(const vk::ColorComponentFlags &);
 
     PipelineBuilder &bindCamera(uint32_t set, uint32_t binding);
     PipelineBuilder &bindTextures(uint32_t set, uint32_t binding);
@@ -194,10 +197,23 @@ private:
     std::vector<vk::VertexInputBindingDescription> vertexBindings;
     std::vector<vk::VertexInputAttributeDescription> vertexAttributes;
     bool cullFaces;
-    bool alpha;
     FillMode fillMode { FillMode::Solid };
     size_t pushOffset { 0 };
     uint32_t subpass { 0 };
+
+    bool useBlending { false };
+    vk::BlendOp colorOp { vk::BlendOp::eAdd };
+    vk::BlendOp alphaOp { vk::BlendOp::eAdd };
+    vk::BlendFactor colorSrc { vk::BlendFactor::eOne };
+    vk::BlendFactor colorDest { vk::BlendFactor::eZero };
+    vk::BlendFactor alphaSrc { vk::BlendFactor::eOne };
+    vk::BlendFactor alphaDest { vk::BlendFactor::eZero };
+    vk::ColorComponentFlags colorMask {
+        vk::ColorComponentFlagBits::eR |
+            vk::ColorComponentFlagBits::eG |
+            vk::ColorComponentFlagBits::eB |
+            vk::ColorComponentFlagBits::eA
+    };
 
     // Shader bindings
     std::vector<PipelineBinding> bindings;
