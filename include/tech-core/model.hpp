@@ -42,6 +42,9 @@ private:
     std::unordered_map<std::string, SubModel> subModels;
 
     BoundingBox overallBounds;
+
+    void recomputeTangents();
+    void recomputeTangents(SubModel &);
 };
 
 }

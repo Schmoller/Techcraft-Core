@@ -44,6 +44,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture) {
             {
                 glm::vec3(rect.topLeft.x, rect.topLeft.y, 0),
                 {},
+                {},
                 glm::vec4(1, 1, 1, 1),
                 glm::vec2(0, 0)
             }
@@ -52,6 +53,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture) {
         transformVertex(
             {
                 glm::vec3(rect.bottomRight.x, rect.topLeft.y, 0),
+                {},
                 {},
                 glm::vec4(1, 1, 1, 1),
                 glm::vec2(1, 0),
@@ -62,6 +64,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture) {
             {
                 glm::vec3(rect.bottomRight.x, rect.bottomRight.y, 0),
                 {},
+                {},
                 glm::vec4(1, 1, 1, 1),
                 glm::vec2(1, 1),
             }
@@ -70,6 +73,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture) {
         transformVertex(
             {
                 glm::vec3(rect.topLeft.x, rect.bottomRight.y, 0),
+                {},
                 {},
                 glm::vec4(1, 1, 1, 1),
                 glm::vec2(0, 1),
@@ -111,6 +115,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture, const Re
             {
                 glm::vec3(rect.topLeft.x, rect.topLeft.y, 0),
                 {},
+                {},
                 colorVec,
                 glm::vec2(
                     sourceRect.topLeft.x / texture.getWidth(), sourceRect.topLeft.y / texture.getHeight()
@@ -121,6 +126,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture, const Re
         transformVertex(
             {
                 glm::vec3(rect.bottomRight.x, rect.topLeft.y, 0),
+                {},
                 {},
                 colorVec,
                 glm::vec2(
@@ -133,6 +139,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture, const Re
             {
                 glm::vec3(rect.bottomRight.x, rect.bottomRight.y, 0),
                 {},
+                {},
                 colorVec,
                 glm::vec2(
                     sourceRect.bottomRight.x / texture.getWidth(), sourceRect.bottomRight.y / texture.getHeight()
@@ -143,6 +150,7 @@ void Drawer::drawRect(const Rect &rect, const Engine::Texture &texture, const Re
         transformVertex(
             {
                 glm::vec3(rect.topLeft.x, rect.bottomRight.y, 0),
+                {},
                 {},
                 colorVec,
                 glm::vec2(
@@ -230,11 +238,13 @@ void Drawer::drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePositi
     vertices[0] = {
         { tlOuter, 0 },
         {},
+        {},
         colourVec,
         { 0, 0 },
     };
     vertices[1] = {
         { trOuter, 0 },
+        {},
         {},
         colourVec,
         { 0, 0 },
@@ -242,11 +252,13 @@ void Drawer::drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePositi
     vertices[2] = {
         { tlInner, 0 },
         {},
+        {},
         colourVec,
         { 0, 0 },
     };
     vertices[3] = {
         { trInner, 0 },
+        {},
         {},
         colourVec,
         { 0, 0 },
@@ -254,11 +266,13 @@ void Drawer::drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePositi
     vertices[4] = {
         { blInner, 0 },
         {},
+        {},
         colourVec,
         { 0, 0 },
     };
     vertices[5] = {
         { brInner, 0 },
+        {},
         {},
         colourVec,
         { 0, 0 },
@@ -266,11 +280,13 @@ void Drawer::drawRectOutline(const Rect &rect, uint32_t strokeSize, StrokePositi
     vertices[6] = {
         { blOuter, 0 },
         {},
+        {},
         colourVec,
         { 0, 0 },
     };
     vertices[7] = {
         { brOuter, 0 },
+        {},
         {},
         colourVec,
         { 0, 0 },
@@ -335,11 +351,13 @@ void Drawer::drawLine(const glm::vec2 &from, const glm::vec2 &to, uint32_t colou
     vertices[0] = {
         { startL, 0 },
         {},
+        {},
         colourVec,
         { 0, 0 },
     };
     vertices[1] = {
         { endL, 0 },
+        {},
         {},
         colourVec,
         { 0, 0 },
@@ -347,11 +365,13 @@ void Drawer::drawLine(const glm::vec2 &from, const glm::vec2 &to, uint32_t colou
     vertices[2] = {
         { endR, 0 },
         {},
+        {},
         colourVec,
         { 0, 0 },
     };
     vertices[3] = {
         { startR, 0 },
+        {},
         {},
         colourVec,
         { 0, 0 },
@@ -676,6 +696,7 @@ Vertex Drawer::transformVertex(const Vertex &vertex) {
     return {
         posT,
         vertex.normal,
+        vertex.tangent,
         vertex.color,
         vertex.texCoord
     };

@@ -121,6 +121,8 @@ bool Model::load(const std::string &path) {
         overallBounds.includeSelf(bounds);
     }
 
+    recomputeTangents();
+
     return true;
 }
 
@@ -191,6 +193,72 @@ std::vector<std::string> Model::getSubModelNames() const {
     }
 
     return names;
+}
+
+void Model::recomputeTangents() {
+    for (auto &subModel : subModels) {
+        recomputeTangents(subModel.second);
+    }
+}
+
+void Model::recomputeTangents(Model::SubModel &subModel) {
+    auto &vertices = subModel.vertices;
+    auto &indices = subModel.indices;
+
+    if (vertices.size() < 3 || indices.size() < 3) {
+        return;
+    }
+
+    std::vector<glm::vec3> tangents(vertices.size(), { 0, 0, 0 });
+    std::vector<uint32_t> tangentCounts(vertices.size(), 0);
+
+    for (auto i = 0; i < indices.size(); i += 3) {
+        Vertex &v1 = vertices[indices[i + 0]];
+        Vertex &v2 = vertices[indices[i + 1]];
+        Vertex &v3 = vertices[indices[i + 2]];
+
+        glm::vec3 edge1, edge2;
+        edge1 = v2.pos - v1.pos;
+        edge2 = v3.pos - v1.pos;
+
+        float s1 = v2.texCoord.x - v1.texCoord.x;
+        float s2 = v3.texCoord.x - v1.texCoord.x;
+        float t1 = v2.texCoord.y - v1.texCoord.y;
+        float t2 = v3.texCoord.y - v1.texCoord.y;
+
+        float r = 1.0f / (s1 * t2 - s2 * t1);
+
+        glm::vec3 tangent {
+            (t2 * edge1.x - t1 * edge2.x) * r,
+            (t2 * edge1.y - t1 * edge2.y) * r,
+            (t2 * edge1.z - t1 * edge2.z) * r
+        };
+
+        tangent = glm::normalize(tangent);
+
+        // Add on the tangents
+        tangents[indices[i + 0]] += tangent;
+        tangents[indices[i + 1]] += tangent;
+        tangents[indices[i + 2]] += tangent;
+
+        // and update the counts
+        tangentCounts[indices[i + 0]]++;
+        tangentCounts[indices[i + 1]]++;
+        tangentCounts[indices[i + 2]]++;
+    }
+
+    //now update the tangents
+    for (auto i = 0; i < vertices.size(); ++i) {
+        if (tangentCounts[i] == 0) {
+            continue;
+        }
+
+        auto tangent = tangents[i] / static_cast<float>(tangentCounts[i]);
+
+        // Gram-Schmidt orthogonalize
+        tangent = (tangent - vertices[i].normal * glm::dot(vertices[i].normal, tangent));
+        vertices[i].tangent = tangent;
+    }
 }
 
 }

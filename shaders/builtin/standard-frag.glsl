@@ -11,7 +11,8 @@ layout(location = 0) out vec4 outColor;
 
 layout(location = 0) in vec4 fragColour;
 layout(location = 1) in vec3 fragNormal;
-layout(location = 2) in vec2 fragTexCoord;
+layout(location = 2) in vec3 fragTangent;
+layout(location = 3) in vec2 fragTexCoord;
 //
 //layout(set = 1, binding = 2) uniform TextureUbo {
 //    TextureManip albedo;
