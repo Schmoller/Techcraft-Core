@@ -17,3 +17,4 @@ Thumbs.db
 /cmake-build-debug/
 /cmake-build-release/
 /demo/assets/textures/terrain/
+/src/internal/packaged/
