@@ -271,7 +271,8 @@ void DeferredPipeline::createLightingPipeline(const std::shared_ptr<Image> &dept
         .withoutFaceCulling()
         .withVertexShader(EFFECTS_SCREEN_GEN_VERTEX_GLSL, EFFECTS_SCREEN_GEN_VERTEX_GLSL_SIZE)
         .withFragmentShader(BUILTIN_DEFERRED_LIGHTING_FRAG_GLSL, BUILTIN_DEFERRED_LIGHTING_FRAG_GLSL_SIZE)
-        .bindUniformBufferDynamic(1, DeferredBindings::LightingUniformBinding)
+        .bindUniformBufferDynamic(1, DeferredBindings::LightingUniformBinding, vk::ShaderStageFlagBits::eFragment)
+        .withColorBlend(vk::BlendOp::eAdd, vk::BlendFactor::eOne, vk::BlendFactor::eOne)
         .build();
 
     worldLightingPipeline = engine.createPipeline(renderPass, 1)
@@ -284,10 +285,11 @@ void DeferredPipeline::createLightingPipeline(const std::shared_ptr<Image> &dept
         .withVertexShader(BUILTIN_DEFERRED_LIGHTING_VERT_GLSL, BUILTIN_DEFERRED_LIGHTING_VERT_GLSL_SIZE)
         .withFragmentShader(BUILTIN_DEFERRED_LIGHTING_FRAG_GLSL, BUILTIN_DEFERRED_LIGHTING_FRAG_GLSL_SIZE)
         .bindCamera(0, DeferredBindings::CameraBinding)
-        .bindUniformBufferDynamic(1, DeferredBindings::LightingUniformBinding)
+        .bindUniformBufferDynamic(1, DeferredBindings::LightingUniformBinding, vk::ShaderStageFlagBits::eFragment)
         .bindUniformBufferDynamic(1, DeferredBindings::EntityBinding)
         .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions())
         .withVertexBindingDescriptions(Vertex::getBindingDescription())
+        .withColorBlend(vk::BlendOp::eAdd, vk::BlendFactor::eOne, vk::BlendFactor::eOne)
         .build();
 }
 
@@ -428,7 +430,6 @@ void DeferredPipeline::beginLighting() {
 
 void DeferredPipeline::renderLight(const Entity *entity) {
     Engine::IsComponent auto &light = entity->get<Light>();
-    Engine::IsComponent auto &plannerData = entity->get<PlannerData>();
 
     // TODO: Use the fullscreen one only for lights which cross the near field or directional lights
     // Use the 3D one for all other lights
@@ -440,11 +441,27 @@ void DeferredPipeline::renderLight(const Entity *entity) {
 }
 
 void DeferredPipeline::endLighting() {
+    // FIXME: Need to render one anyway otherwise we get blank
+
+    fullScreenLightingPipeline->bind(lightingCommandBuffer, activeImage);
+    for (auto entity : fullScreenLights) {
+        Engine::IsComponent auto &plannerData = entity->get<PlannerData>();
+        uint32_t dynamicOffset = plannerData.light.uniformOffset;
+
+        std::array<vk::DescriptorSet, 1> boundDescriptors = {
+            plannerData.light.buffer->set
+        };
+
+        fullScreenLightingPipeline->bindDescriptorSets(
+            lightingCommandBuffer, 1, vkUseArray(boundDescriptors), 1, &dynamicOffset
+        );
+        lightingCommandBuffer.draw(3, 1, 0, 0);
+    }
     // TODO: Render all lights woo
 
     // Temporary
-    fullScreenLightingPipeline->bind(lightingCommandBuffer, activeImage);
-    lightingCommandBuffer.draw(3, 1, 0, 0);
+//    fullScreenLightingPipeline->bind(lightingCommandBuffer, activeImage);
+//    lightingCommandBuffer.draw(3, 1, 0, 0);
 
     lightingCommandBuffer.end();
     controller.addToRender(lightingCommandBuffer);
