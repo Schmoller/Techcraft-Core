@@ -3,6 +3,7 @@
 #include "tech-core/forward.hpp"
 #include <glm/glm.hpp>
 #include <string>
+#include <memory>
 
 namespace Engine {
 
@@ -22,13 +23,18 @@ public:
 
     const glm::vec2 &getTextureOffset() const { return textureOffset; }
 
+    const std::shared_ptr<Shader> &getShader() const { return shader; };
+
     void setAlbedo(const Texture *);
     void setAlbedoColor(const glm::vec4 &);
     void setNormal(const Texture *);
     void setTextureScale(const glm::vec2 &);
     void setTextureOffset(const glm::vec2 &);
+    void setShader(std::shared_ptr<Shader>);
 private:
     const std::string name;
+
+    std::shared_ptr<Shader> shader;
 
     const Texture *albedo { nullptr };
     glm::vec4 albedoColor { 1, 1, 1, 1 };

@@ -3,6 +3,7 @@
 #include "tech-core/forward.hpp"
 #include <glm/glm.hpp>
 #include <string>
+#include <memory>
 
 namespace Engine {
 
@@ -18,6 +19,7 @@ public:
     MaterialBuilder &withNormal(const Texture *);
     MaterialBuilder &withTextureScale(const glm::vec2 &);
     MaterialBuilder &withTextureOffset(const glm::vec2 &);
+    MaterialBuilder &withShader(std::shared_ptr<Shader>);
 
     Material *build() const;
 private:
@@ -32,6 +34,8 @@ private:
 
     glm::vec2 textureScale { 1, 1 };
     glm::vec2 textureOffset {};
+
+    std::shared_ptr<Shader> shader;
 };
 
 }
