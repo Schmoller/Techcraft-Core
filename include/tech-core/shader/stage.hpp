@@ -11,6 +11,7 @@
 namespace Engine {
 
 class ShaderStage {
+    friend class PipelineBuilder;
 public:
     explicit ShaderStage(const ShaderStageBuilder &);
 
@@ -33,6 +34,10 @@ private:
     bool areInputsCompatibleWithModule(const ShaderStage &) const;
     bool areOutputsCompatibleWithPipeline(const PipelineRequirements &) const;
     bool areInputsCompatibleWithPipeline(const PipelineRequirements &) const;
+
+    vk::ShaderModule createShaderModule(
+        vk::Device device, vk::PipelineShaderStageCreateInfo &createInfo, vk::SpecializationInfo &specInfo
+    ) const;
 };
 
 }

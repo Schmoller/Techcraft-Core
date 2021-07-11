@@ -5,6 +5,7 @@
 #include "tech-core/buffer.hpp"
 #include "tech-core/engine.hpp"
 #include "tech-core/material/material.hpp"
+#include "tech-core/shader/stage.hpp"
 #include "texture/descriptor_cache.hpp"
 
 
@@ -32,6 +33,16 @@ PipelineBuilder::PipelineBuilder(
     depthWriteEnable(true),
     cullFaces(true),
     descriptorManager(descriptorManager) {}
+
+PipelineBuilder &PipelineBuilder::withVertexStage(std::shared_ptr<ShaderStage> stage) {
+    vertexStage = std::move(stage);
+    return *this;
+}
+
+PipelineBuilder &PipelineBuilder::withFragmentStage(std::shared_ptr<ShaderStage> stage) {
+    fragmentStage = std::move(stage);
+    return *this;
+}
 
 PipelineBuilder &PipelineBuilder::withVertexShader(const std::string &path) {
     vertexShaderData = readFile(path);
@@ -802,26 +813,41 @@ void PipelineBuilder::processBindings(
 
 std::unique_ptr<Pipeline> PipelineBuilder::build() {
     // Set up the shader stages
-    vk::ShaderModule vertShaderModule = createShaderModule(device, vertexShaderData);
-    vk::ShaderModule fragShaderModule = createShaderModule(device, fragmentShaderData);
+    vk::ShaderModule vertShaderModule;
+    vk::SpecializationInfo vertShaderSpecialization;
+    vk::PipelineShaderStageCreateInfo vertShaderStageInfo;
 
-    vk::SpecializationInfo vertShaderSpecialization(
-        vkUseArray(vertexSpecializationEntries), sizeof(uint32_t) * vertexSpecializationData.size(),
-        vertexSpecializationData.data()
-    );
+    if (vertexStage) {
+        vertShaderModule = vertexStage->createShaderModule(device, vertShaderStageInfo, vertShaderSpecialization);
+    } else {
+        vertShaderModule = createShaderModule(device, vertexShaderData);
+        vertShaderSpecialization = {
+            vkUseArray(vertexSpecializationEntries), sizeof(uint32_t) * vertexSpecializationData.size(),
+            vertexSpecializationData.data()
+        };
 
-    vk::SpecializationInfo fragShaderSpecialization(
-        vkUseArray(fragmentSpecializationEntries), sizeof(uint32_t) * fragmentSpecializationData.size(),
-        fragmentSpecializationData.data()
-    );
+        vertShaderStageInfo = {
+            {}, vk::ShaderStageFlagBits::eVertex, vertShaderModule, "main", &vertShaderSpecialization
+        };
+    }
 
-    vk::PipelineShaderStageCreateInfo vertShaderStageInfo(
-        {}, vk::ShaderStageFlagBits::eVertex, vertShaderModule, "main", &vertShaderSpecialization
-    );
+    vk::ShaderModule fragShaderModule;
+    vk::SpecializationInfo fragShaderSpecialization;
+    vk::PipelineShaderStageCreateInfo fragShaderStageInfo;
 
-    vk::PipelineShaderStageCreateInfo fragShaderStageInfo(
-        {}, vk::ShaderStageFlagBits::eFragment, fragShaderModule, "main", &fragShaderSpecialization
-    );
+    if (fragmentStage) {
+        fragShaderModule = fragmentStage->createShaderModule(device, fragShaderStageInfo, fragShaderSpecialization);
+    } else {
+        fragShaderModule = createShaderModule(device, fragmentShaderData);
+
+        fragShaderSpecialization = {
+            vkUseArray(fragmentSpecializationEntries), sizeof(uint32_t) * fragmentSpecializationData.size(),
+            fragmentSpecializationData.data()
+        };
+        fragShaderStageInfo = {
+            {}, vk::ShaderStageFlagBits::eFragment, fragShaderModule, "main", &fragShaderSpecialization
+        };
+    }
 
     std::array<vk::PipelineShaderStageCreateInfo, 2> shaderStages = { vertShaderStageInfo, fragShaderStageInfo };
 

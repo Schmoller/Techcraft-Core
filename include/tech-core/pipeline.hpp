@@ -70,6 +70,9 @@ class PipelineBuilder {
     friend class Effect;
 
 public:
+    PipelineBuilder &withVertexStage(std::shared_ptr<ShaderStage> stage);
+    PipelineBuilder &withFragmentStage(std::shared_ptr<ShaderStage> stage);
+
     PipelineBuilder &withVertexShader(const std::string &path);
     PipelineBuilder &withVertexShader(const unsigned char *data, size_t size);
     PipelineBuilder &withVertexShader(const char *data, size_t size);
@@ -187,6 +190,10 @@ private:
 
     // Configurable
     PipelineGeometryType geomType { PipelineGeometryType::Polygons };
+
+    std::shared_ptr<ShaderStage> vertexStage;
+    std::shared_ptr<ShaderStage> fragmentStage;
+
     std::vector<char> vertexShaderData;
     std::vector<char> fragmentShaderData;
     std::vector<vk::PushConstantRange> pushConstants;

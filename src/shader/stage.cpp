@@ -1,6 +1,7 @@
 #include "tech-core/shader/stage.hpp"
 #include "tech-core/shader/stage_builder.hpp"
 #include <iostream>
+#include <vulkanutils.hpp>
 
 namespace Engine {
 
@@ -174,38 +175,38 @@ ShaderStage::ShaderStage(const ShaderStageBuilder &builder)
     moduleInfo(builder.shaderData) {
 
     assert(moduleInfo.GetResult() == SPV_REFLECT_RESULT_SUCCESS);
-
-//
-//
-//    auto module = device.createShaderModule(
-//        {{}, static_cast<uint32_t>(shaderData.size()), reinterpret_cast<const uint32_t *>(shaderData.data()) }
-//    );
-//
-//    vk::SpecializationInfo shaderSpecialization(
-//        vkUseArray(specializationEntries), sizeof(uint32_t) * specializationData.size(),
-//        specializationData.data()
-//    );
-//
-//    vk::ShaderStageFlagBits stage;
-//    switch (type) {
-//        case ShaderStageType::Vertex:
-//            stage = vk::ShaderStageFlagBits::eVertex;
-//            break;
-//        case ShaderStageType::Fragment:
-//            stage = vk::ShaderStageFlagBits::eFragment;
-//            break;
-//        default:
-//            throw std::runtime_error("Invalid shader stage");
-//    }
-//
-//    vk::PipelineShaderStageCreateInfo stageCreateInfo(
-//        {}, stage, module, entrypoint.data(), &shaderSpecialization
-//    );
-//
-//
-
 }
 
+vk::ShaderModule ShaderStage::createShaderModule(
+    vk::Device device, vk::PipelineShaderStageCreateInfo &createInfo, vk::SpecializationInfo &specInfo
+) const {
+    auto module = device.createShaderModule(
+        {{}, static_cast<uint32_t>(shaderData.size()), reinterpret_cast<const uint32_t *>(shaderData.data()) }
+    );
+
+    specInfo = {
+        vkUseArray(specializationEntries), sizeof(uint32_t) * specializationData.size(),
+        specializationData.data()
+    };
+
+    vk::ShaderStageFlagBits stage;
+    switch (type) {
+        case ShaderStageType::Vertex:
+            stage = vk::ShaderStageFlagBits::eVertex;
+            break;
+        case ShaderStageType::Fragment:
+            stage = vk::ShaderStageFlagBits::eFragment;
+            break;
+        default:
+            throw std::runtime_error("Invalid shader stage");
+    }
+
+    createInfo = {
+        {}, stage, module, entrypoint.data(), &specInfo
+    };
+
+    return module;
+}
 
 bool areTypesSimilar(const SpvReflectTypeDescription &type1, const SpvReflectTypeDescription &type2) {
     if (type1.type_flags != type2.type_flags) {
