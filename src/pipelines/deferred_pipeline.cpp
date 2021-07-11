@@ -8,6 +8,7 @@
 #include "tech-core/scene/entity.hpp"
 #include "tech-core/scene/components/mesh_renderer.hpp"
 #include "tech-core/scene/components/light.hpp"
+#include "tech-core/shader/requirements.hpp"
 #include "scene/components/planner_data.hpp"
 #include "vulkanutils.hpp"
 #include "internal/packaged/effects_screen_gen_vertex_glsl.h"
@@ -469,5 +470,60 @@ void DeferredPipeline::endLighting() {
 
 void DeferredPipeline::end() {
     controller.endRenderPass();
+}
+
+PipelineRequirements DeferredPipeline::getRequirements() const {
+    PipelineRequirements requirements;
+    requirements.addOutputAttachment(
+        {
+            0,
+            ShaderValueType::Vec4,
+        }
+    );
+    requirements.addOutputAttachment(
+        {
+            1,
+            ShaderValueType::Vec4,
+        }
+    );
+    requirements.addOutputAttachment(
+        {
+            2,
+            ShaderValueType::Vec4,
+        }
+    );
+
+    requirements.addVertexDefinition(
+        {
+            0,
+            ShaderValueType::Vec3
+        }
+    );
+    requirements.addVertexDefinition(
+        {
+            1,
+            ShaderValueType::Vec3
+        }
+    );
+    requirements.addVertexDefinition(
+        {
+            2,
+            ShaderValueType::Vec3
+        }
+    );
+    requirements.addVertexDefinition(
+        {
+            3,
+            ShaderValueType::Vec4
+        }
+    );
+    requirements.addVertexDefinition(
+        {
+            4,
+            ShaderValueType::Vec2
+        }
+    );
+
+    return requirements;
 }
 }

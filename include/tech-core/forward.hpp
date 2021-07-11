@@ -75,6 +75,7 @@ class ShaderStage;
 class ShaderStageBuilder;
 class Shader;
 class ShaderBuilder;
+class PipelineRequirements;
 
 namespace Internal {
 class TextureArray;

@@ -27,6 +27,8 @@ public:
     void endLighting();
 
     void end();
+
+    PipelineRequirements getRequirements() const;
 private:
     // External
     VulkanDevice &device;

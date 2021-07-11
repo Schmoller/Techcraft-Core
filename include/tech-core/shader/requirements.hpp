@@ -17,6 +17,8 @@ public:
 
     const std::vector<IODefinition> &getVertexDefinition() const { return vertexDefinition; }
 
+    void addOutputAttachment(const IODefinition &);
+    void addVertexDefinition(const IODefinition &);
 private:
     std::vector<IODefinition> outputAttachments;
     std::vector<IODefinition> vertexDefinition;

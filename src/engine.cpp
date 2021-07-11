@@ -36,6 +36,9 @@
 #include "tech-core/material/builder.hpp"
 #include "tech-core/shader/standard.hpp"
 #include "tech-core/shader/stage_builder.hpp"
+#include "tech-core/shader/shader_builder.hpp"
+#include "tech-core/shader/stage.hpp"
+#include "tech-core/shader/shader.hpp"
 
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
@@ -168,6 +171,9 @@ void RenderEngine::initVulkan() {
         ));
 
     deferredPipeline = std::make_unique<Internal::DeferredPipeline>(*this, *device, *executionController);
+
+    assert(BuiltIn::StandardPipelineDSGeometryPass->isCompatibleWith(deferredPipeline->getRequirements()));
+    assert(!BuiltIn::StandardPipelineForwardShading->isCompatibleWith(deferredPipeline->getRequirements()));
 
     if (effects.empty()) {
         deferredPipeline->recreateSwapChain(
@@ -1165,6 +1171,16 @@ void RenderEngine::initBuiltinResources() {
 
     assert(BuiltIn::StandardPipelineVertexStage->isCompatibleWith(*BuiltIn::StandardPipelineFSFragmentStage));
     assert(BuiltIn::StandardPipelineVertexStage->isCompatibleWith(*BuiltIn::StandardPipelineDSFragmentStage));
+
+    BuiltIn::StandardPipelineForwardShading = ShaderBuilder()
+        .withStage(BuiltIn::StandardPipelineVertexStage)
+        .withStage(BuiltIn::StandardPipelineFSFragmentStage)
+        .build();
+
+    BuiltIn::StandardPipelineDSGeometryPass = ShaderBuilder()
+        .withStage(BuiltIn::StandardPipelineVertexStage)
+        .withStage(BuiltIn::StandardPipelineDSFragmentStage)
+        .build();
 }
 
 }
