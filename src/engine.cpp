@@ -34,6 +34,8 @@
 #include "tech-core/scene/scene.hpp"
 #include "tech-core/material/manager.hpp"
 #include "tech-core/material/builder.hpp"
+#include "tech-core/shader/standard.hpp"
+#include "tech-core/shader/stage_builder.hpp"
 
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
@@ -41,6 +43,9 @@
 #include "execution_controller.hpp"
 #include "scene/render_planner.hpp"
 #include "pipelines/deferred_pipeline.hpp"
+#include "internal/packaged/builtin_standard_vert_glsl.h"
+#include "internal/packaged/builtin_standard_frag_glsl.h"
+#include "internal/packaged/builtin_deferred_geom_frag_glsl.h"
 
 const int WIDTH = 1920;
 const int HEIGHT = 1080;
@@ -143,6 +148,8 @@ void RenderEngine::initVulkan() {
     createDepthResources();
     createFramebuffers();
     updateEffectPipelines();
+
+    initBuiltinResources();
 
     createUniformBuffers();
     materialManager = std::make_unique<MaterialManager>(*textureManager);
@@ -1138,6 +1145,26 @@ void RenderEngine::setScene(const std::shared_ptr<Scene> &scene) {
     }
     currentScene = scene;
     currentScene->onSetActive({}, getSubsystem(Internal::RenderPlanner::ID));
+}
+
+void RenderEngine::initBuiltinResources() {
+    BuiltIn::StandardPipelineVertexStage = ShaderStageBuilder()
+        .fromBytes(BUILTIN_STANDARD_VERT_GLSL, BUILTIN_STANDARD_VERT_GLSL_SIZE)
+        .withType(ShaderStageType::Vertex)
+        .build();
+
+    BuiltIn::StandardPipelineFSFragmentStage = ShaderStageBuilder()
+        .fromBytes(BUILTIN_STANDARD_FRAG_GLSL, BUILTIN_STANDARD_FRAG_GLSL_SIZE)
+        .withType(ShaderStageType::Fragment)
+        .build();
+
+    BuiltIn::StandardPipelineDSFragmentStage = ShaderStageBuilder()
+        .fromBytes(BUILTIN_DEFERRED_GEOM_FRAG_GLSL, BUILTIN_DEFERRED_GEOM_FRAG_GLSL_SIZE)
+        .withType(ShaderStageType::Fragment)
+        .build();
+
+    assert(BuiltIn::StandardPipelineVertexStage->isCompatibleWith(*BuiltIn::StandardPipelineFSFragmentStage));
+    assert(BuiltIn::StandardPipelineVertexStage->isCompatibleWith(*BuiltIn::StandardPipelineDSFragmentStage));
 }
 
 }

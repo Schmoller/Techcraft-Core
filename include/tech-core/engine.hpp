@@ -256,6 +256,7 @@ private:
     static void framebufferResizeCallback(GLFWwindow *window, int width, int height);
 
     void initVulkan();
+    static void initBuiltinResources();
 
     void recreateSwapChain();
 

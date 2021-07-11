@@ -70,6 +70,12 @@ namespace Gui {
 class Drawer;
 }
 
+// Shaders
+class ShaderStage;
+class ShaderStageBuilder;
+class Shader;
+class ShaderBuilder;
+
 namespace Internal {
 class TextureArray;
 class RenderPlanner;

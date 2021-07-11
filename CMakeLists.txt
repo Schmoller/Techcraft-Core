@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(tech_core CXX)
+project(tech_core)
 
 set(CMAKE_CXX_STANDARD 20)
 set(GLSL_COMPILER glslc)
@@ -20,6 +20,7 @@ include_directories(./include ./src)
 include_directories(./libs/stb)
 include_directories(./libs/vk-mem-alloc/include)
 include_directories(./libs/imgui)
+include_directories(./libs/spirv-reflect)
 
 set(IMGUI_SOURCES
         ./libs/imgui/imgui.cpp
@@ -31,7 +32,7 @@ set(IMGUI_SOURCES
         )
 
 # Target definition
-add_library(tech ${ALL_SRC} ${IMGUI_SOURCES})
+add_library(tech ${ALL_SRC} ${IMGUI_SOURCES} libs/spirv-reflect/spirv_reflect.c)
 target_link_libraries(tech glfw ${Vulkan_LIBRARIES})
 
 # Shaders
