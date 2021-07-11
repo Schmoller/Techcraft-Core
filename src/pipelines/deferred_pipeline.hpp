@@ -55,7 +55,9 @@ private:
     std::shared_ptr<Image> attachmentNormalRoughness;
     std::shared_ptr<Image> attachmentPosition;
 
-    std::unique_ptr<Pipeline> geometryPipeline;
+    std::unordered_map<const Shader *, std::unique_ptr<Pipeline>> geometryPipelines;
+    Pipeline *activeGeometryPipeline { nullptr };
+
     std::unique_ptr<Pipeline> fullScreenLightingPipeline;
     std::unique_ptr<Pipeline> worldLightingPipeline;
 
@@ -73,7 +75,6 @@ private:
     void createRenderPass();
     void createFramebuffers(const Image *depthImage);
     void createLightingPipeline(const std::shared_ptr<Image> &depth);
-    void createGeometryPipeline();
 };
 
 }

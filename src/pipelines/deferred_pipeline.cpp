@@ -9,6 +9,9 @@
 #include "tech-core/scene/components/mesh_renderer.hpp"
 #include "tech-core/scene/components/light.hpp"
 #include "tech-core/shader/requirements.hpp"
+#include "tech-core/shader/shader.hpp"
+#include "tech-core/shader/stage.hpp"
+#include "tech-core/shader/standard.hpp"
 #include "scene/components/planner_data.hpp"
 #include "vulkanutils.hpp"
 #include "internal/packaged/effects_screen_gen_vertex_glsl.h"
@@ -294,20 +297,6 @@ void DeferredPipeline::createLightingPipeline(const std::shared_ptr<Image> &dept
         .build();
 }
 
-void DeferredPipeline::createGeometryPipeline() {
-    geometryPipeline = engine.createPipeline(renderPass, 3)
-        .withVertexShader(BUILTIN_STANDARD_VERT_GLSL, BUILTIN_STANDARD_VERT_GLSL_SIZE)
-        .withFragmentShader(BUILTIN_DEFERRED_GEOM_FRAG_GLSL, BUILTIN_DEFERRED_GEOM_FRAG_GLSL_SIZE)
-        .withSubpass(DeferredPasses::GeometryPass)
-        .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions())
-        .withVertexBindingDescriptions(Vertex::getBindingDescription())
-        .bindCamera(0, Internal::StandardBindings::CameraUniform)
-        .bindUniformBufferDynamic(1, Internal::StandardBindings::EntityUniform)
-        .bindMaterial(2, Internal::StandardBindings::AlbedoTexture, MaterialBindPoint::Albedo)
-        .bindMaterial(3, Internal::StandardBindings::NormalTexture, MaterialBindPoint::Normal)
-        .build();
-}
-
 void DeferredPipeline::cleanupSwapChain() {
     for (auto framebuffer: framebuffers) {
         device.device.destroy(framebuffer);
@@ -317,7 +306,6 @@ void DeferredPipeline::cleanupSwapChain() {
 
     fullScreenLightingPipeline.reset();
     worldLightingPipeline.reset();
-    geometryPipeline.reset();
 
     attachmentPosition.reset();
     attachmentNormalRoughness.reset();
@@ -339,7 +327,6 @@ void DeferredPipeline::recreateSwapChain(
     createAttachments();
     createRenderPass();
     createFramebuffers(depth.get());
-    createGeometryPipeline();
     createLightingPipeline(depth);
 }
 
@@ -368,9 +355,6 @@ void DeferredPipeline::beginGeometry() {
         &mainCbInheritance
     );
     geometryCommandBuffer.begin(renderBeginInfo);
-
-    geometryPipeline->bind(geometryCommandBuffer, activeImage);
-    geometryPipeline->bindCamera(0, Internal::StandardBindings::CameraUniform, engine);
 }
 
 void DeferredPipeline::renderGeometry(const Entity *entity) {
@@ -393,13 +377,15 @@ void DeferredPipeline::renderGeometry(const Entity *entity) {
         plannerData.render.buffer->set
     };
 
-    geometryPipeline->bindDescriptorSets(geometryCommandBuffer, 1, vkUseArray(boundDescriptors), 1, &dyanmicOffset);
+    activeGeometryPipeline->bindDescriptorSets(
+        geometryCommandBuffer, 1, vkUseArray(boundDescriptors), 1, &dyanmicOffset
+    );
 
     auto material = renderData.getMaterial();
     if (material) {
-        geometryPipeline->bindMaterial(geometryCommandBuffer, material);
+        activeGeometryPipeline->bindMaterial(geometryCommandBuffer, material);
     } else {
-        geometryPipeline->bindMaterial(geometryCommandBuffer, defaultMaterial);
+        activeGeometryPipeline->bindMaterial(geometryCommandBuffer, defaultMaterial);
     }
 
     geometryCommandBuffer.drawIndexed(mesh->getIndexCount(), 1, 0, 0, 0);
@@ -528,14 +514,46 @@ PipelineRequirements DeferredPipeline::getRequirements() const {
 }
 
 void DeferredPipeline::beginGeometryPassShader(const Shader &shader) {
-    // TODO: Bind pipeline and resources
+    auto it = geometryPipelines.find(&shader);
+    assert(it != geometryPipelines.end());
+
+    activeGeometryPipeline = it->second.get();
+    activeGeometryPipeline->bind(geometryCommandBuffer, activeImage);
+    activeGeometryPipeline->bindCamera(0, Internal::StandardBindings::CameraUniform, engine);
 }
 
 void DeferredPipeline::prepareGeometryPassShader(const Shader &shader) {
-    // TODO: Build pipeline for shader
+    assert(geometryPipelines.find(&shader) == geometryPipelines.end());
+
+    auto builder = engine.createPipeline(renderPass, 3)
+        .withSubpass(DeferredPasses::GeometryPass)
+        .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions())
+        .withVertexBindingDescriptions(Vertex::getBindingDescription())
+            // TODO: Allow some customisation of these bindings
+        .bindCamera(0, Internal::StandardBindings::CameraUniform)
+        .bindUniformBufferDynamic(1, Internal::StandardBindings::EntityUniform)
+        .bindMaterial(2, Internal::StandardBindings::AlbedoTexture, MaterialBindPoint::Albedo)
+        .bindMaterial(3, Internal::StandardBindings::NormalTexture, MaterialBindPoint::Normal);
+
+    if (shader.getVertexStage()) {
+        builder.withVertexStage(shader.getVertexStage());
+    } else {
+        builder.withVertexStage(BuiltIn::StandardPipelineVertexStage);
+    }
+
+    if (shader.getFragmentStage()) {
+        builder.withFragmentStage(shader.getFragmentStage());
+    } else {
+        builder.withFragmentStage(BuiltIn::StandardPipelineDSFragmentStage);
+    }
+
+    geometryPipelines.emplace(&shader, builder.build());
 }
 
 void DeferredPipeline::releaseGeometryPassShader(const Shader &shader) {
-    // TODO: Destroy pipeline for shader
+    auto it = geometryPipelines.find(&shader);
+    assert(it != geometryPipelines.end());
+
+    geometryPipelines.erase(it);
 }
 }
