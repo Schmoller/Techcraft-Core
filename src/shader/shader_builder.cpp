@@ -4,6 +4,11 @@
 
 namespace Engine {
 
+ShaderBuilder::ShaderBuilder(std::string name)
+    : name(std::move(name)) {
+
+}
+
 ShaderBuilder &ShaderBuilder::withStage(std::shared_ptr<ShaderStage> stage) {
     assert(stage);
 

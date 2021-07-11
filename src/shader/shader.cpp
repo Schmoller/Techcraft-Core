@@ -6,7 +6,8 @@ namespace Engine {
 
 
 Shader::Shader(const ShaderBuilder &builder)
-    : vertexStage(builder.vertexStage),
+    : name(builder.name),
+    vertexStage(builder.vertexStage),
     fragmentStage(builder.fragmentStage) {
 
 }

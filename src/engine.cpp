@@ -1172,12 +1172,12 @@ void RenderEngine::initBuiltinResources() {
     assert(BuiltIn::StandardPipelineVertexStage->isCompatibleWith(*BuiltIn::StandardPipelineFSFragmentStage));
     assert(BuiltIn::StandardPipelineVertexStage->isCompatibleWith(*BuiltIn::StandardPipelineDSFragmentStage));
 
-    BuiltIn::StandardPipelineForwardShading = ShaderBuilder()
+    BuiltIn::StandardPipelineForwardShading = ShaderBuilder("standard.forward-shading")
         .withStage(BuiltIn::StandardPipelineVertexStage)
         .withStage(BuiltIn::StandardPipelineFSFragmentStage)
         .build();
 
-    BuiltIn::StandardPipelineDSGeometryPass = ShaderBuilder()
+    BuiltIn::StandardPipelineDSGeometryPass = ShaderBuilder("standard.deferred-shading.g-pass")
         .withStage(BuiltIn::StandardPipelineVertexStage)
         .withStage(BuiltIn::StandardPipelineDSFragmentStage)
         .build();

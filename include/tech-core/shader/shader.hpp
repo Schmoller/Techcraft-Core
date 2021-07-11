@@ -10,6 +10,8 @@ class Shader {
 public:
     explicit Shader(const ShaderBuilder &);
 
+    const std::string &getName() const { return name; }
+
     std::shared_ptr<ShaderStage> getVertexStage() const { return vertexStage; }
 
     std::shared_ptr<ShaderStage> getFragmentStage() const { return fragmentStage; };
@@ -20,6 +22,8 @@ public:
 
     bool isCompatibleWith(const PipelineRequirements &) const;
 private:
+    std::string name;
+
     std::shared_ptr<ShaderStage> vertexStage;
     std::shared_ptr<ShaderStage> fragmentStage;
 };
