@@ -13,6 +13,7 @@ public:
     struct {
         EntityBuffer *buffer { nullptr };
         vk::DeviceSize uniformOffset { 0 };
+        Shader *shader { nullptr };
     } render;
 
     struct {

@@ -526,4 +526,16 @@ PipelineRequirements DeferredPipeline::getRequirements() const {
 
     return requirements;
 }
+
+void DeferredPipeline::beginGeometryPassShader(const Shader &shader) {
+    // TODO: Bind pipeline and resources
+}
+
+void DeferredPipeline::prepareGeometryPassShader(const Shader &shader) {
+    // TODO: Build pipeline for shader
+}
+
+void DeferredPipeline::releaseGeometryPassShader(const Shader &shader) {
+    // TODO: Destroy pipeline for shader
+}
 }

@@ -27,6 +27,7 @@ enum class EntityUpdateType {
     ComponentAdd,
     ComponentRemove,
     Light,
+    Render,
     Other
 };
 
@@ -56,7 +57,7 @@ private:
     bool ignoreComponentUpdates { false };
 
     // TODO: Eventually replace this with a QuadTree or other spacial partitioning structure
-    std::unordered_set<Entity *> renderableEntities;
+    std::unordered_map<Shader *, std::unordered_set<Entity *>> entitiesByShader;
     std::unordered_set<Entity *> lightEntities;
     std::unique_ptr<Pipeline> pipelineNormal;
 
@@ -78,8 +79,11 @@ private:
 
     void addToRender(Entity *);
     void removeFromRender(Entity *);
+    bool isRendered(Entity *) const;
+
     void addLight(Entity *);
     void removeLight(Entity *);
+
     EntityBuffer &newEntityBuffer();
     std::pair<EntityBuffer *, uint32_t> allocateEntityUniform();
     void updateEntityUniform(Entity *);

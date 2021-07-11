@@ -10,6 +10,8 @@
 #include "tech-core/texture/manager.hpp"
 #include "tech-core/material/material.hpp"
 #include "tech-core/material/manager.hpp"
+#include "tech-core/shader/standard.hpp"
+#include "tech-core/shader/shader.hpp"
 #include "internal/packaged/builtin_standard_frag_glsl.h"
 #include "internal/packaged/builtin_standard_vert_glsl.h"
 #include "bindings.hpp"
@@ -67,15 +69,20 @@ void RenderPlanner::updateEntity(Entity *entity, EntityUpdateType update) {
         if (entity->has<Light>()) {
             updateLightUniform(entity);
         }
+    } else if (update == EntityUpdateType::Render) {
+        if (entity->has<MeshRenderer>() && isRendered(entity)) {
+            removeFromRender(entity);
+            addToRender(entity);
+        }
     } else if (update == EntityUpdateType::ComponentAdd && !ignoreComponentUpdates) {
-        if (entity->has<MeshRenderer>() && !renderableEntities.contains(entity)) {
+        if (entity->has<MeshRenderer>() && isRendered(entity)) {
             addToRender(entity);
         }
         if (entity->has<Light>() && !lightEntities.contains(entity)) {
             addLight(entity);
         }
     } else if (update == EntityUpdateType::ComponentRemove && !ignoreComponentUpdates) {
-        if (!entity->has<MeshRenderer>() && renderableEntities.contains(entity)) {
+        if (!entity->has<MeshRenderer>() && isRendered(entity)) {
             removeFromRender(entity);
         }
         if (!entity->has<Light>() && lightEntities.contains(entity)) {
@@ -85,25 +92,68 @@ void RenderPlanner::updateEntity(Entity *entity, EntityUpdateType update) {
 }
 
 void RenderPlanner::addToRender(Entity *entity) {
-    renderableEntities.insert(entity);
+    auto &renderer = entity->get<MeshRenderer>();
     auto &data = entity->get<PlannerData>();
+
+    auto shader = renderer.getMaterial()->getShader();
+    if (!shader) {
+        // TODO: Eventually we should switch between the FS and DS one depending on transparency needs
+        shader = BuiltIn::StandardPipelineDSGeometryPass;
+    }
+    assert(shader->isCompatibleWith(deferredPipeline->getRequirements()));
 
     auto pair = allocateEntityUniform();
     data.render.buffer = pair.first;
     data.render.uniformOffset = pair.second;
+    data.render.shader = shader.get();
 
     updateEntity(entity, EntityUpdateType::Transform);
+
+    auto it = entitiesByShader.find(shader.get());
+    if (it == entitiesByShader.end()) {
+        std::unordered_set<Entity *> entities;
+        entities.emplace(entity);
+
+        entitiesByShader.emplace(shader.get(), entities);
+
+        deferredPipeline->prepareGeometryPassShader(*shader);
+    } else {
+        it->second.emplace(entity);
+    }
 }
 
 void RenderPlanner::removeFromRender(Entity *entity) {
-    renderableEntities.erase(entity);
+    Engine::IsComponent auto &data = entity->get<PlannerData>();
 
-    auto &data = entity->get<PlannerData>();
     if (data.render.buffer) {
         data.render.buffer->buffer->freeSection(data.render.uniformOffset, uboBufferAlignment);
         data.render.buffer = nullptr;
     }
+
+    if (data.render.shader) {
+        auto it = entitiesByShader.find(data.render.shader);
+        if (it != entitiesByShader.end()) {
+            it->second.erase(entity);
+            if (it->second.empty()) {
+                deferredPipeline->releaseGeometryPassShader(*it->first);
+                entitiesByShader.erase(it);
+            }
+        }
+
+        data.render.shader = nullptr;
+    }
 }
+
+bool RenderPlanner::isRendered(Entity *entity) const {
+    Engine::IsComponent auto &data = entity->get<PlannerData>();
+    auto it = entitiesByShader.find(data.render.shader);
+    if (it == entitiesByShader.end()) {
+        return false;
+    }
+
+    return it->second.contains(entity);
+}
+
 
 EntityBuffer &RenderPlanner::newEntityBuffer() {
     auto uboBuffer = engine->getBufferManager().aquireDivisible(
@@ -372,7 +422,7 @@ void RenderPlanner::initialiseSwapChainResources(
 }
 
 void RenderPlanner::cleanupResources(vk::Device device, RenderEngine &engine) {
-    renderableEntities.clear();
+    entitiesByShader.clear();
     entityBuffers.clear();
     lightEntities.clear();
     lightBuffers.clear();
@@ -394,8 +444,12 @@ void RenderPlanner::writeFrameCommands(vk::CommandBuffer, uint32_t activeImage) 
     deferredPipeline->begin(activeImage);
 
     deferredPipeline->beginGeometry();
-    for (auto entity : renderableEntities) {
-        deferredPipeline->renderGeometry(entity);
+    for (auto &shaderGroup : entitiesByShader) {
+        deferredPipeline->beginGeometryPassShader(*shaderGroup.first);
+
+        for (auto entity : shaderGroup.second) {
+            deferredPipeline->renderGeometry(entity);
+        }
     }
     deferredPipeline->endGeometry();
 

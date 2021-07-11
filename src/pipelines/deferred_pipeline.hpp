@@ -19,16 +19,22 @@ public:
     void begin(uint32_t imageIndex);
 
     void beginGeometry();
+    void beginGeometryPassShader(const Shader &);
     void renderGeometry(const Entity *);
     void endGeometry();
 
     void beginLighting();
+    void beginLightingPassShader(const Shader &);
     void renderLight(const Entity *);
     void endLighting();
 
     void end();
 
     PipelineRequirements getRequirements() const;
+    void prepareGeometryPassShader(const Shader &);
+    void releaseGeometryPassShader(const Shader &);
+    void prepareLightingPassShader(const Shader &);
+    void releaseLightingPassShader(const Shader &);
 private:
     // External
     VulkanDevice &device;
