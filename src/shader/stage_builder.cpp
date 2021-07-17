@@ -80,6 +80,27 @@ ShaderStageBuilder &ShaderStageBuilder::withConstant(uint32_t constantId, bool v
     return *this;
 }
 
+ShaderStageBuilder &ShaderStageBuilder::withVariable(
+    std::string variableName, uint32_t bindingId, ShaderBindingType bindingType, ShaderBindingUsage usage
+) {
+    assert(!systemInputs.contains(bindingId));
+    variables.emplace(bindingId, ShaderVariable { std::move(variableName), bindingId, bindingType, usage });
+    return *this;
+}
+
+ShaderStageBuilder &ShaderStageBuilder::withVariable(
+    const std::string_view &variableName, uint32_t bindingId, ShaderBindingType bindingType, ShaderBindingUsage usage
+) {
+    assert(!systemInputs.contains(bindingId));
+    variables.emplace(bindingId, ShaderVariable { std::string(variableName), bindingId, bindingType, usage });
+    return *this;
+}
+
+ShaderStageBuilder &ShaderStageBuilder::withSystemInput(ShaderSystemInput input, uint32_t bindingId) {
+    assert(!variables.contains(bindingId));
+    systemInputs.emplace(bindingId, input);
+    return *this;
+}
 
 std::shared_ptr<ShaderStage> ShaderStageBuilder::build() const {
     return std::make_shared<ShaderStage>(*this);

@@ -68,7 +68,6 @@ bool ShaderStage::areInputsCompatibleWithModule(const ShaderStage &stage) const 
     return true;
 }
 
-
 bool ShaderStage::areOutputsCompatibleWithPipeline(const PipelineRequirements &pipeline) const {
     assert(type == ShaderStageType::Fragment);
 
@@ -172,7 +171,9 @@ ShaderStage::ShaderStage(const ShaderStageBuilder &builder)
     entrypoint(builder.entrypoint),
     specializationData(builder.specializationData),
     specializationEntries(builder.specializationEntries),
-    moduleInfo(builder.shaderData) {
+    moduleInfo(builder.shaderData),
+    variables(builder.variables),
+    systemInputs(builder.systemInputs) {
 
     assert(moduleInfo.GetResult() == SPV_REFLECT_RESULT_SUCCESS);
 }
@@ -206,6 +207,16 @@ vk::ShaderModule ShaderStage::createShaderModule(
     };
 
     return module;
+}
+
+std::vector<ShaderVariable> ShaderStage::getVariables() const {
+    std::vector<ShaderVariable> vars(variables.size());
+    size_t index = 0;
+    for (auto &pair : variables) {
+        vars[index++] = pair.second;
+    }
+
+    return vars;
 }
 
 bool areTypesSimilar(const SpvReflectTypeDescription &type1, const SpvReflectTypeDescription &type2) {

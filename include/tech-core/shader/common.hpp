@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 namespace Engine {
 
 enum class ShaderStageType {
@@ -26,6 +28,29 @@ enum class ShaderValueType {
     DVec4,
     Bool,
     Void
+};
+
+enum class ShaderBindingType {
+    Texture,
+    Uniform
+};
+
+enum class ShaderBindingUsage {
+    Material,
+    Entity,
+};
+
+struct ShaderVariable {
+    std::string name;
+    uint32_t bindingId;
+    ShaderBindingType type;
+    ShaderBindingUsage usage;
+};
+
+enum class ShaderSystemInput {
+    Camera,
+    Entity,
+    Light
 };
 
 }

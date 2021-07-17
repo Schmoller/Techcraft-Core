@@ -13,6 +13,7 @@
 #define VMA_IMPLEMENTATION
 
 #include <vk_mem_alloc.h>
+#include <tech-core/material/material.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
 
@@ -1157,16 +1158,22 @@ void RenderEngine::initBuiltinResources() {
     BuiltIn::StandardPipelineVertexStage = ShaderStageBuilder()
         .fromBytes(BUILTIN_STANDARD_VERT_GLSL, BUILTIN_STANDARD_VERT_GLSL_SIZE)
         .withType(ShaderStageType::Vertex)
+        .withSystemInput(ShaderSystemInput::Camera, 0)
+        .withSystemInput(ShaderSystemInput::Entity, 1)
         .build();
 
     BuiltIn::StandardPipelineFSFragmentStage = ShaderStageBuilder()
         .fromBytes(BUILTIN_STANDARD_FRAG_GLSL, BUILTIN_STANDARD_FRAG_GLSL_SIZE)
         .withType(ShaderStageType::Fragment)
+        .withVariable(MaterialVariables::AlbedoTexture, 3, ShaderBindingType::Texture, ShaderBindingUsage::Material)
+        .withVariable(MaterialVariables::NormalTexture, 4, ShaderBindingType::Texture, ShaderBindingUsage::Material)
         .build();
 
     BuiltIn::StandardPipelineDSFragmentStage = ShaderStageBuilder()
         .fromBytes(BUILTIN_DEFERRED_GEOM_FRAG_GLSL, BUILTIN_DEFERRED_GEOM_FRAG_GLSL_SIZE)
         .withType(ShaderStageType::Fragment)
+        .withVariable(MaterialVariables::AlbedoTexture, 3, ShaderBindingType::Texture, ShaderBindingUsage::Material)
+        .withVariable(MaterialVariables::NormalTexture, 4, ShaderBindingType::Texture, ShaderBindingUsage::Material)
         .build();
 
     assert(BuiltIn::StandardPipelineVertexStage->isCompatibleWith(*BuiltIn::StandardPipelineFSFragmentStage));

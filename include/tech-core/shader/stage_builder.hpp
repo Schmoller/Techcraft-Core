@@ -23,6 +23,15 @@ public:
     ShaderStageBuilder &withConstant(uint32_t constant, bool);
     template<typename T>
     ShaderStageBuilder &withConstant(uint32_t constant, T);
+    ShaderStageBuilder &withVariable(
+        std::string name, uint32_t bindingId, ShaderBindingType type,
+        ShaderBindingUsage usage = ShaderBindingUsage::Material
+    );
+    ShaderStageBuilder &withVariable(
+        const std::string_view &name, uint32_t bindingId, ShaderBindingType type,
+        ShaderBindingUsage usage = ShaderBindingUsage::Material
+    );
+    ShaderStageBuilder &withSystemInput(ShaderSystemInput, uint32_t bindingId);
 
     std::shared_ptr<ShaderStage> build() const;
 
@@ -34,6 +43,8 @@ private:
 
     std::vector<uint32_t> specializationData;
     std::vector<vk::SpecializationMapEntry> specializationEntries;
+    std::unordered_map<uint32_t, ShaderVariable> variables;
+    std::unordered_map<uint32_t, ShaderSystemInput> systemInputs;
 };
 
 template<typename T>

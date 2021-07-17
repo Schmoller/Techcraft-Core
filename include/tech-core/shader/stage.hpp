@@ -20,6 +20,10 @@ public:
     bool isCompatibleWith(const ShaderStage &) const;
     bool isCompatibleWith(const PipelineRequirements &) const;
 
+    std::vector<ShaderVariable> getVariables() const;
+
+    const std::unordered_map<uint32_t, ShaderSystemInput> &getSystemInputs() const { return systemInputs; }
+
 private:
     std::vector<uint8_t> shaderData;
     std::string entrypoint;
@@ -28,6 +32,9 @@ private:
 
     std::vector<uint32_t> specializationData;
     std::vector<vk::SpecializationMapEntry> specializationEntries;
+
+    std::unordered_map<uint32_t, ShaderVariable> variables;
+    std::unordered_map<uint32_t, ShaderSystemInput> systemInputs;
 
     spv_reflect::ShaderModule moduleInfo;
 
