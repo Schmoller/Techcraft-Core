@@ -178,6 +178,61 @@ ShaderStage::ShaderStage(const ShaderStageBuilder &builder)
     assert(moduleInfo.GetResult() == SPV_REFLECT_RESULT_SUCCESS);
 }
 
+std::vector<uint8_t> ShaderStage::reassignBindings(const std::unordered_map<uint32_t, uint32_t> &bindingSets) const {
+    SpvReflectResult result;
+
+    spv_reflect::ShaderModule module(shaderData);
+    assert(moduleInfo.GetResult() == SPV_REFLECT_RESULT_SUCCESS);
+
+    uint32_t bindingCount;
+    result = module.EnumerateDescriptorBindings(&bindingCount, nullptr);
+    assert(result == SPV_REFLECT_RESULT_SUCCESS);
+    std::vector<SpvReflectDescriptorBinding *> descriptorBindings(bindingCount);
+    module.EnumerateDescriptorBindings(&bindingCount, descriptorBindings.data());
+    assert(result == SPV_REFLECT_RESULT_SUCCESS);
+
+    auto getBindingById = [&descriptorBindings](uint32_t id, uint32_t *currentSet) -> SpvReflectDescriptorBinding * {
+        for (auto current : descriptorBindings) {
+            if (current->binding == id) {
+                if (currentSet) {
+                    *currentSet = current->set;
+                }
+                return current;
+            }
+        }
+
+        return nullptr;
+    };
+
+    bool modified = false;
+    for (auto &pair : bindingSets) {
+        uint32_t sourceSet;
+        auto bindingId = pair.first;
+        auto targetSet = pair.second;
+
+        auto binding = getBindingById(bindingId, &sourceSet);
+
+        if (binding && sourceSet != targetSet) {
+            result = module.ChangeDescriptorBindingNumbers(
+                binding, SPV_REFLECT_BINDING_NUMBER_DONT_CHANGE, targetSet
+            );
+            assert(result == SPV_REFLECT_RESULT_SUCCESS);
+            std::cout << "[ShaderStage] Moved binding " << bindingId << " from set " << sourceSet << " to "
+                << targetSet << std::endl;
+            modified = true;
+        }
+    }
+
+    if (modified) {
+        std::vector<uint8_t> data(module.GetCodeSize());
+        std::memcpy(data.data(), module.GetCode(), module.GetCodeSize());
+
+        return data;
+    } else {
+        return shaderData;
+    }
+}
+
 vk::ShaderModule ShaderStage::createShaderModule(
     vk::Device device, vk::PipelineShaderStageCreateInfo &createInfo, vk::SpecializationInfo &specInfo
 ) const {

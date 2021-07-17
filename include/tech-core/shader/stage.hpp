@@ -42,6 +42,8 @@ private:
     bool areOutputsCompatibleWithPipeline(const PipelineRequirements &) const;
     bool areInputsCompatibleWithPipeline(const PipelineRequirements &) const;
 
+    std::vector<uint8_t> reassignBindings(const std::unordered_map<uint32_t, uint32_t> &bindingSets) const;
+
     vk::ShaderModule createShaderModule(
         vk::Device device, vk::PipelineShaderStageCreateInfo &createInfo, vk::SpecializationInfo &specInfo
     ) const;
