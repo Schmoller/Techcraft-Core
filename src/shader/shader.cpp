@@ -25,4 +25,42 @@ bool Shader::isCompatibleWith(const PipelineRequirements &requirements) const {
     // FIXME: Currently assuming that the standard stages will be compatible. We could be asking about a custom pipeline
     return true;
 }
+
+std::vector<ShaderVariable> Shader::getVariables() const {
+    std::vector<ShaderVariable> variables;
+    if (vertexStage) {
+        auto otherVariables = vertexStage->getVariables();
+        variables.insert(variables.end(), otherVariables.begin(), otherVariables.end());
+    }
+
+    if (fragmentStage) {
+        auto otherVariables = fragmentStage->getVariables();
+        variables.insert(variables.end(), otherVariables.begin(), otherVariables.end());
+    }
+
+    return variables;
+}
+
+std::vector<ShaderVariable> Shader::getVariables(ShaderBindingUsage usage) const {
+    std::vector<ShaderVariable> variables;
+    if (vertexStage) {
+        auto otherVariables = vertexStage->getVariables();
+        for (auto &var : otherVariables) {
+            if (var.usage == usage) {
+                variables.push_back(var);
+            }
+        }
+    }
+
+    if (fragmentStage) {
+        auto otherVariables = fragmentStage->getVariables();
+        for (auto &var : otherVariables) {
+            if (var.usage == usage) {
+                variables.push_back(var);
+            }
+        }
+    }
+
+    return variables;
+}
 }

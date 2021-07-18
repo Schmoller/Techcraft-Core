@@ -16,6 +16,9 @@ public:
 
     std::shared_ptr<ShaderStage> getFragmentStage() const { return fragmentStage; };
 
+    std::vector<ShaderVariable> getVariables() const;
+    std::vector<ShaderVariable> getVariables(ShaderBindingUsage usage) const;
+
     bool usesStandardVertexStage() const { return !vertexStage; }
 
     bool usesStandardFragmentStage() const { return !fragmentStage; }

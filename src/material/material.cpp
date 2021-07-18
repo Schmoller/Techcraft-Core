@@ -1,46 +1,55 @@
 #include "tech-core/material/material.hpp"
 #include "tech-core/material/builder.hpp"
+#include "tech-core/shader/shader.hpp"
 
 namespace Engine {
 
-const std::string_view MaterialVariables::AlbedoTexture = "Albedo";
-const std::string_view MaterialVariables::NormalTexture = "Normal";
-const std::string_view MaterialVariables::RoughnessTexture = "Roughness";
-const std::string_view MaterialVariables::OcclusionTexture = "Occlusion";
-const std::string_view MaterialVariables::MetalnessTexture = "Metalness";
-
 Material::Material(const MaterialBuilder &builder)
     : name(builder.getName()),
-    albedo(builder.albedo),
-    albedoColor(builder.albedoColor),
-    normal(builder.normal),
-    textureScale(builder.textureScale),
-    textureOffset(builder.textureOffset),
+    textures(builder.textures),
     shader(builder.shader) {
 
-}
+    assert(builder.shader);
 
-void Material::setAlbedo(const Texture *texture) {
-    albedo = texture;
-}
-
-void Material::setAlbedoColor(const glm::vec4 &color) {
-    albedoColor = color;
-}
-
-void Material::setNormal(const Texture *texture) {
-    normal = texture;
-}
-
-void Material::setTextureScale(const glm::vec2 &scale) {
-    textureScale = scale;
-}
-
-void Material::setTextureOffset(const glm::vec2 &offset) {
-    textureOffset = offset;
+    // Put in empty slots for variables that should exist.
+    // MaterialManager will fill these slots in with transparent textures afterwards
+    for (auto &var : shader->getVariables()) {
+        if (var.type == ShaderBindingType::Texture) {
+            if (!textures.contains(var.name)) {
+                textures[var.name] = nullptr;
+            }
+        }
+    }
 }
 
 void Material::setShader(std::shared_ptr<Shader> newShader) {
     shader = std::move(newShader);
 }
+
+std::vector<ShaderVariable> Material::getVariables() const {
+    return shader->getVariables(ShaderBindingUsage::Material);
+}
+
+bool Material::hasVariable(const std::string_view &variable) const {
+    auto vars = getVariables();
+
+    for (auto &var : vars) {
+        if (var.name == variable) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+const Texture *Material::getTexture(const std::string &variable) const {
+    assert(textures.contains(variable));
+    return textures.at(variable);
+}
+
+void Material::setTexture(const std::string &variable, const Texture *texture) {
+    assert(textures.contains(variable));
+    textures[variable] = texture;
+}
+
 }

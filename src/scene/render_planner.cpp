@@ -264,8 +264,6 @@ void RenderPlanner::initialiseResources(
 
     this->device = device;
     this->engine = &engine;
-
-    defaultMaterial = engine.getMaterialManager().getDefault();
 }
 
 void RenderPlanner::initialiseSwapChainResources(
@@ -330,19 +328,6 @@ void RenderPlanner::initialiseSwapChainResources(
             vkUseArray(poolSizes)
         }
     );
-
-    auto builder = engine.createPipeline()
-        .withVertexShader(BUILTIN_STANDARD_VERT_GLSL, BUILTIN_STANDARD_VERT_GLSL_SIZE)
-        .withFragmentShader(BUILTIN_STANDARD_FRAG_GLSL, BUILTIN_STANDARD_FRAG_GLSL_SIZE)
-        .bindCamera(0, Internal::StandardBindings::CameraUniform)
-        .bindUniformBufferDynamic(1, Internal::StandardBindings::EntityUniform)
-        .bindUniformBufferDynamic(2, Internal::StandardBindings::LightUniform)
-        .bindMaterial(3, Internal::StandardBindings::AlbedoTexture, MaterialBindPoint::Albedo)
-        .bindMaterial(4, Internal::StandardBindings::NormalTexture, MaterialBindPoint::Normal)
-        .withVertexBindingDescription(Vertex::getBindingDescription())
-        .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions());
-
-    pipelineNormal = builder.build();
 
     // Re-allocate descriptor sets
     if (!entityBuffers.empty()) {
@@ -432,8 +417,6 @@ void RenderPlanner::cleanupResources(vk::Device device, RenderEngine &engine) {
 }
 
 void RenderPlanner::cleanupSwapChainResources(vk::Device device, RenderEngine &engine) {
-
-    pipelineNormal.reset();
     device.destroyDescriptorPool(descriptorPool);
     device.destroyDescriptorPool(objectDSPool);
 }

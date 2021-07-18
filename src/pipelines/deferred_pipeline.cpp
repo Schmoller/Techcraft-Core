@@ -4,7 +4,7 @@
 #include "tech-core/device.hpp"
 #include "tech-core/image.hpp"
 #include "tech-core/mesh.hpp"
-#include "tech-core/material/manager.hpp"
+#include "tech-core/material/builder.hpp"
 #include "tech-core/scene/entity.hpp"
 #include "tech-core/scene/components/mesh_renderer.hpp"
 #include "tech-core/scene/components/light.hpp"
@@ -48,7 +48,9 @@ enum DeferredBindings {
 
 DeferredPipeline::DeferredPipeline(RenderEngine &engine, VulkanDevice &device, ExecutionController &controller)
     : device(device), engine(engine), controller(controller) {
-    defaultMaterial = engine.getMaterialManager().getDefault();
+    defaultMaterial = engine.createMaterial("internal.pipelines.deferred.default")
+        .withShader(BuiltIn::StandardPipelineDSGeometryPass)
+        .build();
 
     geometryCommandBuffer = controller.acquireSecondaryGraphicsCommandBuffer();
     lightingCommandBuffer = controller.acquireSecondaryGraphicsCommandBuffer();
@@ -59,6 +61,7 @@ DeferredPipeline::~DeferredPipeline() {
 
     attachmentDiffuseOcclusion.reset();
     attachmentNormalRoughness.reset();
+    attachmentPosition.reset();
 }
 
 void DeferredPipeline::createAttachments() {
@@ -298,6 +301,9 @@ void DeferredPipeline::createLightingPipeline(const std::shared_ptr<Image> &dept
 }
 
 void DeferredPipeline::cleanupSwapChain() {
+    for (auto &pair : geometryPipelines) {
+        pair.second.reset();
+    }
     for (auto framebuffer: framebuffers) {
         device.device.destroy(framebuffer);
     }
@@ -313,6 +319,7 @@ void DeferredPipeline::cleanupSwapChain() {
 
     if (renderPass) {
         device.device.destroy(renderPass);
+        renderPass = vk::RenderPass {};
     }
 }
 
@@ -328,6 +335,12 @@ void DeferredPipeline::recreateSwapChain(
     createRenderPass();
     createFramebuffers(depth.get());
     createLightingPipeline(depth);
+
+    for (auto &pair : geometryPipelines) {
+        if (!pair.second) {
+            pair.second = std::move(createGeometryPassShaderPipeline(*pair.first));
+        }
+    }
 }
 
 void DeferredPipeline::begin(uint32_t imageIndex) {
@@ -519,21 +532,22 @@ void DeferredPipeline::beginGeometryPassShader(const Shader &shader) {
 
     activeGeometryPipeline = it->second.get();
     activeGeometryPipeline->bind(geometryCommandBuffer, activeImage);
+    // TODO: We need to know what sets and bindings we need to use!!!
+    // FIXME: We dont need to bind the camera every frame (this updates the bindings, not actually binds it).
     activeGeometryPipeline->bindCamera(0, Internal::StandardBindings::CameraUniform, engine);
 }
 
 void DeferredPipeline::prepareGeometryPassShader(const Shader &shader) {
     assert(geometryPipelines.find(&shader) == geometryPipelines.end());
 
+    geometryPipelines.emplace(&shader, createGeometryPassShaderPipeline(shader));
+}
+
+std::unique_ptr<Pipeline> DeferredPipeline::createGeometryPassShaderPipeline(const Shader &shader) {
     auto builder = engine.createPipeline(renderPass, 3)
         .withSubpass(DeferredPasses::GeometryPass)
         .withVertexAttributeDescriptions(Vertex::getAttributeDescriptions())
-        .withVertexBindingDescriptions(Vertex::getBindingDescription())
-            // TODO: Allow some customisation of these bindings
-        .bindCamera(0, Internal::StandardBindings::CameraUniform)
-        .bindUniformBufferDynamic(1, Internal::StandardBindings::EntityUniform)
-        .bindMaterial(2, Internal::StandardBindings::AlbedoTexture, MaterialBindPoint::Albedo)
-        .bindMaterial(3, Internal::StandardBindings::NormalTexture, MaterialBindPoint::Normal);
+        .withVertexBindingDescriptions(Vertex::getBindingDescription());
 
     if (shader.getVertexStage()) {
         builder.withVertexStage(shader.getVertexStage());
@@ -547,7 +561,7 @@ void DeferredPipeline::prepareGeometryPassShader(const Shader &shader) {
         builder.withFragmentStage(BuiltIn::StandardPipelineDSFragmentStage);
     }
 
-    geometryPipelines.emplace(&shader, builder.build());
+    return builder.build();
 }
 
 void DeferredPipeline::releaseGeometryPassShader(const Shader &shader) {

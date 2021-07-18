@@ -7,6 +7,8 @@
 #include "tech-core/material/material.hpp"
 #include "tech-core/shader/stage.hpp"
 #include "texture/descriptor_cache.hpp"
+#include "material/descriptor_cache.hpp"
+#include "shader/internal.hpp"
 
 
 #include <array>
@@ -22,7 +24,8 @@ PipelineBuilder::PipelineBuilder(
     uint32_t colorAttachmentCount,
     vk::Extent2D windowSize,
     uint32_t swapChainImages,
-    Internal::DescriptorCacheManager &descriptorManager
+    Internal::DescriptorCacheManager &descriptorManager,
+    Internal::MaterialDescriptorCache &materialDescriptorCache
 ) : engine(engine),
     device(device),
     renderPass(renderPass),
@@ -32,7 +35,8 @@ PipelineBuilder::PipelineBuilder(
     depthTestEnable(true),
     depthWriteEnable(true),
     cullFaces(true),
-    descriptorManager(descriptorManager) {}
+    descriptorManager(descriptorManager),
+    materialDescriptorCache(materialDescriptorCache) {}
 
 PipelineBuilder &PipelineBuilder::withVertexStage(std::shared_ptr<ShaderStage> stage) {
     vertexStage = std::move(stage);
@@ -244,13 +248,6 @@ PipelineBuilder &PipelineBuilder::bindTextures(uint32_t set, uint32_t binding) {
         }
     );
 
-    return *this;
-}
-
-PipelineBuilder &PipelineBuilder::bindMaterial(uint32_t set, uint32_t binding, MaterialBindPoint bindPoint) {
-    bindTextures(set, binding);
-
-    materialBindings[bindPoint] = binding;
     return *this;
 }
 
@@ -817,8 +814,70 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     vk::SpecializationInfo vertShaderSpecialization;
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo;
 
+    std::unordered_map<uint32_t, uint32_t> bindingSets;
+    std::unordered_map<uint32_t, ShaderVariable> variables;
+    std::unordered_map<uint32_t, ShaderSystemInput> systemInputs;
+    uint32_t materialSet = 0;
+
+    assert(!(vertexStage || fragmentStage) || (vertexStage && fragmentStage));
+
     if (vertexStage) {
-        vertShaderModule = vertexStage->createShaderModule(device, vertShaderStageInfo, vertShaderSpecialization);
+        variables.insert(vertexStage->variables.begin(), vertexStage->variables.end());
+        systemInputs.insert(vertexStage->systemInputs.begin(), vertexStage->systemInputs.end());
+    }
+    if (fragmentStage) {
+        variables.insert(fragmentStage->variables.begin(), fragmentStage->variables.end());
+        systemInputs.insert(fragmentStage->systemInputs.begin(), fragmentStage->systemInputs.end());
+    }
+
+    auto bindingSetGroups = Internal::allocateBindingSets(variables, systemInputs);
+    for (auto &pair : bindingSetGroups) {
+        for (auto id : pair.second.bindings) {
+            bindingSets.emplace(id, pair.first);
+        }
+
+        if (pair.second.frequency == Internal::ShaderBindingUpdateFrequency::PerMaterial) {
+            materialSet = pair.first;
+        }
+    }
+
+    if (vertexStage) {
+        vertShaderModule = vertexStage->createShaderModule(
+            device, bindingSets, vertShaderStageInfo, vertShaderSpecialization
+        );
+
+        for (auto &var : vertexStage->getVariables()) {
+            auto set = bindingSets[var.bindingId];
+
+            switch (var.type) {
+                case ShaderBindingType::Uniform:
+                    bindUniformBuffer(set, var.bindingId, vk::ShaderStageFlagBits::eVertex);
+                    break;
+                case ShaderBindingType::Texture:
+                    bindSampledImage(set, var.bindingId, vk::ShaderStageFlagBits::eVertex);
+                    break;
+                default:
+                    assert(false);
+                    break;
+            }
+        }
+
+        for (auto &pair : vertexStage->getSystemInputs()) {
+            auto set = bindingSets[pair.first];
+
+            switch (pair.second) {
+                case ShaderSystemInput::Entity:
+                case ShaderSystemInput::Light:
+                    bindUniformBufferDynamic(set, pair.first, vk::ShaderStageFlagBits::eVertex);
+                    break;
+                case ShaderSystemInput::Camera:
+                    bindCamera(set, pair.first);
+                    break;
+                default:
+                    assert(false);
+                    break;
+            }
+        }
     } else {
         vertShaderModule = createShaderModule(device, vertexShaderData);
         vertShaderSpecialization = {
@@ -836,7 +895,43 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo;
 
     if (fragmentStage) {
-        fragShaderModule = fragmentStage->createShaderModule(device, fragShaderStageInfo, fragShaderSpecialization);
+        fragShaderModule = fragmentStage->createShaderModule(
+            device, bindingSets, fragShaderStageInfo, fragShaderSpecialization
+        );
+
+        for (auto &var : fragmentStage->getVariables()) {
+            auto set = bindingSets[var.bindingId];
+
+            switch (var.type) {
+                case ShaderBindingType::Uniform:
+                    bindUniformBuffer(set, var.bindingId, vk::ShaderStageFlagBits::eFragment);
+                    break;
+                case ShaderBindingType::Texture:
+                    bindSampledImage(set, var.bindingId, vk::ShaderStageFlagBits::eFragment);
+                    break;
+                default:
+                    assert(false);
+                    break;
+            }
+        }
+
+        for (auto &pair : fragmentStage->getSystemInputs()) {
+            auto set = bindingSets[pair.first];
+
+            switch (pair.second) {
+                case ShaderSystemInput::Entity:
+                case ShaderSystemInput::Light:
+                    bindUniformBufferDynamic(set, pair.first, vk::ShaderStageFlagBits::eFragment);
+                    break;
+                case ShaderSystemInput::Camera:
+                    // TODO: We dont currently support this
+                    assert(false);
+                    break;
+                default:
+                    assert(false);
+                    break;
+            }
+        }
     } else {
         fragShaderModule = createShaderModule(device, fragmentShaderData);
 
@@ -1089,7 +1184,8 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
             },
             pipelineBindingDetails,
             textureDescriptorCaches,
-            materialBindings
+            materialDescriptorCache,
+            materialSet
         )
     );
 
@@ -1112,21 +1208,16 @@ std::unique_ptr<Pipeline> PipelineBuilder::build() {
 Pipeline::Pipeline(
     vk::Device device, PipelineResources resources, std::map<uint32_t, PipelineBindingDetails> bindings,
     std::map<uint32_t, std::shared_ptr<Internal::DescriptorCache>> textureDescriptorCaches,
-    const std::unordered_map<MaterialBindPoint, uint32_t> &materialBindings
+    Internal::MaterialDescriptorCache &materialDescriptorCache,
+    uint32_t materialSet
 )
     : device(device),
     resources(std::move(resources)),
     bindings(std::move(bindings)),
-    textureDescriptorCaches(std::move(textureDescriptorCaches)) {
+    textureDescriptorCaches(std::move(textureDescriptorCaches)),
+    materialDescriptorCache(materialDescriptorCache),
+    materialSet(materialSet) {
 
-    auto it = materialBindings.find(MaterialBindPoint::Albedo);
-    if (it != materialBindings.end()) {
-        bindingMaterialAlbedo = it->second;
-    }
-    it = materialBindings.find(MaterialBindPoint::Normal);
-    if (it != materialBindings.end()) {
-        bindingMaterialNormal = it->second;
-    }
 }
 
 Pipeline::~Pipeline() {
@@ -1297,15 +1388,9 @@ void Pipeline::bindTexture(vk::CommandBuffer commandBuffer, uint32_t binding, co
 }
 
 void Pipeline::bindMaterial(vk::CommandBuffer commandBuffer, const Material *material) {
-    if (bindingMaterialAlbedo) {
-        auto albedoTexture = material->getAlbedo();
-        bindTexture(commandBuffer, *bindingMaterialAlbedo, albedoTexture);
-    }
+    auto set = materialDescriptorCache.get(material);
 
-    if (bindingMaterialNormal) {
-        auto normalTexture = material->getNormal();
-        bindTexture(commandBuffer, *bindingMaterialNormal, normalTexture);
-    }
+    bindDescriptorSets(commandBuffer, materialSet, 1, &set, 0, nullptr);
 }
 
 void Pipeline::bindPoolImage(vk::CommandBuffer commandBuffer, uint32_t set, uint32_t binding, uint32_t index) {

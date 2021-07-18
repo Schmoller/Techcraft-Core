@@ -45,6 +45,7 @@ struct ShaderVariable {
     uint32_t bindingId;
     ShaderBindingType type;
     ShaderBindingUsage usage;
+    ShaderStageType stage;
 };
 
 enum class ShaderSystemInput {

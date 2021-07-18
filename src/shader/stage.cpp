@@ -176,6 +176,10 @@ ShaderStage::ShaderStage(const ShaderStageBuilder &builder)
     systemInputs(builder.systemInputs) {
 
     assert(moduleInfo.GetResult() == SPV_REFLECT_RESULT_SUCCESS);
+
+    for (auto &var : variables) {
+        var.second.stage = type;
+    }
 }
 
 std::vector<uint8_t> ShaderStage::reassignBindings(const std::unordered_map<uint32_t, uint32_t> &bindingSets) const {
@@ -234,10 +238,13 @@ std::vector<uint8_t> ShaderStage::reassignBindings(const std::unordered_map<uint
 }
 
 vk::ShaderModule ShaderStage::createShaderModule(
-    vk::Device device, vk::PipelineShaderStageCreateInfo &createInfo, vk::SpecializationInfo &specInfo
+    vk::Device device, const std::unordered_map<uint32_t, uint32_t> &bindingSets,
+    vk::PipelineShaderStageCreateInfo &createInfo, vk::SpecializationInfo &specInfo
 ) const {
+    auto data = reassignBindings(bindingSets);
+
     auto module = device.createShaderModule(
-        {{}, static_cast<uint32_t>(shaderData.size()), reinterpret_cast<const uint32_t *>(shaderData.data()) }
+        {{}, static_cast<uint32_t>(data.size()), reinterpret_cast<const uint32_t *>(data.data()) }
     );
 
     specInfo = {

@@ -45,11 +45,6 @@ enum class SpecialBinding {
     Textures
 };
 
-enum class MaterialBindPoint {
-    Albedo,
-    Normal
-};
-
 struct PipelineBinding {
     uint32_t set { 0 };
     uint32_t binding { 0 };
@@ -105,7 +100,6 @@ public:
 
     PipelineBuilder &bindCamera(uint32_t set, uint32_t binding);
     PipelineBuilder &bindTextures(uint32_t set, uint32_t binding);
-    PipelineBuilder &bindMaterial(uint32_t set, uint32_t binding, MaterialBindPoint);
     PipelineBuilder &bindSampledImage(
         uint32_t set, uint32_t binding,
         const vk::ShaderStageFlags &stages = vk::ShaderStageFlagBits::eFragment, vk::Sampler sampler = {}
@@ -184,8 +178,7 @@ public:
 private:
     PipelineBuilder(
         RenderEngine &, vk::Device, vk::RenderPass, uint32_t colorAttachmentCount, vk::Extent2D windowSize,
-        uint32_t swapChainImages,
-        Internal::DescriptorCacheManager &
+        uint32_t swapChainImages, Internal::DescriptorCacheManager &, Internal::MaterialDescriptorCache &
     );
 
     // Configurable
@@ -224,7 +217,6 @@ private:
 
     // Shader bindings
     std::vector<PipelineBinding> bindings;
-    std::unordered_map<MaterialBindPoint, uint32_t> materialBindings;
 
     // FIXME: We should break shaders out into own class
     std::vector<uint32_t> fragmentSpecializationData;
@@ -240,6 +232,7 @@ private:
     vk::Extent2D windowSize;
     uint32_t swapChainImages;
     Internal::DescriptorCacheManager &descriptorManager;
+    Internal::MaterialDescriptorCache &materialDescriptorCache;
 
     void processBindings(
         std::vector<vk::DescriptorSetLayout> &layouts, std::vector<uint32_t> &setCounts,
@@ -305,12 +298,14 @@ private:
     Pipeline(
         vk::Device, PipelineResources resources, std::map<uint32_t, PipelineBindingDetails> bindings,
         std::map<uint32_t, std::shared_ptr<Internal::DescriptorCache>> textureDescriptorCaches,
-        const std::unordered_map<MaterialBindPoint, uint32_t> &materialBindings
+        Internal::MaterialDescriptorCache &materialDescriptorCache,
+        uint32_t materialSet
     );
 
     // Shared resources
     vk::Device device;
     std::map<uint32_t, std::shared_ptr<Internal::DescriptorCache>> textureDescriptorCaches;
+    Internal::MaterialDescriptorCache &materialDescriptorCache;
 
     // Owned resources
     PipelineResources resources;
@@ -321,9 +316,7 @@ private:
     std::map<uint32_t, std::shared_ptr<Buffer>> boundBuffers;
     std::vector<vk::WriteDescriptorSet> descriptorUpdates;
 
-    // Material Bindings
-    std::optional<uint32_t> bindingMaterialAlbedo {};
-    std::optional<uint32_t> bindingMaterialNormal {};
+    uint32_t materialSet { 0 };
 };
 
 template<typename T>

@@ -45,7 +45,8 @@ private:
     std::vector<uint8_t> reassignBindings(const std::unordered_map<uint32_t, uint32_t> &bindingSets) const;
 
     vk::ShaderModule createShaderModule(
-        vk::Device device, vk::PipelineShaderStageCreateInfo &createInfo, vk::SpecializationInfo &specInfo
+        vk::Device device, const std::unordered_map<uint32_t, uint32_t> &bindingSets,
+        vk::PipelineShaderStageCreateInfo &createInfo, vk::SpecializationInfo &specInfo
     ) const;
 };
 

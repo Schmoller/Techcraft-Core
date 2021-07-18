@@ -14,6 +14,7 @@
 #include <tech-core/scene/components/light.hpp>
 #include <tech-core/scene/components/mesh_renderer.hpp>
 #include <tech-core/scene/entity.hpp>
+#include <tech-core/shader/standard.hpp>
 #include <imgui.h>
 
 
@@ -43,18 +44,22 @@ void Demo::initScene() {
         .build();
 
     auto testMaterial = engine.createMaterial("test-material")
-        .withAlbedo(
+        .withShader(Engine::BuiltIn::StandardPipelineDSGeometryPass)
+        .withTexture(
+            Engine::MaterialVariables::AlbedoTexture,
             engine.createTexture("rock")
                 .fromFile("assets/textures/terrain/Rock022_2K_Color.jpg")
                 .withMipMaps(Engine::TextureMipType::Generate)
                 .finish()
         )
-        .withNormal(
+        .withTexture(
+            Engine::MaterialVariables::NormalTexture,
             engine.createTexture("rock_normal")
                 .fromFile("assets/textures/terrain/Rock022_2K_Normal.jpg")
                 .withMipMaps(Engine::TextureMipType::Generate)
                 .finish()
-        ).build();
+        )
+        .build();
 
     auto floor = Engine::Entity::createEntity<Engine::MeshRenderer>(1);
     floor->getTransform().setPosition({});

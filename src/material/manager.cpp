@@ -31,11 +31,12 @@ Material *MaterialManager::add(const MaterialBuilder &builder) {
     assert(materials.count(builder.getName()) == 0);
 
     auto material = std::make_shared<Material>(builder);
-    if (!material->getAlbedo()) {
-        material->setAlbedo(textureManager.getWhite());
-    }
-    if (!material->getNormal()) {
-        material->setNormal(textureManager.getTransparent());
+    for (auto &var : material->getVariables()) {
+        if (var.type == ShaderBindingType::Texture) {
+            if (!material->getTexture(var.name)) {
+                material->setTexture(var.name, textureManager.getTransparent());
+            }
+        }
     }
 
     materials[builder.getName()] = material;
@@ -69,12 +70,6 @@ std::vector<const Material *> MaterialManager::getMaterials() const {
 
 MaterialManager::MaterialManager(TextureManager &textureManager)
     : textureManager(textureManager) {
-    generateDefaultMaterials();
-}
-
-void MaterialManager::generateDefaultMaterials() {
-    defaultMaterial = add("internal.default")
-        .build();
 }
 
 

@@ -22,15 +22,9 @@ public:
 
     std::vector<const Material *> getMaterials() const;
 
-    const Material *getDefault() const { return defaultMaterial; }
-
 private:
     TextureManager &textureManager;
     std::unordered_map<std::string, std::shared_ptr<Material>> materials;
-
-    const Material *defaultMaterial { nullptr };
-
-    void generateDefaultMaterials();
 };
 
 }

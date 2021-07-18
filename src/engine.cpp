@@ -44,6 +44,7 @@
 #include "vulkanutils.hpp"
 #include "imageutils.hpp"
 #include "texture/descriptor_cache.hpp"
+#include "material/descriptor_cache.hpp"
 #include "execution_controller.hpp"
 #include "scene/render_planner.hpp"
 #include "pipelines/deferred_pipeline.hpp"
@@ -145,6 +146,7 @@ void RenderEngine::initVulkan() {
     textureManager = std::make_unique<TextureManager>(*this, *device, physicalDevice);
     executionController = std::make_unique<ExecutionController>(*device, swapChain->size());
     descriptorManager = std::make_unique<Internal::DescriptorCacheManager>(*device);
+    materialDescriptorCache = std::make_unique<Internal::MaterialDescriptorCache>(*device);
 
     createAttachments();
     createMainRenderPass();
@@ -930,6 +932,11 @@ void RenderEngine::cleanup() {
         subsystem->cleanupResources(device->device, *this);
     }
 
+    deferredPipeline.reset();
+
+    descriptorManager.reset();
+    materialDescriptorCache.reset();
+
     effects.clear();
 
     meshes.clear();
@@ -1061,7 +1068,8 @@ PipelineBuilder RenderEngine::createPipeline(Subsystem::SubsystemLayer layer) {
         colorAttachmentCount,
         swapChain->extent,
         layerMain.framebuffers.size(),
-        *descriptorManager
+        *descriptorManager,
+        *materialDescriptorCache
     );
 }
 
@@ -1074,7 +1082,8 @@ PipelineBuilder RenderEngine::createPipeline(vk::RenderPass renderPass, uint32_t
         colorAttachmentCount,
         swapChain->extent,
         layerMain.framebuffers.size(),
-        *descriptorManager
+        *descriptorManager,
+        *materialDescriptorCache
     );
 }
 
@@ -1110,7 +1119,8 @@ EffectBuilder RenderEngine::createEffect(const std::string &name) {
         1,
         swapChain->extent,
         layerMain.framebuffers.size(),
-        *descriptorManager
+        *descriptorManager,
+        *materialDescriptorCache
     );
     builder
         .withInputAttachment(0, 0)

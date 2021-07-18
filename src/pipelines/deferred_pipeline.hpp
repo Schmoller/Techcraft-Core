@@ -75,6 +75,8 @@ private:
     void createRenderPass();
     void createFramebuffers(const Image *depthImage);
     void createLightingPipeline(const std::shared_ptr<Image> &depth);
+
+    std::unique_ptr<Pipeline> createGeometryPassShaderPipeline(const Shader &);
 };
 
 }
