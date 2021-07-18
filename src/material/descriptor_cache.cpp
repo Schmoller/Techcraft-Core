@@ -8,20 +8,28 @@
 
 namespace Engine::Internal {
 
-MaterialDescriptorCache::MaterialDescriptorCache(VulkanDevice &device)
-    : device(device) {
+MaterialDescriptorCache::MaterialDescriptorCache(VulkanDevice &device, BufferManager &bufferManager)
+    : device(device),
+    bufferManager(bufferManager) {
 
-    vk::DescriptorPoolSize poolSize {
-        vk::DescriptorType::eCombinedImageSampler,
-        // TODO: This will probably be an issue some time.
-        9999
+    std::array<vk::DescriptorPoolSize, 2> sizes = {
+        vk::DescriptorPoolSize {
+            vk::DescriptorType::eCombinedImageSampler,
+            // TODO: This will probably be an issue some time.
+            9999
+        },
+        vk::DescriptorPoolSize {
+            vk::DescriptorType::eUniformBuffer,
+            // TODO: This will probably be an issue some time.
+            9999
+        }
     };
 
     pool = device.device.createDescriptorPool(
         {
             {},
             9999,
-            1, &poolSize
+            vkUseArray(sizes)
         }
     );
 }
@@ -39,12 +47,14 @@ vk::DescriptorSet MaterialDescriptorCache::get(const Material *material) {
         return it->second.set;
     }
 
+    auto uniformBuffers = createUniformBuffers(material);
     auto layout = createLayout(material);
-    auto set = createSet(material, layout);
+    auto set = createSet(material, layout, uniformBuffers);
 
     descriptors[material] = {
         layout,
-        set
+        set,
+        std::move(uniformBuffers)
     };
 
     return set;
@@ -97,7 +107,36 @@ vk::DescriptorSetLayout MaterialDescriptorCache::createLayout(const Material *ma
     );
 }
 
-vk::DescriptorSet MaterialDescriptorCache::createSet(const Material *material, vk::DescriptorSetLayout layout) const {
+std::unordered_map<uint32_t, std::unique_ptr<Buffer>> MaterialDescriptorCache::createUniformBuffers(
+    const Material *material
+) const {
+    std::unordered_map<uint32_t, std::unique_ptr<Buffer>> buffers;
+
+    auto variables = material->getVariables();
+    for (auto &var : variables) {
+        if (var.type == ShaderBindingType::Uniform) {
+            auto value = material->getUniformUntyped(var.name);
+            assert(!value.empty());
+
+            // TODO: Move this to be a GPU Only buffer, and transfer the data across using staging buffer.
+            auto buffer = bufferManager.aquire(
+                var.uniformSize, vk::BufferUsageFlagBits::eUniformBuffer, vk::MemoryUsage::eCPUToGPU
+            );
+
+            buffer->copyIn(value.getRaw(), value.getSize());
+            buffer->flush();
+
+            buffers.emplace(var.bindingId, std::move(buffer));
+        }
+    }
+
+    return buffers;
+}
+
+vk::DescriptorSet MaterialDescriptorCache::createSet(
+    const Material *material, vk::DescriptorSetLayout layout,
+    const std::unordered_map<uint32_t, std::unique_ptr<Buffer>> &buffers
+) const {
     auto sets = device.device.allocateDescriptorSets(
         {
             pool,
@@ -130,10 +169,31 @@ vk::DescriptorSet MaterialDescriptorCache::createSet(const Material *material, v
                 device.device.updateDescriptorSets(1, &update, 0, nullptr);
                 break;
             }
-            case ShaderBindingType::Uniform:
-                // TODO: Setup buffers and transfer stuff etc. Or do we do that somewhere else?
-                assert(false);
+            case ShaderBindingType::Uniform: {
+                auto value = material->getUniformUntyped(var.name);
+                assert(!value.empty());
+
+                auto buffer = buffers.at(var.bindingId)->buffer();
+
+                vk::DescriptorBufferInfo bufferInfo {
+                    buffer,
+                    0,
+                    value.getSize()
+                };
+
+                vk::WriteDescriptorSet update {
+                    sets[0],
+                    var.bindingId,
+                    0,
+                    1,
+                    vk::DescriptorType::eUniformBuffer,
+                    nullptr,
+                    &bufferInfo
+                };
+
+                device.device.updateDescriptorSets(1, &update, 0, nullptr);
                 break;
+            }
             default:
                 assert(false);
                 break;

@@ -29,4 +29,9 @@ MaterialBuilder &MaterialBuilder::withTexture(const std::string_view &variable, 
     return *this;
 }
 
+void MaterialBuilder::setUniformUntyped(const std::string &variable, Any value) {
+    uniforms[variable] = value;
+}
+
+
 }

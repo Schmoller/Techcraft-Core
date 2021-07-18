@@ -23,13 +23,15 @@ public:
     ShaderStageBuilder &withConstant(uint32_t constant, bool);
     template<typename T>
     ShaderStageBuilder &withConstant(uint32_t constant, T);
-    ShaderStageBuilder &withVariable(
-        std::string name, uint32_t bindingId, ShaderBindingType type,
-        ShaderBindingUsage usage = ShaderBindingUsage::Material
+    ShaderStageBuilder &withTextureVariable(
+        std::string name, uint32_t bindingId, ShaderBindingUsage usage = ShaderBindingUsage::Material
     );
-    ShaderStageBuilder &withVariable(
-        const std::string_view &name, uint32_t bindingId, ShaderBindingType type,
-        ShaderBindingUsage usage = ShaderBindingUsage::Material
+    ShaderStageBuilder &withTextureVariable(
+        const std::string_view &name, uint32_t bindingId, ShaderBindingUsage usage = ShaderBindingUsage::Material
+    );
+    template<typename T>
+    ShaderStageBuilder &withUniformVariable(
+        const ShaderUniformId<T> &id, uint32_t bindingId, ShaderBindingUsage usage = ShaderBindingUsage::Material
     );
     ShaderStageBuilder &withSystemInput(ShaderSystemInput, uint32_t bindingId);
 
@@ -65,6 +67,18 @@ ShaderStageBuilder &ShaderStageBuilder::withConstant(uint32_t constantId, T valu
     }
     specializationEntries.emplace_back(constantId, offset, sizeof(T));
 
+    return *this;
+}
+
+
+template<typename T>
+ShaderStageBuilder &ShaderStageBuilder::withUniformVariable(
+    const ShaderUniformId<T> &id, uint32_t bindingId, ShaderBindingUsage usage
+) {
+    assert(!variables.contains(bindingId));
+    variables.emplace(
+        bindingId, ShaderVariable { std::string(id.name), bindingId, ShaderBindingType::Uniform, usage, sizeof(T) }
+    );
     return *this;
 }
 

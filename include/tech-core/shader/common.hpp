@@ -45,7 +45,13 @@ struct ShaderVariable {
     uint32_t bindingId;
     ShaderBindingType type;
     ShaderBindingUsage usage;
+    size_t uniformSize;
     ShaderStageType stage;
+};
+
+template<typename T>
+struct ShaderUniformId {
+    const std::string_view name;
 };
 
 enum class ShaderSystemInput {

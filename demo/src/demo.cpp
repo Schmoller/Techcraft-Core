@@ -59,6 +59,12 @@ void Demo::initScene() {
                 .withMipMaps(Engine::TextureMipType::Generate)
                 .finish()
         )
+        .withUniform(
+            Engine::MaterialVariables::ScaleAndOffsetUniform, {
+                glm::vec2 { 10, 10 },
+                glm::vec2 { 0, 0 }
+            }
+        )
         .build();
 
     auto floor = Engine::Entity::createEntity<Engine::MeshRenderer>(1);

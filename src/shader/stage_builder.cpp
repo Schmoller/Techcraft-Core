@@ -80,19 +80,23 @@ ShaderStageBuilder &ShaderStageBuilder::withConstant(uint32_t constantId, bool v
     return *this;
 }
 
-ShaderStageBuilder &ShaderStageBuilder::withVariable(
-    std::string variableName, uint32_t bindingId, ShaderBindingType bindingType, ShaderBindingUsage usage
+ShaderStageBuilder &ShaderStageBuilder::withTextureVariable(
+    std::string variableName, uint32_t bindingId, ShaderBindingUsage usage
 ) {
-    assert(!systemInputs.contains(bindingId));
-    variables.emplace(bindingId, ShaderVariable { std::move(variableName), bindingId, bindingType, usage });
+    assert(!variables.contains(bindingId));
+    variables.emplace(
+        bindingId, ShaderVariable { std::move(variableName), bindingId, ShaderBindingType::Texture, usage, 0 }
+    );
     return *this;
 }
 
-ShaderStageBuilder &ShaderStageBuilder::withVariable(
-    const std::string_view &variableName, uint32_t bindingId, ShaderBindingType bindingType, ShaderBindingUsage usage
+ShaderStageBuilder &ShaderStageBuilder::withTextureVariable(
+    const std::string_view &variableName, uint32_t bindingId, ShaderBindingUsage usage
 ) {
-    assert(!systemInputs.contains(bindingId));
-    variables.emplace(bindingId, ShaderVariable { std::string(variableName), bindingId, bindingType, usage });
+    assert(!variables.contains(bindingId));
+    variables.emplace(
+        bindingId, ShaderVariable { std::string(variableName), bindingId, ShaderBindingType::Texture, usage, 0 }
+    );
     return *this;
 }
 
@@ -105,5 +109,6 @@ ShaderStageBuilder &ShaderStageBuilder::withSystemInput(ShaderSystemInput input,
 std::shared_ptr<ShaderStage> ShaderStageBuilder::build() const {
     return std::make_shared<ShaderStage>(*this);
 }
+
 
 }

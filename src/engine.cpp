@@ -146,7 +146,7 @@ void RenderEngine::initVulkan() {
     textureManager = std::make_unique<TextureManager>(*this, *device, physicalDevice);
     executionController = std::make_unique<ExecutionController>(*device, swapChain->size());
     descriptorManager = std::make_unique<Internal::DescriptorCacheManager>(*device);
-    materialDescriptorCache = std::make_unique<Internal::MaterialDescriptorCache>(*device);
+    materialDescriptorCache = std::make_unique<Internal::MaterialDescriptorCache>(*device, *bufferManager);
 
     createAttachments();
     createMainRenderPass();
@@ -1175,15 +1175,21 @@ void RenderEngine::initBuiltinResources() {
     BuiltIn::StandardPipelineFSFragmentStage = ShaderStageBuilder()
         .fromBytes(BUILTIN_STANDARD_FRAG_GLSL, BUILTIN_STANDARD_FRAG_GLSL_SIZE)
         .withType(ShaderStageType::Fragment)
-        .withVariable(MaterialVariables::AlbedoTexture, 3, ShaderBindingType::Texture, ShaderBindingUsage::Material)
-        .withVariable(MaterialVariables::NormalTexture, 4, ShaderBindingType::Texture, ShaderBindingUsage::Material)
+        .withTextureVariable(MaterialVariables::AlbedoTexture, 3, ShaderBindingUsage::Material)
+        .withTextureVariable(MaterialVariables::NormalTexture, 4, ShaderBindingUsage::Material)
+        .withUniformVariable(
+            MaterialVariables::ScaleAndOffsetUniform, 2, ShaderBindingUsage::Material
+        )
         .build();
 
     BuiltIn::StandardPipelineDSFragmentStage = ShaderStageBuilder()
         .fromBytes(BUILTIN_DEFERRED_GEOM_FRAG_GLSL, BUILTIN_DEFERRED_GEOM_FRAG_GLSL_SIZE)
         .withType(ShaderStageType::Fragment)
-        .withVariable(MaterialVariables::AlbedoTexture, 3, ShaderBindingType::Texture, ShaderBindingUsage::Material)
-        .withVariable(MaterialVariables::NormalTexture, 4, ShaderBindingType::Texture, ShaderBindingUsage::Material)
+        .withTextureVariable(MaterialVariables::AlbedoTexture, 3, ShaderBindingUsage::Material)
+        .withTextureVariable(MaterialVariables::NormalTexture, 4, ShaderBindingUsage::Material)
+        .withUniformVariable(
+            MaterialVariables::ScaleAndOffsetUniform, 2, ShaderBindingUsage::Material
+        )
         .build();
 
     assert(BuiltIn::StandardPipelineVertexStage->isCompatibleWith(*BuiltIn::StandardPipelineFSFragmentStage));
